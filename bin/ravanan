@@ -1,0 +1,120 @@
+#!/usr/bin/env sh
+# -*- mode: scheme; -*-
+exec guile --no-auto-compile -e main -s "$0" "$@"
+!#
+;;; ravanan --- High-reproducibility CWL runner powered by Guix
+;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;;
+;;; This file is part of ravanan.
+;;;
+;;; ravanan is free software: you can redistribute it and/or modify it
+;;; under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation, either version 3 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; ravanan is distributed in the hope that it will be useful, but
+;;; WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+;;; General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License
+;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
+
+(use-modules (rnrs io ports)
+             (srfi srfi-37)
+             (ice-9 filesystem)
+             (ice-9 match)
+             (web uri)
+             (gnu packages)  ;; required to load manifest files
+             (json)
+             (ravanan reader)
+             (ravanan workflow))
+
+(define %options
+  (list (option (list "batch-system" "batchSystem") #t #f
+                (lambda (opt name arg result)
+                  (if (member arg (list "single-machine" "slurm-api"))
+                      (acons 'batch-system (string->symbol arg)
+                             result)
+                      (error "Unknown batch system" arg))))
+        (option (list "guix-daemon-socket") #t #f
+                (lambda (opt name arg result)
+                  (acons 'guix-daemon-socket arg result)))
+        (option (list "guix-manifest") #t #f
+                (lambda (opt name arg result)
+                  (acons 'guix-manifest-file arg result)))
+        (option (list "scratch") #t #f
+                (lambda (opt name arg result)
+                  (acons 'scratch arg result)))
+        (option (list "store") #t #f
+                (lambda (opt name arg result)
+                  (acons 'store arg result)))
+        (option (list "slurm-api-endpoint") #t #f
+                (lambda (opt name arg result)
+                  (acons 'slurm-api-endpoint arg result)))
+        (option (list "slurm-jwt") #t #f
+                (lambda (opt name arg result)
+                  (acons 'slurm-jwt arg result)))))
+
+(define (invalid-option opt name arg result)
+  (error "Invalid option" name))
+
+(define (invoke . args)
+  "Invoke program specified by ARGS. Raise exception if it fails."
+  (unless (zero? (apply system* args))
+    (error "Command invocation failed" args)))
+
+(define main
+  (match-lambda
+    ((_ args ...)
+     (let ((args (args-fold args
+                            %options
+                            invalid-option
+                            (lambda (arg result)
+                              (acons 'args
+                                     (cons arg (or (assq-ref result 'args)
+                                                   '()))
+                                     result))
+                            `((batch-system . single-machine)
+                              (guix-manifest-file . "manifest.scm")
+                              (slurm-api-endpoint . ,(build-uri 'http
+                                                                #:host "localhost"
+                                                                #:port 6820))))))
+       ;; Check for required arguments.
+       (unless (assq-ref args 'store)
+         (error "ravanan store not specified"))
+       (case (assq-ref args 'batch-system)
+         ((slurm-api)
+          (unless (assq-ref args 'scratch)
+            (error "scratch not specified"))
+          (unless (assq-ref args 'slurm-jwt)
+            (error "slurm JWT file not specified"))))
+       (match (reverse (assq-ref args 'args))
+         ((workflow-file inputs-file)
+          ;; We must not try to compile guix manifest files.
+          (set! %load-should-auto-compile #f)
+          (scm->json (run-workflow (file-name-stem workflow-file)
+                                   (load (canonicalize-path
+                                          (assq-ref args 'guix-manifest-file)))
+                                   (read-workflow workflow-file)
+                                   (read-inputs inputs-file)
+                                   (case (assq-ref args 'batch-system)
+                                     ((single-machine)
+                                      (or (assq-ref args 'scratch)
+                                          (getcwd)))
+                                     ((slurm-api)
+                                      (assq-ref args 'scratch)))
+                                   ;; FIXME: This is a bit of a hack to
+                                   ;; avoid canonizing remote paths.
+                                   (if (file-name-absolute? (assq-ref args 'store))
+                                       (assq-ref args 'store)
+                                       (canonicalize-path (assq-ref args 'store)))
+                                   (assq-ref args 'batch-system)
+                                   #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)
+                                   #:slurm-api-endpoint (assq-ref args 'slurm-api-endpoint)
+                                   #:slurm-jwt (and (assq-ref args 'slurm-jwt)
+                                                    (call-with-input-file (assq-ref args 'slurm-jwt)
+                                                      get-string-all)))
+                     (current-output-port)
+                     #:pretty #t)
+          (newline (current-output-port))))))))
