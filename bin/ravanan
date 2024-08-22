@@ -54,14 +54,41 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                   (acons 'slurm-api-endpoint arg result)))
         (option (list "slurm-jwt") #t #f
                 (lambda (opt name arg result)
-                  (acons 'slurm-jwt arg result)))))
+                  (acons 'slurm-jwt arg result)))
+        (option (list "help") #f #t
+                (lambda (opt name arg result)
+                  (acons 'help #t result)))))
 
 (define (invalid-option opt name arg result)
   (error "Invalid option" name))
 
+(define (print-usage program)
+  (format (current-error-port)
+          "Usage: ~a [OPTIONS] CWL-WORKFLOW INPUTS
+Run CWL-WORKFLOW with INPUTS.
+
+  --batch-system=BATCH-SYSTEM    batch system to run jobs on;
+                                 Supported batch systems are single-machine (default) and slurm-api
+  --scratch=SCRATCH              path to scratch area on worker nodes
+                                 scratch need not be shared
+                                 (default: current directory with the single-machine batch system)
+  --store=STORE                  path to shared store to write results into
+
+Guix options:
+
+  --guix-daemon-socket=GUIX_DAEMON_SOCKET    guix daemon to connect to
+  --guix-manifest=GUIX_MANIFEST              guix manifest to run jobs with
+
+Slurm API batch system options:
+
+  --slurm-api-endpoint=SLURM-API-ENDPOINT    slurm API endpoint to connect to
+  --slurm-jwt=SLURM-JWT                      slurm JWT to authenticate with
+"
+          program))
+
 (define main
   (match-lambda
-    ((_ args ...)
+    ((program args ...)
      (let ((args (args-fold args
                             %options
                             invalid-option
@@ -75,6 +102,9 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                               (slurm-api-endpoint . ,(build-uri 'http
                                                                 #:host "localhost"
                                                                 #:port 6820))))))
+       (when (assq-ref args 'help)
+         (print-usage program)
+         (exit #t))
        ;; Check for required arguments.
        (unless (assq-ref args 'store)
          (error "ravanan store not specified"))
