@@ -203,7 +203,7 @@ each association list of the returned vector of association lists. If
   (call-with-current-directory (dirname workflow-file)
     ;; TODO: Implement $import directive.
     (cut normalize-workflow
-         (preprocess-include (read-yaml-file workflow-file)))))
+         (preprocess-include (read-yaml-file (basename workflow-file))))))
 
 (define (read-inputs inputs-file)
   "Read @var{inputs-file} resolving file paths if any."
@@ -229,6 +229,6 @@ each association list of the returned vector of association lists. If
            ;; ambiguities.
            (if (string=? (file-name-extension inputs-file)
                          ".json")
-               (call-with-input-file inputs-file
+               (call-with-input-file (basename inputs-file)
                  json->scm)
-               (read-yaml-file inputs-file))))))
+               (read-yaml-file (basename inputs-file)))))))
