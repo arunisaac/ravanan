@@ -59,11 +59,6 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
 (define (invalid-option opt name arg result)
   (error "Invalid option" name))
 
-(define (invoke . args)
-  "Invoke program specified by ARGS. Raise exception if it fails."
-  (unless (zero? (apply system* args))
-    (error "Command invocation failed" args)))
-
 (define main
   (match-lambda
     ((_ args ...)
