@@ -513,7 +513,11 @@ path."
     (if (file-exists? store-data-file)
         ;; Return a dummy success state object if script has already
         ;; been run successfully.
-        (single-machine-job-state script #t)
+        (begin
+          (format (current-error-port)
+                  "~a previously run; retrieving result from store~%"
+                  script)
+          (single-machine-job-state script #t))
         ;; Run script if it has not already been run.
         (begin
           ;; Delete output files directory if an incomplete one exists
@@ -529,22 +533,32 @@ path."
             ((single-machine)
              (setenv "WORKFLOW_OUTPUT_DIRECTORY" store-files-directory)
              (setenv "WORKFLOW_OUTPUT_DATA_FILE" store-data-file)
+             (format (current-error-port)
+                     "Running ~a~%"
+                     script)
              (single-machine-job-state script
                                        (zero? (with-output-to-file stdout-file
                                                 (lambda ()
                                                   (with-error-to-file stderr-file
                                                     (cut system* script)))))))
             ((slurm-api)
-             (slurm-job-state script
-                              (submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                             ,store-files-directory)
-                                            ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                             ,store-data-file))
-                                          stdout-file
-                                          stderr-file
-                                          script
-                                          #:api-endpoint slurm-api-endpoint
-                                          #:jwt slurm-jwt)))
+             (format (current-error-port)
+                     "Submitting job ~a~%"
+                     script)
+             (let ((job-id (submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                          ,store-files-directory)
+                                         ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                          ,store-data-file))
+                                       stdout-file
+                                       stderr-file
+                                       script
+                                       #:api-endpoint slurm-api-endpoint
+                                       #:jwt slurm-jwt)))
+               (format (current-error-port)
+                       "~a submitted as job ID ~a~%"
+                       script
+                       job-id)
+               (slurm-job-state script job-id)))
             (else
              (assertion-violation batch-system "Invalid batch system")))))))
 
@@ -927,7 +941,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                (guard (c ((job-failure? c)
                           (let ((script (job-failure-script c)))
                             (error
-                             "Invocation of ~a failed~%See files ~a and ~a for logs~%"
+                             "~a failed; logs at ~a and ~a~%"
                              script
                              (script->store-stdout-file script store)
                              (script->store-stderr-file script store)))))
@@ -949,9 +963,13 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                ((single-machine) 0)
                ((slurm-api) %job-poll-interval))
              (lambda (state)
-               (capture-command-line-tool-output
-                ((case batch-system
-                   ((single-machine) single-machine-job-state-script)
-                   ((slurm-api) slurm-job-state-script))
-                 state)
-                store))))
+               (let ((script ((case batch-system
+                                ((single-machine) single-machine-job-state-script)
+                                ((slurm-api) slurm-job-state-script))
+                              state)))
+                 (format (current-error-port)
+                         "~a completed; logs at ~a and ~a~%"
+                         script
+                         (script->store-stdout-file script store)
+                         (script->store-stderr-file script store))
+                 (capture-command-line-tool-output script store)))))
