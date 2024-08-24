@@ -128,6 +128,7 @@ add to the inbox."
   
   (let loop ((cells (list))
              (cell-values-inbox initial-cell-values)
+             (propagators-inbox (list))
              (propagators-in-flight (list)))
     (match cell-values-inbox
       ;; Process one new cell value in inbox.
@@ -139,6 +140,7 @@ add to the inbox."
            ;; It's the same value. Nothing to do.
            (loop cells
                  tail-cell-values-inbox
+                 propagators-inbox
                  propagators-in-flight)
            ;; Update the cell and activate propagators.
            (let ((cells (maybe-assoc-set cells
@@ -148,42 +150,59 @@ add to the inbox."
                                  (just new-cell-value))))))
              (loop cells
                    tail-cell-values-inbox
-                   ;; Activate propagators that depend on cell.
-                   (append (apply maybe-alist
-                                  (map (lambda (propagator)
-                                         (cons (propagator-name propagator)
-                                               (activate-propagator
-                                                (scheduler-schedule scheduler)
-                                                propagator
-                                                (propagator-input-values cells propagator))))
-                                       (filter (lambda (propagator)
-                                                 (rassoc cell-name
-                                                         (propagator-inputs propagator)))
-                                               (propnet-propagators propnet))))
-                           propagators-in-flight)))))
-      ;; Poll propagators in flight and update cell values if any of
-      ;; them are done.
+                   ;; Enqueue propagators that depend on cell. Union to avoid
+                   ;; scheduling the same propagator more than once.
+                   (lset-union eq?
+                               propagators-inbox
+                               (filter (lambda (propagator)
+                                         (rassoc cell-name
+                                                 (propagator-inputs propagator)))
+                                       (propnet-propagators propnet)))
+                   propagators-in-flight))))
+      ;; In order to minimize the number of times a propagator is run, it is
+      ;; important to start scheduling them only after all cells in
+      ;; cell-values-inbox are serviced.
       (()
-       (match propagators-in-flight
-         ;; All propagators are finished. The propnet has
-         ;; stabilized. We are done. Return all cell values.
+       (match propagators-inbox
+         ;; Schedule one propagator in inbox.
+         ((propagator other-propagators ...)
+          (loop cells
+                cell-values-inbox
+                other-propagators
+                ;; We don't need to cancel or forget about previous runs of the
+                ;; same propagator because cells only "accumulate" information;
+                ;; they never remove it.
+                (append (maybe-alist
+                         (cons (propagator-name propagator)
+                               (activate-propagator
+                                (scheduler-schedule scheduler)
+                                propagator
+                                (propagator-input-values cells propagator))))
+                        propagators-in-flight)))
+         ;; Poll propagators in flight and update cell values if any of them are
+         ;; done.
          (()
-          cells)
-         (_
-          ;; Pause before polling so we don't bother the job server
-          ;; too often.
-          (sleep (scheduler-poll-interval scheduler))
-          (let ((finished-propagators
-                 propagators-still-in-flight
-                 (partition (match-lambda
-                              ((name . state)
-                               (eq? ((scheduler-poll scheduler)
-                                     state)
-                                    'completed)))
-                            propagators-in-flight)))
-            (loop cells
-                  (apply assoc-set
-                         cell-values-inbox
-                         (append-map propagator-state->cell-values
-                                     finished-propagators))
-                  propagators-still-in-flight))))))))
+          (match propagators-in-flight
+            ;; All propagators are finished. The propnet has
+            ;; stabilized. We are done. Return all cell values.
+            (()
+             cells)
+            (_
+             ;; Pause before polling so we don't bother the job server
+             ;; too often.
+             (sleep (scheduler-poll-interval scheduler))
+             (let ((finished-propagators
+                    propagators-still-in-flight
+                    (partition (match-lambda
+                                 ((name . state)
+                                  (eq? ((scheduler-poll scheduler)
+                                        state)
+                                       'completed)))
+                               propagators-in-flight)))
+               (loop cells
+                     (apply assoc-set
+                            cell-values-inbox
+                            (append-map propagator-state->cell-values
+                                        finished-propagators))
+                     propagators-inbox
+                     propagators-still-in-flight))))))))))
