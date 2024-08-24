@@ -212,8 +212,22 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
                     #:slurm-api-endpoint slurm-api-endpoint
                     #:slurm-jwt slurm-jwt))
           inputs)))
-    (vector-map->list (lambda (output)
-                        (cons (assoc-ref output "id")
-                              (assoc-ref cell-values
-                                         (assoc-ref output "outputSource"))))
-                      (assoc-ref cwl "outputs"))))
+    (let ((class (assoc-ref* cwl "class")))
+      (cond
+       ((string=? class "CommandLineTool")
+        (vector-map->list (lambda (output)
+                            (let ((output-id (assoc-ref output "id")))
+                              (cons output-id
+                                    (or (assoc-ref cell-values output-id)
+                                        (error "output not found" output-id)))))
+                          (assoc-ref cwl "outputs")))
+       ((string=? class "ExpressionTool")
+        (error "Workflow class not implemented yet" class))
+       ((string=? class "Workflow")
+        (vector-map->list (lambda (output)
+                            (let ((output-id (assoc-ref output "id")))
+                              (cons output-id
+                                    (or (assoc-ref cell-values
+                                                   (assoc-ref* output "outputSource"))
+                                        (error "output not found" output-id)))))
+                          (assoc-ref cwl "outputs")))))))
