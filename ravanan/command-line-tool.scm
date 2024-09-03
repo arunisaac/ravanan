@@ -750,7 +750,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                          stdout-directory
                                          <>)
                                     '#$stdout-outputs)
-                               (map other-output->value
+                               (map (cut other-output->value
+                                         workflow-output-directory
+                                         <...>)
                                     '#$(map (cut assoc-ref <> "id")
                                             other-outputs)
                                     '#$(map (cut assoc-ref <> "type")
@@ -838,7 +840,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                          #$stdout-filename)
                      workflow-output-directory)))
 
-            (define (other-output->value output-id output-type-tree glob-pattern)
+            (define (other-output->value workflow-output-directory
+                                         output-id output-type-tree glob-pattern)
               (cons output-id
                     ;; TODO: Support all types.
                     (let* ((output-type (formal-parameter-type output-type-tree))
@@ -849,7 +852,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                output-type
                                paths))
                       ;; Coerce output value into matched type.
-                      (let ((output-values (map path->value paths)))
+                      (let ((output-values (map (cut path->value <> workflow-output-directory)
+                                                paths)))
                         (cond
                          ((memq matched-type (list 'File 'Directory))
                           (match output-values
