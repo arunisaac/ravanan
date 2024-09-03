@@ -322,7 +322,7 @@ basename of the original path, and not the store-interned path."
                 (types (map (lambda (formal-input)
                               (let ((id (assoc-ref formal-input "type")))
                                 (or (assoc-ref formal-input "type")
-                                    (error "Type of input not specified" id))))
+                                    (error "Type of input ~a not specified" id))))
                             formal-inputs)))
     (append-map (lambda (input type-tree)
                   ;; Check type.
