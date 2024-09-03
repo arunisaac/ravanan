@@ -32,6 +32,7 @@
   #:use-module (web uri)
   #:use-module (gcrypt base16)
   #:use-module (gcrypt hash)
+  #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
   #:use-module ((gnu packages node) #:select (node))
   #:use-module (guix describe)
   #:use-module (guix derivations)
@@ -783,147 +784,147 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                     #:select? (match-lambda
                                                                 (('ravanan work . _) #t)
                                                                 ('(ice-9 filesystem) #t)
-                                                                (('gcrypt . _) #t)
                                                                 (('guix . _) #t)
                                                                 (('json . _) #t)
                                                                 (_ #f)))
-        #~(begin
-            (use-modules (ravanan work command-line-tool)
-                         (ravanan work utils)
-                         (ravanan glob)
-                         (srfi srfi-1)
-                         (srfi srfi-26)
-                         (ice-9 filesystem)
-                         (ice-9 match)
-                         (ice-9 threads)
-                         (guix search-paths)
-                         (json))
+        (with-extensions (list guile-gcrypt)
+          #~(begin
+              (use-modules (ravanan work command-line-tool)
+                           (ravanan work utils)
+                           (ravanan glob)
+                           (srfi srfi-1)
+                           (srfi srfi-26)
+                           (ice-9 filesystem)
+                           (ice-9 match)
+                           (ice-9 threads)
+                           (guix search-paths)
+                           (json))
 
-            (define (canonicalize-file-value value workflow-output-directory)
-              (let* ((path (or (assoc-ref value "location")
-                               (assoc-ref value "path")))
-                     (workflow-output-path
-                      (expand-file-name (basename path)
-                                        workflow-output-directory)))
-                ;; Copy file to the workflow output directory in the store.
-                (copy-file path workflow-output-path)
-                ;; Populate all fields of the File type value.
-                (assoc-set value
-                  (cons "location" (string-append "file://"
-                                                  workflow-output-path))
-                  (cons "path" workflow-output-path)
-                  (cons "basename" (basename path))
-                  (cons "size" (stat:size (stat path)))
-                  (cons "checksum" (checksum path)))))
+              (define (canonicalize-file-value value workflow-output-directory)
+                (let* ((path (or (assoc-ref value "location")
+                                 (assoc-ref value "path")))
+                       (workflow-output-path
+                        (expand-file-name (basename path)
+                                          workflow-output-directory)))
+                  ;; Copy file to the workflow output directory in the store.
+                  (copy-file path workflow-output-path)
+                  ;; Populate all fields of the File type value.
+                  (assoc-set value
+                    (cons "location" (string-append "file://"
+                                                    workflow-output-path))
+                    (cons "path" workflow-output-path)
+                    (cons "basename" (basename path))
+                    (cons "size" (stat:size (stat path)))
+                    (cons "checksum" (checksum path)))))
 
-            (define (path->value path workflow-output-directory)
-              (canonicalize-file-value `(("class" . "File")
-                                         ("path" . ,path))
-                                       workflow-output-directory))
+              (define (path->value path workflow-output-directory)
+                (canonicalize-file-value `(("class" . "File")
+                                           ("path" . ,path))
+                                         workflow-output-directory))
 
-            (define (stdout-output->value workflow-output-directory
-                                          stdout-directory
-                                          output)
-              (cons (assoc-ref output "id")
-                    (path->value
-                     (if (string=? #$stdout-filename
-                                   (file-name-join* stdout-directory "stdout"))
-                         ;; If stdout filename is unspecified, rename it to a
-                         ;; hash of its contents.
-                         (let ((hashed-filename
-                                (file-name-join* stdout-directory
-                                                 (sha1-hash #$stdout-filename))))
-                           (rename-file #$stdout-filename
-                                        hashed-filename)
-                           hashed-filename)
-                         ;; Else, return the stdout filename as it is.
-                         #$stdout-filename)
-                     workflow-output-directory)))
+              (define (stdout-output->value workflow-output-directory
+                                            stdout-directory
+                                            output)
+                (cons (assoc-ref output "id")
+                      (path->value
+                       (if (string=? #$stdout-filename
+                                     (file-name-join* stdout-directory "stdout"))
+                           ;; If stdout filename is unspecified, rename it to a
+                           ;; hash of its contents.
+                           (let ((hashed-filename
+                                  (file-name-join* stdout-directory
+                                                   (sha1-hash #$stdout-filename))))
+                             (rename-file #$stdout-filename
+                                          hashed-filename)
+                             hashed-filename)
+                           ;; Else, return the stdout filename as it is.
+                           #$stdout-filename)
+                       workflow-output-directory)))
 
-            (define (other-output->value workflow-output-directory
-                                         output-id output-type-tree glob-pattern)
-              (cons output-id
-                    ;; TODO: Support all types.
-                    (let* ((output-type (formal-parameter-type output-type-tree))
-                           (paths (glob glob-pattern))
-                           (matched-type (glob-match-type paths output-type)))
-                      (unless matched-type
-                        (error "Type ~a mismatch for globbed paths ~a"
-                               output-type
-                               paths))
-                      ;; Coerce output value into matched type.
-                      (let ((output-values (map (cut path->value <> workflow-output-directory)
-                                                paths)))
-                        (cond
-                         ((memq matched-type (list 'File 'Directory))
-                          (match output-values
-                            ((output-file)
-                             output-file)))
-                         ;; TODO: Recurse.
-                         ((and (array-type? matched-type)
-                               (memq (array-type-subtype matched-type)
-                                     (list 'File 'Directory)))
-                          (list->vector output-values))
-                         ((eq? matched-type 'null)
-                          'null))))))
-            
-            ;; Set search paths for manifest.
-            (for-each (match-lambda
-                        ((specification . value)
-                         (setenv (search-path-specification-variable specification)
-                                 value)))
-                      (evaluate-search-paths
-                       (map sexp->search-path-specification
-                            '#$(map search-path-specification->sexp
-                                    (manifest-search-paths manifest)))
-                       (list #$(profile
-                                (content manifest)
-                                (allow-collisions? #t)))))
+              (define (other-output->value workflow-output-directory
+                                           output-id output-type-tree glob-pattern)
+                (cons output-id
+                      ;; TODO: Support all types.
+                      (let* ((output-type (formal-parameter-type output-type-tree))
+                             (paths (glob glob-pattern))
+                             (matched-type (glob-match-type paths output-type)))
+                        (unless matched-type
+                          (error "Type ~a mismatch for globbed paths ~a"
+                                 output-type
+                                 paths))
+                        ;; Coerce output value into matched type.
+                        (let ((output-values (map (cut path->value <> workflow-output-directory)
+                                                  paths)))
+                          (cond
+                           ((memq matched-type (list 'File 'Directory))
+                            (match output-values
+                              ((output-file)
+                               output-file)))
+                           ;; TODO: Recurse.
+                           ((and (array-type? matched-type)
+                                 (memq (array-type-subtype matched-type)
+                                       (list 'File 'Directory)))
+                            (list->vector output-values))
+                           ((eq? matched-type 'null)
+                            'null))))))
 
-            (call-with-temporary-directory
-             (lambda (inputs-directory)
-               (let ((inputs
-                      #$(copy-input-files-gexp
-                         (resolve-inputs inputs (assoc-ref* cwl "inputs") store)))
-                     (runtime `(("cores" . ,(total-processor-count)))))
+              ;; Set search paths for manifest.
+              (for-each (match-lambda
+                          ((specification . value)
+                           (setenv (search-path-specification-variable specification)
+                                   value)))
+                        (evaluate-search-paths
+                         (map sexp->search-path-specification
+                              '#$(map search-path-specification->sexp
+                                      (manifest-search-paths manifest)))
+                         (list #$(profile
+                                  (content manifest)
+                                  (allow-collisions? #t)))))
 
-                 ;; Set environment defined by workflow.
-                 (for-each (match-lambda
-                             ((name value)
-                              (setenv name value)))
-                           (list #$@(from-maybe
-                                     (maybe-bind
-                                      (find-requirement requirements
-                                                        "EnvVarRequirement")
-                                      environment-variables)
-                                     (list))))
+              (call-with-temporary-directory
+               (lambda (inputs-directory)
+                 (let ((inputs
+                        #$(copy-input-files-gexp
+                           (resolve-inputs inputs (assoc-ref* cwl "inputs") store)))
+                       (runtime `(("cores" . ,(total-processor-count)))))
 
-                 (call-with-temporary-directory
-                  (lambda (stdout-directory)
-                    (call-with-temporary-directory
-                     (lambda (outputs-directory)
-                       (call-with-current-directory outputs-directory
-                         (lambda ()
-                           ;; Stage files.
-                           ;; We currently support Dirent only. TODO: Support
-                           ;; others.
-                           (map (match-lambda
-                                  ((entry-name entry)
-                                   (call-with-input-file entry-name
-                                     (cut put-string <> entry))))
-                                '#$(from-maybe
-                                    (maybe-bind
-                                     (find-requirement requirements
-                                                       "InitialWorkDirRequirement")
-                                     files-to-stage)
-                                    (list)))
-                           ;; Actually run the command.
-                           #$run-command-gexp
-                           ;; Capture outputs.
-                           #$capture-outputs-gexp)))
-                     #$scratch))
-                  #$scratch)))
-             #$scratch))))
+                   ;; Set environment defined by workflow.
+                   (for-each (match-lambda
+                               ((name value)
+                                (setenv name value)))
+                             (list #$@(from-maybe
+                                       (maybe-bind
+                                        (find-requirement requirements
+                                                          "EnvVarRequirement")
+                                        environment-variables)
+                                       (list))))
+
+                   (call-with-temporary-directory
+                    (lambda (stdout-directory)
+                      (call-with-temporary-directory
+                       (lambda (outputs-directory)
+                         (call-with-current-directory outputs-directory
+                           (lambda ()
+                             ;; Stage files.
+                             ;; We currently support Dirent only. TODO: Support
+                             ;; others.
+                             (map (match-lambda
+                                    ((entry-name entry)
+                                     (call-with-input-file entry-name
+                                       (cut put-string <> entry))))
+                                  '#$(from-maybe
+                                      (maybe-bind
+                                       (find-requirement requirements
+                                                         "InitialWorkDirRequirement")
+                                       files-to-stage)
+                                      (list)))
+                             ;; Actually run the command.
+                             #$run-command-gexp
+                             ;; Capture outputs.
+                             #$capture-outputs-gexp)))
+                       #$scratch))
+                    #$scratch)))
+               #$scratch)))))
     guix-daemon-socket))
 
 (define* (command-line-tool-scheduler manifest scratch store batch-system
