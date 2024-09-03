@@ -189,6 +189,10 @@ their own namespaces."
       ((string=? class "ExpressionTool")
        (error "Workflow class not implemented yet" class))
       ((string=? class "Workflow")
+       (maybe-let* ((requirements (maybe-assoc-ref (just cwl) "requirements")))
+         (check-requirements requirements %supported-requirements))
+       (maybe-let* ((hints (maybe-assoc-ref (just cwl) "hints")))
+         (check-requirements hints %supported-requirements #t))
        workflow-class->propagators)
       (else
        (error "Invalid workflow class" class)))
