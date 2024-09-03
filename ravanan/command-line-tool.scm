@@ -17,7 +17,7 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan command-line-tool)
-  #:use-module ((rnrs base) #:select (assertion-violation))
+  #:use-module ((rnrs base) #:select (assertion-violation (error . raise-error)))
   #:use-module ((rnrs conditions) #:select (define-condition-type))
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
@@ -233,7 +233,7 @@ G-expressions are inserted."
        (let* ((type (formal-parameter-type type-tree))
               (matched-type (match-type input type)))
          (unless matched-type
-           (error "Type mismatch" input type))
+           (raise-error input "Type mismatch" input type))
          (let ((position
                 (from-maybe
                  (maybe-let* ((position (maybe-assoc-ref binding "position")))
@@ -329,7 +329,7 @@ basename of the original path, and not the store-interned path."
                   (let* ((type (formal-parameter-type type-tree))
                          (matched-type (match-type input type)))
                     (unless matched-type
-                      (error "Type mismatch" input type))
+                      (raise-error input "Type mismatch" input type))
                     (cond
                      ;; Recurse over array types.
                      ;; TODO: Implement record and enum types.
@@ -370,7 +370,7 @@ original path, and not the store-interned path."
                   (let* ((type (formal-parameter-type type-tree))
                          (matched-type (match-type input type)))
                     (unless matched-type
-                      (error "Type mismatch" input type))
+                      (raise-error input "Type mismatch" input type))
                     ;; TODO: Implement record and enum types.
                     (cond
                      ;; Recurse over array types.
@@ -731,7 +731,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                           'null))
                                         (matched-type (match-type output-value output-type)))
                                    (unless matched-type
-                                     (error "Type mismatch" output-value output-type))
+                                     (raise-error output-value
+                                                  "Type mismatch"
+                                                  output-value output-type))
                                    (case matched-type
                                      ((null)
                                       (list))
@@ -762,7 +764,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                               (from-maybe
                                                (maybe-assoc-ref (just output)
                                                                 "outputBinding" "glob")
-                                               (error "glob output binding not specified")))
+                                               (raise-error #f "glob output binding not specified")))
                                             other-outputs)))))
              out
              #:pretty #t)
