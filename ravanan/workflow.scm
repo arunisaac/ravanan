@@ -45,6 +45,13 @@
                     (just (equal? val1 val2)))
                   #f)))
 
+(define (maybe-vector? maybe-value)
+  "Return @code{#t} if maybe-monadic @var{maybe-value} contains a vector. Else,
+return @code{#f}."
+  (from-maybe (maybe-let* ((value maybe-value))
+                (just (vector? value)))
+              #f))
+
 (define (merge-values maybe-old-value maybe-new-value)
   "Merge values @var{maybe-old-value} and @var{maybe-new-value} into a
 single value."
@@ -57,6 +64,12 @@ single value."
    ((and (not (nothing? maybe-old-value))
          (nothing? maybe-new-value))
     maybe-old-value)
+   ;; If the values are vectors, merge them element-wise.
+   ((and (maybe-vector? maybe-old-value)
+         (maybe-vector? maybe-new-value))
+    (maybe-let* ((old-value maybe-old-value)
+                 (new-value maybe-new-value))
+      (just (vector-map merge-values old-value new-value))))
    (else
     (if (value=? maybe-old-value maybe-new-value)
         ;; If the values are equal, pick one arbitrarily.
