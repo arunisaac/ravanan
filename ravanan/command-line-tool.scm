@@ -92,7 +92,8 @@
   5)
 
 (define (warning fmt . args)
-  (apply format (current-error-port) fmt args))
+  (apply format (current-error-port) fmt args)
+  (newline))
 
 (define (error fmt . args)
   (apply warning fmt args)
