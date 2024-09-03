@@ -692,8 +692,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
      ;; stdout filename is not specified, but one of the outputs is of type
      ;; stdout.
      ((vector-any (lambda (output)
-                    (string=? (assoc-ref* output "type")
-                              "stdout"))
+                    (equal? (assoc-ref* output "type")
+                            "stdout"))
                   (assoc-ref* cwl "outputs"))
       #~(file-name-join* stdout-directory "stdout"))
      (else #f)))
@@ -743,8 +743,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                '#$(vector->list (assoc-ref cwl "outputs"))))
                  #$(let ((stdout-outputs other-outputs
                                          (partition (lambda (output)
-                                                      (string=? (assoc-ref* output "type")
-                                                                "stdout"))
+                                                      (equal? (assoc-ref* output "type")
+                                                              "stdout"))
                                                     (vector->list (assoc-ref* cwl "outputs")))))
                      #~(append (map (cut stdout-output->value
                                          workflow-output-directory
