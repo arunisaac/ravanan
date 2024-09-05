@@ -18,6 +18,7 @@
 
 (define-module (ravanan vectors)
   #:use-module ((rnrs base) #:select (vector-for-each vector-map))
+  #:use-module (srfi srfi-1)
   #:use-module ((srfi srfi-43) #:select (vector-append
                                          (vector-map . vector-map-indexed)
                                          vector-any
@@ -26,6 +27,7 @@
             vector-append-map->list
             map->vector
             vector-filter
+            vector-filter-map->list
             vector-remove
             vector-find)
   #:re-export (vector-append
@@ -63,6 +65,11 @@ together."
 (define (vector-filter pred vec)
   "Return a vector with elements from @var{vec} that pass @var{pred}."
   (list->vector (filter pred (vector->list vec))))
+
+(define (vector-filter-map->list proc vec)
+  "Map @var{proc} over @var{vec} and return a list of the results that are not
+@code{#f}."
+  (filter-map proc (vector->list vec)))
 
 (define (vector-remove proc vec)
   "Return a vector with elements from @var{vec} that fail @var{pred}."
