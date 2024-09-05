@@ -53,10 +53,6 @@ directory after THUNK returns."
                   thunk
                   (cut chdir original-current-directory))))
 
-(define (vector-empty? vec)
-  "Return @code{#t} if @var{vec} is empty. Else, return @code{#f}."
-  (zero? (vector-length vec)))
-
 ;; TODO: Support float types.
 (define (object-type obj)
   "Return the type of @var{obj}."
@@ -86,10 +82,9 @@ example, when @var{type} is a union type."
    ((eq? type 'Any)
     (object-type obj))
    ((eq? type 'null)
-    (and (or (eq? obj 'null)
-             (and (vector? obj)
-                  (vector-empty? obj)))
-         'null))
+    (match obj
+      ((or 'null #()) 'null)
+      (_ #f)))
    ((array-type? type)
     (and (every (cut match-type <> (array-type-subtype type))
                 (vector->list obj))
