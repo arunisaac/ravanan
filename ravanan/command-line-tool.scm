@@ -699,6 +699,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest
       #~(file-name-join* stdout-directory "stdout"))
      (else #f)))
 
+  (define (output-binding-glob output)
+    (from-maybe
+     (maybe-assoc-ref (just output)
+                      "outputBinding" "glob")
+     (raise-error #f "glob output binding not specified")))
+
   (define run-command-gexp
     #~(run-command (list #$@(append-map (lambda (arg)
                                           (if (command-line-binding? arg)
@@ -761,11 +767,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                             other-outputs)
                                     '#$(map (cut assoc-ref <> "type")
                                             other-outputs)
-                                    '#$(map (lambda (output)
-                                              (from-maybe
-                                               (maybe-assoc-ref (just output)
-                                                                "outputBinding" "glob")
-                                               (raise-error #f "glob output binding not specified")))
+                                    '#$(map output-binding-glob
                                             other-outputs)))))
              out
              #:pretty #t)
