@@ -34,6 +34,7 @@
             propagator-name
             propagator-proc
             propagator-inputs
+            propagator-optional-inputs
             propagator-outputs
             scheduler
             scheduler-schedule
@@ -51,11 +52,12 @@
   (scheduler propnet-scheduler))
 
 (define-immutable-record-type <propagator>
-  (propagator name proc inputs outputs)
+  (propagator name proc inputs optional-inputs outputs)
   propagator?
   (name propagator-name)
   (proc propagator-proc)
   (inputs propagator-inputs)
+  (optional-inputs propagator-optional-inputs)
   (outputs propagator-outputs))
 
 (define-immutable-record-type <scheduler>
@@ -76,7 +78,8 @@ required inputs are absent, do nothing. Schedule the propagator using
                                (propagator-inputs propagator))
                           (map (match-lambda
                                  ((input-name . _) input-name))
-                               inputs-alist))
+                               inputs-alist)
+                          (propagator-optional-inputs propagator))
     (() (just (schedule (propagator-proc propagator) inputs-alist)))
     (_ %nothing)))
 

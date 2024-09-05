@@ -28,6 +28,7 @@
   #:use-module (ravanan utils)
   #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
+  #:use-module (ravanan work utils)
   #:export (run-workflow))
 
 (define %supported-requirements
@@ -130,6 +131,15 @@ propagator."
                                   (cons (assoc-ref input "id")
                                         (assoc-ref input "id")))
                                 (assoc-ref cwl "inputs"))
+              ;; Inputs that either have a default or accept null values are
+              ;; optional.
+              (vector-filter-map->list (lambda (input)
+                                         (and (or (assoc-ref input "default")
+                                                  (match-type 'null
+                                                              (formal-parameter-type
+                                                               (assoc-ref* input "type"))))
+                                              (assoc-ref input "id")))
+                                       (assoc-ref cwl "inputs"))
               (vector-map->list (lambda (output)
                                   (cons (assoc-ref output "id")
                                         (assoc-ref output "id")))
@@ -138,11 +148,29 @@ propagator."
 (define (workflow->command-line-tool-steps cwl)
   "Recursively traverse @var{cwl} tree and return a list of
 @code{CommandLineTool} class steps."
+  (define (inherit-defaults step-run step-in)
+    "Augment the @var{step-run} CWL tree with defaults from the containing
+workflow. @var{step-in} is the inputs mapping association list of the step."
+    (assoc-set step-run
+      (cons "inputs"
+            (vector-map (lambda (input)
+                          (let* ((input-id (assoc-ref input "id"))
+                                 (input-source (assoc-ref step-in input-id)))
+                            (maybe-assoc-set input
+                              (cons "default"
+                                    (maybe-assoc-ref (just cwl)
+                                                     "inputs"
+                                                     input-source
+                                                     "default")))))
+                        (assoc-ref* step-run "inputs")))))
+
   (vector-append-map->list (lambda (step)
-                             (let ((run (assoc-ref step "run")))
+                             (let ((run (inherit-defaults (assoc-ref step "run")
+                                                          (assoc-ref step "in"))))
                                (if (string=? (assoc-ref run "class")
                                              "CommandLineTool")
-                                   (list step)
+                                   (list (assoc-set step
+                                           (cons "run" run)))
                                    (workflow->command-line-tool-steps
                                     (inherit-requirements-and-hints
                                      run
@@ -173,6 +201,7 @@ their own namespaces."
                                     (propagator-name step-propagator))
                        (propagator-proc step-propagator)
                        (assoc-ref step "in")
+                       (propagator-optional-inputs step-propagator)
                        (vector-map->list (lambda (output-name)
                                            (cons output-name
                                                  (prefix-name step-id output-name)))
