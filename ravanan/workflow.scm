@@ -220,18 +220,26 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
 @code{'slurm-api}."
   (define (capture-output cell-values output)
     (let ((output-id (assoc-ref output "id")))
-      (cons output-id
-            (or (let ((class (assoc-ref* cwl "class")))
-                  (cond
-                   ((string=? class "CommandLineTool")
-                    (assoc-ref cell-values output-id))
-                   ((string=? class "ExpressionTool")
-                    (error "Workflow class not implemented yet"
-                           class))
-                   ((string=? class "Workflow")
-                    (assoc-ref cell-values
-                               (assoc-ref* output "outputSource")))))
-                (error "output not found" output-id)))))
+      (cond
+       ;; The output is present; cons and return it.
+       ((let ((class (assoc-ref* cwl "class")))
+          (cond
+           ((string=? class "CommandLineTool")
+            (assoc-ref cell-values output-id))
+           ((string=? class "ExpressionTool")
+            (error "Workflow class not implemented yet"
+                   class))
+           ((string=? class "Workflow")
+            (assoc-ref cell-values
+                       (assoc-ref* output "outputSource")))))
+        => (cut cons output-id <>))
+       ;; The output is absent; check if a null type is acceptable.
+       ((match-type 'null
+                    (formal-parameter-type (assoc-ref* output "type")))
+        #f)
+       ;; Else, error out.
+       (else
+        (error "output not found" output-id)))))
 
   (let ((cell-values
          (run-propnet
@@ -245,5 +253,5 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
                     #:slurm-jwt slurm-jwt))
           inputs)))
     ;; Capture outputs.
-    (vector-map->list (cut capture-output cell-values <>)
-                      (assoc-ref* cwl "outputs"))))
+    (vector-filter-map->list (cut capture-output cell-values <>)
+                             (assoc-ref* cwl "outputs"))))
