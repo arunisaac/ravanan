@@ -250,13 +250,13 @@ G-expressions are inserted."
                     position
                     prefix
                     matched-type
-                    (collect-bindings
-                     (list (vector->list input)
-                           (make-list (vector-length input)
-                                      (assoc-ref type-tree "items"))
-                           (make-list (vector-length input)
-                                      (maybe-assoc-ref (just type-tree)
-                                                       "inputBinding"))))
+                    (append-map (lambda (input)
+                                  (input+type-tree+binding->command-line-binding
+                                   (list input
+                                         (assoc-ref type-tree "items")
+                                         (maybe-assoc-ref (just type-tree)
+                                                          "inputBinding"))))
+                                (vector->list input))
                     (maybe-assoc-ref binding "itemSeparator"))))
             (else
              (list (command-line-binding
