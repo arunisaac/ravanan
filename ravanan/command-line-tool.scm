@@ -703,7 +703,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
     (from-maybe
      (maybe-assoc-ref (just output)
                       "outputBinding" "glob")
-     (raise-error #f "glob output binding not specified")))
+     (and (memq (formal-parameter-type (assoc-ref* output "type"))
+                (list 'File 'Directory))
+          (raise-error #f "glob output binding not specified"))))
 
   (define run-command-gexp
     #~(run-command (list #$@(append-map (lambda (arg)
