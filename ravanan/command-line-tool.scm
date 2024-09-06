@@ -939,53 +939,69 @@ named @var{name} with @var{inputs} using tools from Guix manifest
 (define* (command-line-tool-scheduler manifest scratch store batch-system
                                       #:key guix-daemon-socket
                                       slurm-api-endpoint slurm-jwt)
-  (scheduler (match-lambda*
-               ((proc inputs)
-                (let ((name (scheduler-proc-name proc))
-                      (cwl (scheduler-proc-cwl proc)))
-                  (run-command-line-tool name
-                                         manifest
-                                         cwl
-                                         inputs
-                                         scratch
-                                         store
-                                         batch-system
-                                         #:guix-daemon-socket guix-daemon-socket
-                                         #:slurm-api-endpoint slurm-api-endpoint
-                                         #:slurm-jwt slurm-jwt))))
-             (lambda (state)
-               (guard (c ((job-failure? c)
-                          (let ((script (job-failure-script c)))
-                            (error
-                             "~a failed; logs at ~a and ~a~%"
-                             script
-                             (script->store-stdout-file script store)
-                             (script->store-stderr-file script store)))))
-                 (cond
-                  ((single-machine-job-state? state)
-                   (if (single-machine-job-state-success? state)
-                       'completed
-                       (raise-exception
-                        (job-failure (single-machine-job-state-script state)))))
-                  ((slurm-job-state? state)
-                   (case (job-state (slurm-job-state-job-id state)
-                                    #:api-endpoint slurm-api-endpoint
-                                    #:jwt slurm-jwt)
-                     ((failed)
-                      (raise-exception
-                       (job-failure (slurm-job-state-script state))))
-                     (else => identity))))))
+  (define (schedule proc inputs)
+    "Schedule @var{proc} with inputs from the @var{inputs} association list. Return a
+job state object."
+    (let ((name (scheduler-proc-name proc))
+          (cwl (scheduler-proc-cwl proc)))
+      (run-command-line-tool name
+                             manifest
+                             cwl
+                             inputs
+                             scratch
+                             store
+                             batch-system
+                             #:guix-daemon-socket guix-daemon-socket
+                             #:slurm-api-endpoint slurm-api-endpoint
+                             #:slurm-jwt slurm-jwt)))
+
+  (define (poll state)
+    "Return current status of job @var{state} object---one of the symbols
+@code{pending} or @code{completed}. Raise an exception and exit if job has
+failed."
+    (guard (c ((job-failure? c)
+               (let ((script (job-failure-script c)))
+                 (error
+                  "~a failed; logs at ~a and ~a~%"
+                  script
+                  (script->store-stdout-file script store)
+                  (script->store-stderr-file script store)))))
+      (cond
+       ;; Single machine jobs are run synchronously. So, they return success or
+       ;; failure immediately.
+       ((single-machine-job-state? state)
+        (if (single-machine-job-state-success? state)
+            'completed
+            (raise-exception
+             (job-failure (single-machine-job-state-script state)))))
+       ;; Poll slurm for job state.
+       ((slurm-job-state? state)
+        (case (job-state (slurm-job-state-job-id state)
+                         #:api-endpoint slurm-api-endpoint
+                         #:jwt slurm-jwt)
+          ((failed)
+           (raise-exception
+            (job-failure (slurm-job-state-script state))))
+          (else => identity))))))
+
+  (define (capture-output state)
+    "Return output of completed job @var{state}."
+    (let ((script ((case batch-system
+                     ((single-machine) single-machine-job-state-script)
+                     ((slurm-api) slurm-job-state-script))
+                   state)))
+      (format (current-error-port)
+              "~a completed; logs at ~a and ~a~%"
+              script
+              (script->store-stdout-file script store)
+              (script->store-stderr-file script store))
+      (capture-command-line-tool-output script store)))
+
+  (scheduler schedule
+             poll
              (case batch-system
+               ;; Single machine jobs are run synchronously. So, there is no
+               ;; need to wait to poll them.
                ((single-machine) 0)
                ((slurm-api) %job-poll-interval))
-             (lambda (state)
-               (let ((script ((case batch-system
-                                ((single-machine) single-machine-job-state-script)
-                                ((slurm-api) slurm-job-state-script))
-                              state)))
-                 (format (current-error-port)
-                         "~a completed; logs at ~a and ~a~%"
-                         script
-                         (script->store-stdout-file script store)
-                         (script->store-stderr-file script store))
-                 (capture-command-line-tool-output script store)))))
+             capture-output))
