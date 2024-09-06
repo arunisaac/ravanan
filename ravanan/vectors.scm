@@ -22,6 +22,7 @@
   #:use-module ((srfi srfi-43) #:select (vector-append
                                          (vector-map . vector-map-indexed)
                                          vector-any
+                                         vector-every
                                          vector-fold))
   #:export (vector-map->list
             vector-append-map->list
@@ -34,7 +35,8 @@
                vector-for-each
                vector-map
                vector-map-indexed
-               vector-any))
+               vector-any
+               vector-every))
 
 (define (vector-map->list proc first-vector . other-vectors)
   "Map @var{proc} over vectors and return a list of the results."
