@@ -62,14 +62,7 @@
             %command-line-tool-supported-requirements
             scheduler-proc
             scheduler-proc-name
-            scheduler-proc-cwl
-            single-machine-job-state
-            single-machine-job-state?
-            single-machine-job-state-script
-            slurm-job-state
-            slurm-job-state?
-            slurm-job-state-script
-            slurm-job-state-job-id))
+            scheduler-proc-cwl))
 
 (define %store-files-directory
   "files")
