@@ -126,7 +126,7 @@ requirements and hints of the step."
   "Convert @code{CommandLineTool} workflow @var{cwl} of @var{name} to a
 propagator."
   (propagator name
-              (list name cwl)
+              (scheduler-proc name cwl)
               (vector-map->list (lambda (input)
                                   (cons (assoc-ref input "id")
                                         (assoc-ref input "id")))

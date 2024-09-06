@@ -60,6 +60,9 @@
             check-requirements
             inherit-requirements
             %command-line-tool-supported-requirements
+            scheduler-proc
+            scheduler-proc-name
+            scheduler-proc-cwl
             single-machine-job-state
             single-machine-job-state?
             single-machine-job-state-script
@@ -98,6 +101,12 @@
 (define (error fmt . args)
   (apply warning fmt args)
   (exit #f))
+
+(define-immutable-record-type <scheduler-proc>
+  (scheduler-proc name cwl)
+  scheduler-proc?
+  (name scheduler-proc-name)
+  (cwl scheduler-proc-cwl))
 
 (define-immutable-record-type <single-machine-job-state>
   (single-machine-job-state script success?)
@@ -938,17 +947,19 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                       #:key guix-daemon-socket
                                       slurm-api-endpoint slurm-jwt)
   (scheduler (match-lambda*
-               (((name cwl) inputs)
-                (run-command-line-tool name
-                                       manifest
-                                       cwl
-                                       inputs
-                                       scratch
-                                       store
-                                       batch-system
-                                       #:guix-daemon-socket guix-daemon-socket
-                                       #:slurm-api-endpoint slurm-api-endpoint
-                                       #:slurm-jwt slurm-jwt)))
+               ((proc inputs)
+                (let ((name (scheduler-proc-name proc))
+                      (cwl (scheduler-proc-cwl proc)))
+                  (run-command-line-tool name
+                                         manifest
+                                         cwl
+                                         inputs
+                                         scratch
+                                         store
+                                         batch-system
+                                         #:guix-daemon-socket guix-daemon-socket
+                                         #:slurm-api-endpoint slurm-api-endpoint
+                                         #:slurm-jwt slurm-jwt))))
              (lambda (state)
                (guard (c ((job-failure? c)
                           (let ((script (job-failure-script c)))
