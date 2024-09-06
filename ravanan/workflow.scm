@@ -126,7 +126,7 @@ requirements and hints of the step."
   "Convert @code{CommandLineTool} workflow @var{cwl} of @var{name} to a
 propagator."
   (propagator name
-              (scheduler-proc name cwl)
+              (scheduler-proc name cwl %nothing %nothing)
               (vector-map->list (lambda (input)
                                   (cons (assoc-ref input "id")
                                         (assoc-ref input "id")))
@@ -199,7 +199,18 @@ their own namespaces."
                                                 (assoc-ref step "run"))))
            (propagator (prefix-name step-id
                                     (propagator-name step-propagator))
-                       (propagator-proc step-propagator)
+                       ;; Augment proc with scatter and scatter method.
+                       (let ((proc (propagator-proc step-propagator)))
+                         (scheduler-proc
+                          (scheduler-proc-name proc)
+                          (scheduler-proc-cwl proc)
+                          (maybe-assoc-ref (just step) "scatter")
+                          (maybe-let* ((scatter-method
+                                        (maybe-assoc-ref (just step) "scatterMethod")))
+                            (just (assoc-ref* '(("dotproduct" . dot-product)
+                                                ("nested_crossproduct" . nested-cross-product)
+                                                ("flat_crossproduct" . flat-cross-product))
+                                              scatter-method)))))
                        (assoc-ref step "in")
                        (propagator-optional-inputs step-propagator)
                        (vector-map->list (lambda (output-name)

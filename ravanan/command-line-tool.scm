@@ -62,7 +62,9 @@
             %command-line-tool-supported-requirements
             scheduler-proc
             scheduler-proc-name
-            scheduler-proc-cwl))
+            scheduler-proc-cwl
+            scheduler-proc-scatter
+            scheduler-proc-scatter-method))
 
 (define %store-files-directory
   "files")
@@ -96,10 +98,12 @@
   (exit #f))
 
 (define-immutable-record-type <scheduler-proc>
-  (scheduler-proc name cwl)
+  (scheduler-proc name cwl scatter scatter-method)
   scheduler-proc?
   (name scheduler-proc-name)
-  (cwl scheduler-proc-cwl))
+  (cwl scheduler-proc-cwl)
+  (scatter scheduler-proc-scatter)
+  (scatter-method scheduler-proc-scatter-method))
 
 (define-immutable-record-type <single-machine-job-state>
   (single-machine-job-state script success?)
