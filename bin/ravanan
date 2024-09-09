@@ -25,10 +25,13 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ice-9 filesystem)
              (ice-9 match)
              (web uri)
-             (gnu packages)  ;; required to load manifest files
              (json)
              (ravanan reader)
-             (ravanan workflow))
+             (ravanan workflow)
+
+             ;; required to load manifest files
+             (gnu packages)
+             (guix profiles))
 
 (define %options
   (list (option (list "batch-system" "batchSystem") #t #f
