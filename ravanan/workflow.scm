@@ -32,8 +32,9 @@
   #:export (run-workflow))
 
 (define %supported-requirements
-  (cons "SubworkflowFeatureRequirement"
-        %command-line-tool-supported-requirements))
+  (cons* "ScatterFeatureRequirement"
+         "SubworkflowFeatureRequirement"
+         %command-line-tool-supported-requirements))
 
 (define (value=? maybe-val1 maybe-val2)
   "Return @code{#t} if maybe-monadic values @var{maybe-val1} and
