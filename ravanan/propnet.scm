@@ -131,7 +131,9 @@ add to the inbox."
   
   (let loop ((cells (list))
              (cell-values-inbox initial-cell-values)
-             (propagators-inbox (list))
+             ;; Pre-schedule all propagators to ensure we trigger those
+             ;; propagators that have no inputs at all.
+             (propagators-inbox (propnet-propagators propnet))
              (propagators-in-flight (list)))
     (match cell-values-inbox
       ;; Process one new cell value in inbox.
