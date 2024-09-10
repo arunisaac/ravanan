@@ -559,6 +559,7 @@ path."
                                           ,store-data-file))
                                        stdout-file
                                        stderr-file
+                                       name
                                        script
                                        #:api-endpoint slurm-api-endpoint
                                        #:jwt slurm-jwt)))

@@ -62,15 +62,15 @@ document and pass in as the body of the HTTP request."
                       #:body (call-with-output-bytevector
                               (cut scm->json body-scm <>))))
 
-(define* (submit-job environment stdout-file stderr-file script
+(define* (submit-job environment stdout-file stderr-file name script
                      #:key api-endpoint jwt)
-  "Submit job @var{script} to slurm via @var{api-endpoint} and
-authenticating using @var{jwt}. @var{environment} is an association
-list of environment variables to set in the job. @var{stdout-file} and
-@var{stderr-file} are files in which to write the stdout and stderr of
-the job respectively."
+  "Submit job named @var{name} running @var{script} to slurm via @var{api-endpoint}
+and authenticating using @var{jwt}. @var{environment} is an association list of
+environment variables to set in the job. @var{stdout-file} and @var{stderr-file}
+are files in which to write the stdout and stderr of the job respectively."
   (define job-spec
-    `(("script" . ,(string-append "#!/bin/bash\n" script))
+    `(("name" . ,name)
+      ("script" . ,(string-append "#!/bin/bash\n" script))
       ("environment" . ,(list->vector
                          (map (match-lambda
                                 ((name . value)
