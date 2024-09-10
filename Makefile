@@ -19,6 +19,7 @@
 project = ravanan
 
 GUILD ?= guild
+GUILE ?= guile
 NODE ?= node
 SED ?= sed
 
@@ -36,6 +37,7 @@ sources = $(wildcard $(top_level_module_dir)/*.scm) \
           $(config_file)
 objects = $(sources:.scm=.go)
 scripts = $(wildcard bin/*)
+tests = $(wildcard tests/*.scm) $(wildcard tests/work/*.scm)
 
 scmdir = $(datarootdir)/guile/site/$(guile_effective_version)
 godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
@@ -49,6 +51,11 @@ all: $(objects) $(config_file)
 
 %.go: %.scm $(config_file)
 	GUILE_AUTO_COMPILE=0 $(GUILD) compile -L . -o $@ $<
+
+check:
+	for test in $(tests); do \
+		$(GUILE) --no-auto-compile -L . $$test; \
+	done
 
 install: $(sources) $(objects) $(scripts)
 	install -D $(scripts) --target-directory $(bindir)
