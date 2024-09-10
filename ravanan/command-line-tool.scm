@@ -46,6 +46,7 @@
   #:use-module (yaml)
   #:use-module (ravanan config)
   #:use-module (ravanan glob)
+  #:use-module (ravanan job-state)
   #:use-module (ravanan monads)
   #:use-module (ravanan propnet)
   #:use-module (ravanan reader)
@@ -104,18 +105,6 @@
   (cwl scheduler-proc-cwl)
   (scatter scheduler-proc-scatter)
   (scatter-method scheduler-proc-scatter-method))
-
-(define-immutable-record-type <single-machine-job-state>
-  (single-machine-job-state script success?)
-  single-machine-job-state?
-  (script single-machine-job-state-script)
-  (success? single-machine-job-state-success?))
-
-(define-immutable-record-type <slurm-job-state>
-  (slurm-job-state script job-id)
-  slurm-job-state?
-  (script slurm-job-state-script)
-  (job-id slurm-job-state-job-id))
 
 (define-condition-type &job-failure &error
   job-failure job-failure?
@@ -998,32 +987,12 @@ failed."
                   script
                   (script->store-stdout-file script store)
                   (script->store-stderr-file script store)))))
-      (cond
-       ;; Single machine jobs are run synchronously. So, they return success or
-       ;; failure immediately.
-       ((single-machine-job-state? state)
-        (if (single-machine-job-state-success? state)
-            'completed
-            (raise-exception
-             (job-failure (single-machine-job-state-script state)))))
-       ;; Poll slurm for job state.
-       ((slurm-job-state? state)
-        (case (job-state (slurm-job-state-job-id state)
-                         #:api-endpoint slurm-api-endpoint
-                         #:jwt slurm-jwt)
-          ((failed)
-           (raise-exception
-            (job-failure (slurm-job-state-script state))))
-          (else => identity)))
-       ;; For vector states, poll each state element and return 'completed only
-       ;; if all state elements have completed.
-       ((vector? state)
-        (or (vector-every (lambda (state-element)
-                            (case (poll state-element)
-                              ((completed) => identity)
-                              (else #f)))
-                          state)
-            'pending)))))
+      (case (job-state-status state
+                              #:slurm-api-endpoint slurm-api-endpoint
+                              #:slurm-jwt slurm-jwt)
+        ((failed)
+         (raise-exception (job-failure (job-state-script state))))
+        (else => identity))))
 
   (define (capture-output state)
     "Return output of completed job @var{state}."
@@ -1043,10 +1012,7 @@ failed."
                                      outputs))))
                 head-output)))
         ;; Log progress and return captured output.
-        (let ((script ((case batch-system
-                         ((single-machine) single-machine-job-state-script)
-                         ((slurm-api) slurm-job-state-script))
-                       state)))
+        (let ((script (job-state-script state)))
           (format (current-error-port)
                   "~a completed; logs at ~a and ~a~%"
                   script
