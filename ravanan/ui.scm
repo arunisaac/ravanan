@@ -18,12 +18,12 @@
 
 (define-module (ravanan ui)
   #:export (warning
-            error))
+            user-error))
 
 (define (warning fmt . args)
   (apply format (current-error-port) fmt args)
   (newline))
 
-(define (error fmt . args)
+(define (user-error fmt . args)
   (apply warning fmt args)
   (exit #f))

@@ -17,7 +17,7 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan command-line-tool)
-  #:use-module ((rnrs base) #:select (assertion-violation (error . raise-error)))
+  #:use-module ((rnrs base) #:select (assertion-violation error))
   #:use-module ((rnrs conditions) #:select (define-condition-type))
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
@@ -138,8 +138,8 @@
                          (if hint?
                              (warning "Ignoring ~a hint; it is not supported~%"
                                       class)
-                             (error "Requirement ~a not supported"
-                                    class)))))
+                             (user-error "Requirement ~a not supported"
+                                         class)))))
                    requirements))
 
 (define (inherit-requirements requirements supplementary-requirements)
@@ -222,7 +222,7 @@ G-expressions are inserted."
        (let* ((type (formal-parameter-type type-tree))
               (matched-type (match-type input type)))
          (unless matched-type
-           (raise-error input "Type mismatch" input type))
+           (error input "Type mismatch" input type))
          (let ((position
                 (from-maybe
                  (maybe-let* ((position (maybe-assoc-ref binding "position")))
@@ -275,8 +275,8 @@ G-expressions are inserted."
                                      (assoc-ref formal-input "default")
                                      'null)
                                  (or (assoc-ref formal-input "type")
-                                     (error "Type of input ~a not specified"
-                                            id))
+                                     (user-error "Type of input ~a not specified"
+                                                 id))
                                  (maybe-assoc-ref (just formal-input)
                                                   "inputBinding")))))
                   (vector->list (assoc-ref cwl "inputs")))))
@@ -311,14 +311,15 @@ basename of the original path, and not the store-interned path."
                 (types (map (lambda (formal-input)
                               (let ((id (assoc-ref formal-input "type")))
                                 (or (assoc-ref formal-input "type")
-                                    (error "Type of input ~a not specified" id))))
+                                    (user-error "Type of input ~a not specified"
+                                                id))))
                             formal-inputs)))
     (append-map (lambda (input type-tree)
                   ;; Check type.
                   (let* ((type (formal-parameter-type type-tree))
                          (matched-type (match-type input type)))
                     (unless matched-type
-                      (raise-error input "Type mismatch" input type))
+                      (error input "Type mismatch" input type))
                     (cond
                      ;; Recurse over array types.
                      ;; TODO: Implement record and enum types.
@@ -359,7 +360,7 @@ original path, and not the store-interned path."
                   (let* ((type (formal-parameter-type type-tree))
                          (matched-type (match-type input type)))
                     (unless matched-type
-                      (raise-error input "Type mismatch" input type))
+                      (error input "Type mismatch" input type))
                     ;; TODO: Implement record and enum types.
                     (cond
                      ;; Recurse over array types.
@@ -397,8 +398,8 @@ original path, and not the store-interned path."
                              (vector-map (lambda (formal-input)
                                            (let ((id (assoc-ref* formal-input "id")))
                                              (or (assoc-ref formal-input "type")
-                                                 (error "Type of input ~a not specified"
-                                                        id))))
+                                                 (user-error "Type of input ~a not specified"
+                                                             id))))
                                          formal-inputs))
                     formal-inputs))
 
@@ -440,8 +441,8 @@ in which the G-expressions are inserted."
                        #~(expand-file-name #$(basename (assoc-ref value "location"))
                                            inputs-directory))
                       (else
-                       (error "Invalid formal input type ~a"
-                              type)))))))))
+                       (user-error "Invalid formal input type ~a"
+                                   type)))))))))
 
 (define* (build-gexp-script name exp #:optional guix-daemon-socket)
   "Build script named @var{name} using G-expression @var{exp}.
@@ -694,7 +695,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                       "outputBinding" "glob")
      (and (memq (formal-parameter-type (assoc-ref* output "type"))
                 (list 'File 'Directory))
-          (raise-error #f "glob output binding not specified"))))
+          (error #f "glob output binding not specified"))))
 
   (define run-command-gexp
     #~(run-command (list #$@(append-map (lambda (arg)
@@ -729,9 +730,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                           'null))
                                         (matched-type (match-type output-value output-type)))
                                    (unless matched-type
-                                     (raise-error output-value
-                                                  "Type mismatch"
-                                                  output-value output-type))
+                                     (error output-value
+                                            "Type mismatch"
+                                            output-value output-type))
                                    (case matched-type
                                      ((null)
                                       (list))
@@ -845,9 +846,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                              (paths (glob glob-pattern))
                              (matched-type (glob-match-type paths output-type)))
                         (unless matched-type
-                          (error "Type ~a mismatch for globbed paths ~a"
-                                 output-type
-                                 paths))
+                          (user-error "Type ~a mismatch for globbed paths ~a"
+                                      output-type
+                                      paths))
                         ;; Coerce output value into matched type.
                         (let ((output-values (map (cut path->value <> workflow-output-directory)
                                                   paths)))
@@ -956,8 +957,8 @@ job state object."
                     (vector-map->list (cut assoc-ref inputs <>)
                                       scatter)))
             ((nested-cross-product flat-cross-product)
-             (raise-error scatter-method
-                          "Scatter method not implemented yet")))
+             (error scatter-method
+                    "Scatter method not implemented yet")))
           (run-command-line-tool name
                                  manifest
                                  cwl
@@ -975,7 +976,7 @@ job state object."
 failed."
     (guard (c ((job-failure? c)
                (let ((script (job-failure-script c)))
-                 (error
+                 (user-error
                   "~a failed; logs at ~a and ~a~%"
                   script
                   (script->store-stdout-file script store)
