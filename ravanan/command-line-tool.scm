@@ -663,15 +663,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
 
   (define (files-to-stage initial-work-dir-requirement)
     (vector-map->list (lambda (dirent)
-                        (let ((entry-name (assoc-ref dirent "entryname")))
-                          (let stage ((entry (assoc-ref dirent "entry")))
-                            (cond
-                             ((javascript-expression? entry)
-                              (stage
-                               (evaluate-javascript %node
-                                                    (strip-javascript-expression entry))))
-                             ((string? entry)
-                              (list entry-name entry))))))
+                        #~(list #$(coerce-expression (assoc-ref dirent "entryname"))
+                                #$(coerce-expression (assoc-ref dirent "entry"))))
                       (assoc-ref initial-work-dir-requirement
                                  "listing")))
 
@@ -908,12 +901,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                     ((entry-name entry)
                                      (call-with-input-file entry-name
                                        (cut put-string <> entry))))
-                                  '#$(from-maybe
-                                      (maybe-bind
-                                       (find-requirement requirements
-                                                         "InitialWorkDirRequirement")
-                                       (compose just files-to-stage))
-                                      (list)))
+                                  (list #$@(from-maybe
+                                            (maybe-bind
+                                             (find-requirement requirements
+                                                               "InitialWorkDirRequirement")
+                                             (compose just files-to-stage))
+                                            (list))))
                              ;; Actually run the command.
                              #$run-command-gexp
                              ;; Capture outputs.
