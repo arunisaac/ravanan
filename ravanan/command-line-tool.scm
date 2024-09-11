@@ -662,19 +662,18 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                             (assoc-ref* env-var-requirement "envDef"))))
 
   (define (files-to-stage initial-work-dir-requirement)
-    (map (lambda (dirent)
-           (let ((entry-name (assoc-ref dirent "entryname")))
-             (let stage ((entry (assoc-ref dirent "entry")))
-               (cond
-                ((javascript-expression? entry)
-                 (stage
-                  (evaluate-javascript %node
-                                       (strip-javascript-expression entry))))
-                ((string? entry)
-                 (list entry-name entry))))))
-         (vector->list
-          (assoc-ref initial-work-dir-requirement
-                     "listing"))))
+    (vector-map->list (lambda (dirent)
+                        (let ((entry-name (assoc-ref dirent "entryname")))
+                          (let stage ((entry (assoc-ref dirent "entry")))
+                            (cond
+                             ((javascript-expression? entry)
+                              (stage
+                               (evaluate-javascript %node
+                                                    (strip-javascript-expression entry))))
+                             ((string? entry)
+                              (list entry-name entry))))))
+                      (assoc-ref initial-work-dir-requirement
+                                 "listing")))
 
   (define stdout-filename
     (cond
