@@ -781,6 +781,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
               (use-modules (ravanan work command-line-tool)
                            (ravanan work utils)
                            (ravanan glob)
+                           (rnrs io ports)
                            (srfi srfi-1)
                            (srfi srfi-26)
                            (ice-9 filesystem)
