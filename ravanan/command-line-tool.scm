@@ -683,9 +683,17 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                             (assoc-ref* env-var-requirement "envDef"))))
 
   (define (files-to-stage initial-work-dir-requirement)
-    (vector-map->list (lambda (dirent)
-                        #~(list #$(coerce-expression (assoc-ref dirent "entryname"))
-                                #$(coerce-expression (assoc-ref dirent "entry"))))
+    (vector-map->list (lambda (listing-entry)
+                        (if (string? listing-entry)
+                            ;; File
+                            #~(let ((entry #$(coerce-expression listing-entry)))
+                                (list (assoc-ref entry "basename")
+                                      entry))
+                            ;; Dirent
+                            #~(list #$(coerce-expression
+                                       (assoc-ref listing-entry "entryname"))
+                                    #$(coerce-expression
+                                       (assoc-ref listing-entry "entry")))))
                       (assoc-ref initial-work-dir-requirement
                                  "listing")))
 
@@ -917,12 +925,20 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                          (call-with-current-directory outputs-directory
                            (lambda ()
                              ;; Stage files.
-                             ;; We currently support Dirent only. TODO: Support
-                             ;; others.
+                             ;; We currently support File and Dirent only. TODO:
+                             ;; Support others.
                              (map (match-lambda
                                     ((entry-name entry)
-                                     (call-with-output-file entry-name
-                                       (cut put-string <> entry))))
+                                     (cond
+                                      ;; Stuff string literal into a file.
+                                      ((string? entry)
+                                       (call-with-input-file entry-name
+                                         (cut put-string <> entry)))
+                                      ;; Symlink to the file.
+                                      ((eq? (object-type entry)
+                                            'File)
+                                       (symlink (assoc-ref entry "path")
+                                                entry-name)))))
                                   (list #$@(from-maybe
                                             (maybe-bind
                                              (find-requirement requirements
