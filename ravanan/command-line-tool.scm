@@ -56,6 +56,7 @@
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work types)
   #:use-module (ravanan work utils)
+  #:use-module (ravanan ui)
   #:export (run-command-line-tool
             command-line-tool-scheduler
             check-requirements
@@ -89,14 +90,6 @@
 ;; 5 seconds.
 (define %job-poll-interval
   5)
-
-(define (warning fmt . args)
-  (apply format (current-error-port) fmt args)
-  (newline))
-
-(define (error fmt . args)
-  (apply warning fmt args)
-  (exit #f))
 
 (define-immutable-record-type <scheduler-proc>
   (scheduler-proc name cwl scatter scatter-method)
