@@ -21,9 +21,12 @@
             user-error))
 
 (define (warning fmt . args)
+  "Print warning. @var{fmt} and @var{args} are arguments to format."
   (apply format (current-error-port) fmt args)
   (newline))
 
 (define (user-error fmt . args)
+  "Print error message and exit with failure. @var{fmt} and @var{args} are
+arguments to format."
   (apply warning fmt args)
   (exit #f))
