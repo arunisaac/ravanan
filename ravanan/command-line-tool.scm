@@ -899,7 +899,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                              ;; others.
                              (map (match-lambda
                                     ((entry-name entry)
-                                     (call-with-input-file entry-name
+                                     (call-with-output-file entry-name
                                        (cut put-string <> entry))))
                                   (list #$@(from-maybe
                                             (maybe-bind
