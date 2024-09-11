@@ -123,6 +123,15 @@ requirements and hints of the step."
       (else (error "Unable to coerce value to type" val type))))
     (else val)))
 
+(define (optional-input? input)
+  "Return @code{#t} if @var{input} is optional. Else, return @code{#f}."
+  ;; Inputs that either have a default or accept null values are optional.
+  (and (or (assoc-ref input "default")
+           (match-type 'null
+                       (formal-parameter-type
+                        (assoc-ref* input "type"))))
+       (assoc-ref input "id")))
+
 (define* (command-line-tool->propagator name cwl)
   "Convert @code{CommandLineTool} workflow @var{cwl} of @var{name} to a
 propagator."
@@ -134,12 +143,7 @@ propagator."
                                 (assoc-ref cwl "inputs"))
               ;; Inputs that either have a default or accept null values are
               ;; optional.
-              (vector-filter-map->list (lambda (input)
-                                         (and (or (assoc-ref input "default")
-                                                  (match-type 'null
-                                                              (formal-parameter-type
-                                                               (assoc-ref* input "type"))))
-                                              (assoc-ref input "id")))
+              (vector-filter-map->list optional-input?
                                        (assoc-ref cwl "inputs"))
               (vector-map->list (lambda (output)
                                   (cons (assoc-ref output "id")
