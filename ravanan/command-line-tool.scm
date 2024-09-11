@@ -912,7 +912,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                       (maybe-bind
                                        (find-requirement requirements
                                                          "InitialWorkDirRequirement")
-                                       files-to-stage)
+                                       (compose just files-to-stage))
                                       (list)))
                              ;; Actually run the command.
                              #$run-command-gexp
