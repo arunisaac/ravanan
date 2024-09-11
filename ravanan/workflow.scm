@@ -29,6 +29,7 @@
   #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work utils)
+  #:use-module (ravanan ui)
   #:export (run-workflow))
 
 (define %supported-requirements
@@ -286,6 +287,14 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
        (else
         (error "output not found" output-id)))))
 
+  ;; Ensure required inputs are specified.
+  (vector-for-each (lambda (input)
+                     (let ((input-id (assoc-ref input "id")))
+                       (unless (or (optional-input? input)
+                                   (assoc input-id inputs))
+                         (user-error "Required input `~a' not specified"
+                                     input-id))))
+                   (assoc-ref cwl "inputs"))
   (let ((cell-values
          (run-propnet
           (propnet (workflow->propagators name cwl)
