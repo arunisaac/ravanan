@@ -162,17 +162,38 @@ class. Else, return @code{#f}."
                                 supplementary-requirements)))
 
 (define (javascript-expression? str)
-  "Return @code{#t} if @var{str} is a CWL javascript expression. Else, return
+  "Return @code{#t} if @var{str} contains a CWL javascript expression. Else, return
 @code{#f}."
-  (and (string-prefix? "$(" str)
-       (string-suffix? ")" str)))
+  (string-contains str "$("))
 
-(define (strip-javascript-expression expression)
-  "Strip $(…) around javascript @var{expression}."
-  (substring expression
-             (string-length "$(")
-             (- (string-length expression)
-                (string-length ")"))))
+(define (interpolate-parameter-references str)
+  "Interpolate @var{str} with one or more parameter references into a javascript
+expression suitable for evaluation."
+  (define (tokenize str)
+    "Split @var{str} into alternating tokens of parameter reference and literal
+strings."
+    (let ((end (if (string-prefix? "$(" str)
+                   (1+ (string-index str #\)))
+                   (string-index str #\$))))
+      (if end
+          (cons (substring str 0 end)
+                (tokenize (substring str end)))
+          (if (string-null? str)
+              (list)
+              (list str)))))
+
+  (string-join (map (lambda (token)
+                      (if (and (string-prefix? "$(" token)
+                               (string-suffix? ")" token))
+                          ;; Strip $(…).
+                          (substring token
+                                     (string-length "$(")
+                                     (- (string-length token)
+                                        (string-length ")")))
+                          ;; Surround with double quotes.
+                          (string-append "\"" token "\"")))
+                    (tokenize str))
+               " + "))
 
 (define (coerce-expression expression)
   "Coerce @var{expression} into a scheme JSON tree.
@@ -185,7 +206,7 @@ evaluates it. This G-expression references variables @code{inputs} and
            (javascript-expression? expression))
       #~(evaluate-parameter-reference
          #$%worker-node
-         #$(strip-javascript-expression expression)
+         #$(interpolate-parameter-references expression)
          inputs
          'null
          runtime
