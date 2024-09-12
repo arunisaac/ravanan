@@ -781,8 +781,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                             other-outputs)
                                     '#$(map (cut assoc-ref <> "type")
                                             other-outputs)
-                                    '#$(map output-binding-glob
-                                            other-outputs)))))
+                                    (list #$@(map (compose coerce-expression
+                                                           output-binding-glob)
+                                                  other-outputs))))))
              out
              #:pretty #t)
             (newline out)))))
