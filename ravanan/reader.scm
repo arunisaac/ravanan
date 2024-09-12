@@ -76,22 +76,24 @@ each association list of the returned vector of association lists. If
                    alist)))
 
 (define (normalize-formals parameters)
+  (define (normalize-type type)
+    (cond
+     ((not (string? type)) type)
+     ((string-suffix? "?" type)
+      (vector (substring type 0 (- (string-length type)
+                                   (string-length "?")))
+              'null))
+     ((string-suffix? "[]" type)
+      `(("type" . "array")
+        ("items" . ,(substring type 0 (- (string-length type)
+                                         (string-length "[]"))))))
+     (else type)))
+
   (vector-map (lambda (parameter)
                 ;; Normalize optional and array types.
                 (assoc-set parameter
-                           (cons "type"
-                                 (let ((type (assoc-ref parameter "type")))
-                                   (cond
-                                    ((not (string? type)) type)
-                                    ((string-suffix? "?" type)
-                                     (vector (substring type 0 (- (string-length type)
-                                                                  (string-length "?")))
-                                             'null))
-                                    ((string-suffix? "[]" type)
-                                     `(("type" . "array")
-                                       ("items" . ,(substring type 0 (- (string-length type)
-                                                                        (string-length "[]"))))))
-                                    (else type))))))
+                  (cons "type"
+                        (normalize-type (assoc-ref parameter "type")))))
               ;; Normalize formals to a vector.
               (coerce-alist->vector parameters "id" "type")))
 
