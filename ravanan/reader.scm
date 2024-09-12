@@ -115,6 +115,25 @@ each association list of the returned vector of association lists. If
 
 (define (normalize-workflow cwl)
   "Normalize CWL workflow @var{cwl} (of any class)."
+  (define (normalize-secondary-files secondary-files default-required)
+    (cond
+     ;; array of SecondaryFileSchema objects
+     ((vector? secondary-files)
+      (vector-append-map (cut normalize-secondary-files <> default-required)
+                         secondary-files))
+     ;; SecondaryFileSchema object
+     ((not (string? secondary-files))
+      (vector secondary-files))
+     ;; string form optional SecondaryFileSchema object
+     ((string-suffix? "?" secondary-files)
+      (vector `(("pattern" . ,(string-drop-right secondary-files
+                                                 (string-length "?")))
+                ("required" . #f))))
+     ;; string form SecondaryFileSchema object with an unspecified required
+     (else
+      (vector `(("pattern" . ,secondary-files)
+                ("required" . ,default-required))))))
+
   (define (normalize-formal-input input)
     (if (eq? (formal-parameter-type (assoc-ref input "type"))
              'File)
@@ -122,8 +141,22 @@ each association list of the returned vector of association lists. If
           (cons (list "default" "location")
                 (maybe-let* ((location (maybe-assoc-ref (just input)
                                                         "default" "location")))
-                  (just (canonicalize-path location)))))
+                  (just (canonicalize-path location))))
+          (cons "secondaryFiles"
+                (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
+                            (compose just
+                                     (cut normalize-secondary-files <> #t)))))
         input))
+
+  (define (normalize-formal-output output)
+    (if (eq? (formal-parameter-type (assoc-ref output "type"))
+             'File)
+        (maybe-assoc-set output
+          (cons "secondaryFiles"
+                (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")
+                            (compose just
+                                     (cut normalize-secondary-files <> #f)))))
+        output))
 
   (define (normalize-base-command maybe-base-command)
     (maybe-let* ((base-command maybe-base-command))
@@ -181,7 +214,9 @@ each association list of the returned vector of association lists. If
                                   (assoc-ref cwl "inputs")))))
          ;; Normalize outputs.
          (cons "outputs"
-               (just (normalize-formals (assoc-ref cwl "outputs"))))
+               (just (vector-map normalize-formal-output
+                                 (normalize-formals
+                                  (assoc-ref cwl "outputs")))))
          (let ((class (assoc-ref cwl "class")))
            (cond
             ((string=? class "CommandLineTool")
