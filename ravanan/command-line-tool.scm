@@ -798,6 +798,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                               (or (assoc-ref cwl "hints")
                                                   #()))))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
+                                                      (ravanan work ui)
                                                       (ravanan glob)
                                                       (guix search-paths))
                                                     #:select? (match-lambda
@@ -808,6 +809,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
         (with-extensions (list guile-filesystem guile-gcrypt)
           #~(begin
               (use-modules (ravanan work command-line-tool)
+                           (ravanan work ui)
                            (ravanan work utils)
                            (ravanan glob)
                            (rnrs io ports)
