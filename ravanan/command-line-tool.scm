@@ -33,6 +33,7 @@
   #:use-module (gcrypt base16)
   #:use-module (gcrypt hash)
   #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
+  #:use-module ((gnu packages guile-xyz) #:select (guile-filesystem))
   #:use-module ((gnu packages node) #:select (node))
   #:use-module (guix describe)
   #:use-module (guix derivations)
@@ -801,11 +802,10 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                       (guix search-paths))
                                                     #:select? (match-lambda
                                                                 (('ravanan work . _) #t)
-                                                                ('(ice-9 filesystem) #t)
                                                                 (('guix . _) #t)
                                                                 (('json . _) #t)
                                                                 (_ #f)))
-        (with-extensions (list guile-gcrypt)
+        (with-extensions (list guile-filesystem guile-gcrypt)
           #~(begin
               (use-modules (ravanan work command-line-tool)
                            (ravanan work utils)
