@@ -25,6 +25,7 @@
                                          vector-every
                                          vector-fold))
   #:export (vector-map->list
+            vector-append-map
             vector-append-map->list
             map->vector
             vector-filter
@@ -48,6 +49,17 @@
           (list)
           first-vector
           other-vectors)))
+
+(define (vector-append-map proc first-vector . other-vectors)
+  "Map @var{proc} over vectors and return a vector of the results appended
+together."
+  (apply vector-fold
+         (lambda (_ result . elements)
+           (vector-append result
+                          (apply proc elements)))
+         (vector)
+         first-vector
+         other-vectors))
 
 (define (vector-append-map->list proc first-vector . other-vectors)
   "Map @var{proc} over vectors and return a list of the results appended
