@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (ravanan ui)
+(define-module (ravanan work ui)
   #:export (warning
             user-error))
 

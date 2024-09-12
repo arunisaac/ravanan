@@ -28,8 +28,8 @@
   #:use-module (ravanan utils)
   #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
+  #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
-  #:use-module (ravanan ui)
   #:export (run-workflow))
 
 (define %supported-requirements
