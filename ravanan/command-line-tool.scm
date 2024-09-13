@@ -430,7 +430,8 @@ error out."
                       (resolve input
                                (make-vector (vector-length input)
                                             (assoc-ref type-tree "items"))
-                               maybe-secondary-files))
+                               (make-vector (vector-length input)
+                                            maybe-secondary-files)))
                      ;; Intern File type inputs and fully resolve them.
                      ((eq? matched-type 'File)
                       (let ((resolved-input (canonicalize-file-input input)))
