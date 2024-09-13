@@ -27,7 +27,7 @@
 (define-module (ravanan job-state)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ravanan slurm-api)
-  #:use-module (ravanan vectors)
+  #:use-module (ravanan work vectors)
   #:export (single-machine-job-state
             slurm-job-state
 

@@ -24,11 +24,11 @@
   #:use-module (ravanan command-line-tool)
   #:use-module (ravanan propnet)
   #:use-module (ravanan reader)
-  #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
+  #:use-module (ravanan work vectors)
   #:export (run-workflow))
 
 (define %supported-requirements

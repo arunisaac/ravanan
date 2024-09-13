@@ -23,10 +23,10 @@
   #:use-module (ice-9 match)
   #:use-module (json)
   #:use-module (yaml)
-  #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work utils)
+  #:use-module (ravanan work vectors)
   #:export (read-workflow
             read-inputs))
 
