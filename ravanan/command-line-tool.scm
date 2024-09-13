@@ -313,57 +313,6 @@ G-expressions are inserted."
       ;; If location is an URI, parse the URI and return the path part.
       (uri-path (string->uri location))))
 
-(define (collect-input-files inputs formal-inputs store)
-  "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any files
-found into the @var{store} and return a list of all the @code{File} type
-objects.
-
-The returned @code{File} type objects are updated with @code{basename},
-@code{checksum} and @code{size} fields, and store-interned paths in the
-@code{location} and @code{path} fields. The @code{basename} field contains the
-basename of the original path, and not the store-interned path."
-  (let collect ((inputs (map (lambda (formal-input)
-                               (let ((id (assoc-ref formal-input "id")))
-                                 (or (assoc-ref inputs id)
-                                     (assoc-ref formal-input "default")
-                                     'null)))
-                             formal-inputs))
-                (types (map (lambda (formal-input)
-                              (let ((id (assoc-ref formal-input "type")))
-                                (or (assoc-ref formal-input "type")
-                                    (user-error "Type of input ~a not specified"
-                                                id))))
-                            formal-inputs)))
-    (append-map (lambda (input type-tree)
-                  ;; Check type.
-                  (let* ((type (formal-parameter-type type-tree))
-                         (matched-type (match-type input type)))
-                    (unless matched-type
-                      (error input "Type mismatch" input type))
-                    (cond
-                     ;; Recurse over array types.
-                     ;; TODO: Implement record and enum types.
-                     ((array-type? matched-type)
-                      (collect (vector->list input)
-                               (make-list (vector-length input)
-                                          (assoc-ref type-tree "items"))))
-                     ((eq? matched-type 'File)
-                      (let* ((location (assoc-ref input "location"))
-                             (path (or (and location
-                                            (location->path location))
-                                       (assoc-ref input "path")))
-                             (interned-path (intern-file path store)))
-                        (list (assoc-set input
-                                         (cons "location" interned-path)
-                                         (cons "path" interned-path)
-                                         (cons "basename" (basename path))
-                                         (cons "checksum" (checksum path))
-                                         (cons "size"
-                                               (stat:size (stat path)))))))
-                     (else (list)))))
-                inputs
-                types)))
-
 (define (resolve-inputs inputs formal-inputs store)
   "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
 files found into the @var{store} and return a tree of the fully
