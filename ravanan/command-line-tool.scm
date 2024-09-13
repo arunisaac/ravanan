@@ -375,8 +375,50 @@ The returned @code{File} type objects are updated with
 store-interned paths in the @code{location} and @code{path}
 fields. The @code{basename} field contains the basename of the
 original path, and not the store-interned path."
-  (define (resolve inputs types)
-    (vector-map (lambda (input type-tree)
+  (define (canonicalize-file-input input)
+    "Canonicalize @code{File} type @var{input} and its secondary files."
+    (let* ((path (or (and (assoc-ref input "location")
+                          (location->path (assoc-ref input "location")))
+                     (assoc-ref input "path")))
+           (interned-path (intern-file path store)))
+      (maybe-assoc-set input
+        (cons "location" (just interned-path))
+        (cons "path" (just interned-path))
+        (cons "basename" (just (basename path)))
+        (cons "checksum" (just (checksum path)))
+        (cons "size" (just (stat:size (stat path))))
+        (cons "secondaryFiles"
+              (maybe-let* ((secondary-files (maybe-assoc-ref (just input)
+                                                             "secondaryFiles")))
+                (just (vector-map canonicalize-file-input
+                                  secondary-files)))))))
+
+  (define (match-secondary-file-pattern input pattern)
+    "Return @code{#t} if secondary file @var{pattern} matches at least one secondary
+file in @var{input}."
+    ;; TODO: Implement caret characters in SecondaryFileSchema DSL.
+    (vector-any (lambda (secondary-file)
+                  (string=? (assoc-ref* secondary-file "path")
+                            (string-append (assoc-ref* input "path")
+                                           pattern)))
+                (or (assoc-ref input "secondaryFiles")
+                    (user-error "Missing secondaryFiles in input ~a"
+                                input))))
+
+  (define (check-secondary-files input secondary-files)
+    "Check if all required @var{secondary-files} are present in @var{input}. If not,
+error out."
+    (vector-for-each (lambda (secondary-file)
+                       (let ((pattern (assoc-ref* secondary-file "pattern")))
+                         (when (and (assoc-ref* secondary-file "required")
+                                    (not (match-secondary-file-pattern input pattern)))
+                           (user-error "Secondary file ~a missing in input ~a"
+                                       pattern
+                                       input))))
+                     secondary-files))
+
+  (define (resolve inputs types maybe-secondary-files)
+    (vector-map (lambda (input type-tree maybe-secondary-files)
                   ;; Check type.
                   (let* ((type (formal-parameter-type type-tree))
                          (matched-type (match-type input type)))
@@ -388,24 +430,21 @@ original path, and not the store-interned path."
                      ((array-type? matched-type)
                       (resolve input
                                (make-vector (vector-length input)
-                                            (assoc-ref type-tree "items"))))
-                     ;; Intern File type inputs and fully resolve
-                     ;; them.
+                                            (assoc-ref type-tree "items"))
+                               maybe-secondary-files))
+                     ;; Intern File type inputs and fully resolve them.
                      ((eq? matched-type 'File)
-                      (let* ((path (or (and (assoc-ref input "location")
-                                            (location->path (assoc-ref input "location")))
-                                       (assoc-ref input "path")))
-                             (interned-path (intern-file path store)))
-                        (assoc-set input
-                                   (cons "location" interned-path)
-                                   (cons "path" interned-path)
-                                   (cons "basename" (basename path))
-                                   (cons "checksum" (checksum path))
-                                   (cons "size" (stat:size (stat path))))))
+                      (let ((resolved-input (canonicalize-file-input input)))
+                        ;; Ensure secondary files are provided with File type
+                        ;; inputs.
+                        (maybe-bind maybe-secondary-files
+                                    (cut check-secondary-files resolved-input <>))
+                        resolved-input))
                      ;; Return other input types unchanged.
                      (else input))))
                 inputs
-                types))
+                types
+                maybe-secondary-files))
   
   (vector-map->list (lambda (input formal-input)
                       (cons (assoc-ref formal-input "id")
@@ -421,6 +460,10 @@ original path, and not the store-interned path."
                                              (or (assoc-ref formal-input "type")
                                                  (user-error "Type of input ~a not specified"
                                                              id))))
+                                         formal-inputs)
+                             (vector-map (lambda (formal-input)
+                                           (maybe-assoc-ref (just formal-input)
+                                                            "secondaryFiles"))
                                          formal-inputs))
                     formal-inputs))
 
@@ -636,32 +679,43 @@ path. Return the interned path."
         interned-path)))
 
 (define (copy-input-files-gexp inputs)
-  "Return a G-expression that copies @code{File} type inputs from @var{inputs} into
-@code{inputs-directory} and return a new association list with updated
-@code{location} and @code{path} fields.
+  "Return a G-expression that copies @code{File} type inputs (along with secondary
+files) from @var{inputs} into @code{inputs-directory} and return a new
+association list with updated @code{location} and @code{path} fields.
 
 The returned G-expression will reference an @code{inputs-directory} variable."
+  (define (copy-input-files input)
+    (cond
+     ((vector? input)
+      #~,(list->vector
+          `#$(map copy-input-files
+                  (vector->list input))))
+     ((eq? (object-type input)
+           'File)
+      #~,(let ((path-in-inputs-directory
+                (expand-file-name #$(assoc-ref input "basename")
+                                  inputs-directory)))
+           (copy-file #$(assoc-ref input "location")
+                      path-in-inputs-directory)
+           (maybe-assoc-set '#$input
+             (cons "location"
+                   (just path-in-inputs-directory))
+             (cons "path"
+                   (just path-in-inputs-directory))
+             (cons "secondaryFiles"
+                   #$(from-maybe
+                      (maybe-let* ((secondary-files
+                                    (maybe-assoc-ref (just input) "secondaryFiles")))
+                        (just #~(just (list->vector
+                                       `#$(vector-map->list copy-input-files
+                                                            secondary-files)))))
+                      #~%nothing)))))
+     (else input)))
+
   #~(list->dotted-list
      `#$(map (match-lambda
                ((id . input)
-                (list id
-                      (let copy-input-files ((input input))
-                        (cond
-                         ((vector? input)
-                          #~,(list->vector
-                              `#$(map copy-input-files
-                                      (vector->list input))))
-                         ((eq? (object-type input)
-                               'File)
-                          #~,(let ((path-in-inputs-directory
-                                    (expand-file-name #$(assoc-ref input "basename")
-                                                      inputs-directory)))
-                               (copy-file #$(assoc-ref input "location")
-                                          path-in-inputs-directory)
-                               (assoc-set '#$input
-                                          (cons "location" path-in-inputs-directory)
-                                          (cons "path" path-in-inputs-directory))))
-                         (else input))))))
+                (list id (copy-input-files input))))
              inputs)))
 
 (define (build-command-line-tool-script name manifest cwl inputs
@@ -785,6 +839,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                             other-outputs)
                                     '#$(map (cut assoc-ref <> "type")
                                             other-outputs)
+                                    (list #$@(map (lambda (output)
+                                                    (match (assoc "secondaryFiles" output)
+                                                      ((_ . secondary-files)
+                                                       #~(just #$secondary-files))
+                                                      (#f #~%nothing)))
+                                                  other-outputs))
                                     (list #$@(map (compose coerce-expression
                                                            output-binding-glob)
                                                   other-outputs))))))
@@ -803,7 +863,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                               (or (assoc-ref cwl "hints")
                                                   #()))))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
+                                                      (ravanan work monads)
                                                       (ravanan work ui)
+                                                      (ravanan work vectors)
                                                       (ravanan glob)
                                                       (guix search-paths))
                                                     #:select? (match-lambda
@@ -814,8 +876,10 @@ named @var{name} with @var{inputs} using tools from Guix manifest
         (with-extensions (list guile-filesystem guile-gcrypt)
           #~(begin
               (use-modules (ravanan work command-line-tool)
+                           (ravanan work monads)
                            (ravanan work ui)
                            (ravanan work utils)
+                           (ravanan work vectors)
                            (ravanan glob)
                            (rnrs io ports)
                            (srfi srfi-1)
@@ -843,10 +907,39 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                     (cons "size" (stat:size (stat path)))
                     (cons "checksum" (checksum path)))))
 
-              (define (path->value path workflow-output-directory)
-                (canonicalize-file-value `(("class" . "File")
-                                           ("path" . ,path))
-                                         workflow-output-directory))
+              (define (capture-secondary-file path secondary-file
+                                              workflow-output-directory)
+                "Capture @var{secondary-file} for primary @var{path} and return its
+canonicalized value. If @var{required} is @code{#t} and no such secondary file
+is found, error out. @var{workflow-output-directory} is path to the output
+directory of the workflow."
+                (let* ((pattern (assoc-ref* secondary-file "pattern"))
+                       ;; TODO: Implement caret characters in
+                       ;; SecondaryFileSchema DSL.
+                       (secondary-file-path (string-append path pattern))
+                       (secondary-file-value
+                        (and (file-exists? secondary-file-path)
+                             (canonicalize-file-value `(("class" . "File")
+                                                        ("path" . ,secondary-file-path))
+                                                      workflow-output-directory))))
+                  (if (and (assoc-ref* secondary-file "required")
+                           (not secondary-file-value))
+                      (user-error "Secondary file ~a missing for output path ~a"
+                                  pattern
+                                  path)
+                      secondary-file-value)))
+
+              (define (path->value path workflow-output-directory maybe-secondary-files)
+                (maybe-assoc-set (canonicalize-file-value `(("class" . "File")
+                                                            ("path" . ,path))
+                                                          workflow-output-directory)
+                  (cons "secondaryFiles"
+                        (maybe-let* ((secondary-files maybe-secondary-files))
+                          (just (vector-filter-map (cut capture-secondary-file
+                                                        path
+                                                        <>
+                                                        workflow-output-directory)
+                                                   secondary-files))))))
 
               (define (stdout-output->value workflow-output-directory
                                             stdout-directory
@@ -865,10 +958,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                              hashed-filename)
                            ;; Else, return the stdout filename as it is.
                            #$stdout-filename)
-                       workflow-output-directory)))
+                       workflow-output-directory
+                       %nothing)))
 
               (define (other-output->value workflow-output-directory
-                                           output-id output-type-tree glob-pattern)
+                                           output-id output-type-tree
+                                           maybe-secondary-files glob-pattern)
                 (cons output-id
                       ;; TODO: Support all types.
                       (let* ((output-type (formal-parameter-type output-type-tree))
@@ -879,7 +974,10 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                       output-type
                                       paths))
                         ;; Coerce output value into matched type.
-                        (let ((output-values (map (cut path->value <> workflow-output-directory)
+                        (let ((output-values (map (cut path->value
+                                                       <>
+                                                       workflow-output-directory
+                                                       maybe-secondary-files)
                                                   paths)))
                           (cond
                            ((memq matched-type (list 'File 'Directory))
@@ -910,6 +1008,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
               (call-with-temporary-directory
                (lambda (inputs-directory)
                  (let ((inputs
+                        ;; TODO: Update paths of staged files.
                         #$(copy-input-files-gexp
                            (resolve-inputs inputs (assoc-ref* cwl "inputs") store)))
                        (runtime `(("cores" . ,(total-processor-count)))))
