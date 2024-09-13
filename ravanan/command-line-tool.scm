@@ -318,11 +318,11 @@ G-expressions are inserted."
 files found into the @var{store} and return a tree of the fully
 resolved inputs.
 
-The returned @code{File} type objects are updated with
-@code{basename}, @code{checksum} and @code{size} fields, and
-store-interned paths in the @code{location} and @code{path}
-fields. The @code{basename} field contains the basename of the
-original path, and not the store-interned path."
+The returned @code{File} type objects are updated with @code{basename},
+@code{nameroot}, @code{nameext}, @code{checksum} and @code{size} fields, and
+store-interned paths in the @code{location} and @code{path} fields. The
+@code{basename} field contains the basename of the original path, and not the
+store-interned path."
   (define (canonicalize-file-input input)
     "Canonicalize @code{File} type @var{input} and its secondary files."
     (let* ((path (or (and (assoc-ref input "location")
@@ -333,6 +333,8 @@ original path, and not the store-interned path."
         (cons "location" (just interned-path))
         (cons "path" (just interned-path))
         (cons "basename" (just (basename path)))
+        (cons "nameroot" (just (file-name-stem path)))
+        (cons "nameext" (just (file-name-extension path)))
         (cons "checksum" (just (checksum path)))
         (cons "size" (just (stat:size (stat path))))
         (cons "secondaryFiles"
@@ -854,6 +856,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                     workflow-output-path))
                     (cons "path" workflow-output-path)
                     (cons "basename" (basename path))
+                    (cons "nameroot" (file-name-stem path))
+                    (cons "nameext" (file-name-extension path))
                     (cons "size" (stat:size (stat path)))
                     (cons "checksum" (checksum path)))))
 
