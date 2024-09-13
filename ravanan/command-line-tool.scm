@@ -620,16 +620,21 @@ path."
       json->scm)))
 
 (define (intern-file file store)
-  "Intern @var{file} into the ravanan @var{store}. Return the interned path."
-  (let ((interned-path
-         (expand-file-name
-          (file-name-join* %store-files-directory
-                           (string-append (sha1-hash file)
-                                          "-"
-                                          (basename file)))
-          store)))
-    (copy-file file interned-path)
-    interned-path))
+  "Intern @var{file} into the ravanan @var{store} unless it is already a store
+path. Return the interned path."
+  (if (string-prefix? store file)
+      ;; If file is already a store path, return it as is.
+      file
+      ;; Else, intern it and return the interned path.
+      (let ((interned-path
+             (expand-file-name
+              (file-name-join* %store-files-directory
+                               (string-append (sha1-hash file)
+                                              "-"
+                                              (basename file)))
+              store)))
+        (copy-file file interned-path)
+        interned-path)))
 
 (define (copy-input-files-gexp inputs)
   "Return a G-expression that copies @code{File} type inputs from @var{inputs} into
