@@ -29,6 +29,7 @@
             vector-append-map->list
             map->vector
             vector-filter
+            vector-filter-map
             vector-filter-map->list
             vector-remove
             vector-find)
@@ -79,6 +80,11 @@ together."
 (define (vector-filter pred vec)
   "Return a vector with elements from @var{vec} that pass @var{pred}."
   (list->vector (filter pred (vector->list vec))))
+
+(define (vector-filter-map proc vec)
+  "Map @var{proc} over @var{vec} and return a vector of the results that are not
+@code{#f}."
+  (list->vector (filter-map proc (vector->list vec))))
 
 (define (vector-filter-map->list proc vec)
   "Map @var{proc} over @var{vec} and return a list of the results that are not
