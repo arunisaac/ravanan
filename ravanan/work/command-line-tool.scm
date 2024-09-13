@@ -139,11 +139,14 @@ example, when @var{type} is a union type."
 (define (formal-parameter-type type)
   "Return the type described in the CWL @var{type} specification."
   (cond
+   ;; Union types
    ((vector? type)
     (apply union-type
            (map formal-parameter-type (vector->list type))))
+   ;; Other types
    ((string? type)
     (string->symbol type))
+   ;; Array types
    ((string=? (assoc-ref type "type")
               "array")
     (array-type (formal-parameter-type (assoc-ref type "items"))))))
