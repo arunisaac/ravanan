@@ -830,6 +830,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                      #~(append (map (cut stdout-output->value
                                          workflow-output-directory
                                          stdout-directory
+                                         #$stdout-filename
                                          <>)
                                     '#$stdout-outputs)
                                (map (cut other-output->value
@@ -943,21 +944,22 @@ directory of the workflow."
 
               (define (stdout-output->value workflow-output-directory
                                             stdout-directory
+                                            stdout-filename
                                             output)
                 (cons (assoc-ref output "id")
                       (path->value
-                       (if (string=? #$stdout-filename
+                       (if (string=? stdout-filename
                                      (file-name-join* stdout-directory "stdout"))
                            ;; If stdout filename is unspecified, rename it to a
                            ;; hash of its contents.
                            (let ((hashed-filename
                                   (file-name-join* stdout-directory
-                                                   (sha1-hash #$stdout-filename))))
-                             (rename-file #$stdout-filename
+                                                   (sha1-hash stdout-filename))))
+                             (rename-file stdout-filename
                                           hashed-filename)
                              hashed-filename)
                            ;; Else, return the stdout filename as it is.
-                           #$stdout-filename)
+                           stdout-filename)
                        workflow-output-directory
                        %nothing)))
 
