@@ -16,7 +16,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
-(define-module (ravanan monads)
+(define-module (ravanan work monads)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
