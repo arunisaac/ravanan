@@ -45,7 +45,6 @@
   #:use-module (guix store)
   #:use-module (json)
   #:use-module (yaml)
-  #:use-module (ravanan config)
   #:use-module (ravanan glob)
   #:use-module (ravanan job-state)
   #:use-module (ravanan propnet)

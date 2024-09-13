@@ -31,10 +31,8 @@ libdir ?= $(prefix)/lib
 guile_effective_version = 3.0
 
 top_level_module_dir = $(project)
-config_file = $(top_level_module_dir)/config.scm
 sources = $(wildcard $(top_level_module_dir)/*.scm) \
-          $(wildcard $(top_level_module_dir)/work/*.scm) \
-          $(config_file)
+          $(wildcard $(top_level_module_dir)/work/*.scm)
 objects = $(sources:.scm=.go)
 scripts = $(wildcard bin/*)
 tests = $(wildcard tests/*.scm) $(wildcard tests/work/*.scm)
@@ -44,12 +42,12 @@ godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
 
 .PHONY: all clean install
 
-all: $(objects) $(config_file)
+all: $(objects)
 
 %.scm: %.scm.in
 	$(SED) 's|@NODE@|$(NODE)|' $< > $@
 
-%.go: %.scm $(config_file)
+%.go: %.scm
 	GUILE_AUTO_COMPILE=0 $(GUILD) compile -L . -o $@ $<
 
 check:
@@ -67,4 +65,4 @@ install: $(sources) $(objects) $(scripts)
 	done
 
 clean:
-	rm -f $(objects) $(config_file)
+	rm -f $(objects)
