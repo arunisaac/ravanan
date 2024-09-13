@@ -76,7 +76,9 @@
    ;; all state elements have completed.
    ((vector? state)
     (or (vector-every (lambda (state-element)
-                        (case (job-state-status state-element)
+                        (case (job-state-status state-element
+                                                #:slurm-api-endpoint slurm-api-endpoint
+                                                #:slurm-jwt slurm-jwt)
                           ((completed) => identity)
                           (else #f)))
                       state)
