@@ -79,20 +79,25 @@ directory after THUNK returns."
 type. The returned type may be different from @var{type}---for
 example, when @var{type} is a union type."
   (cond
+   ;; Match any type.
    ((eq? type 'Any)
     (object-type obj))
+   ;; Match null values or empty arrays.
    ((eq? type 'null)
     (match obj
       ((or 'null #()) 'null)
       (_ #f)))
+   ;; Recursively match type of every element of array.
    ((array-type? type)
     (and (vector? obj)
          (every (cut match-type <> (array-type-subtype type))
                 (vector->list obj))
          type))
+   ;; Match any one of the subtypes of the union type.
    ((union-type? type)
     (any (cut match-type obj <>)
          (union-type-subtypes type)))
+   ;; Else, match the exact type of the object.
    (else
     (and (eq? (object-type obj)
               type)
