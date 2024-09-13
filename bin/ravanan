@@ -21,12 +21,14 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (rnrs io ports)
+             (srfi srfi-26)
              (srfi srfi-37)
              (ice-9 filesystem)
              (ice-9 match)
              (web uri)
              (json)
              (ravanan reader)
+             (ravanan utils)
              (ravanan workflow)
 
              ;; required to load manifest files
@@ -90,9 +92,12 @@ Slurm API batch system options:
           program))
 
 (define (read-jwt file)
-  "Read JWT token from @var{file}."
+  "Read JWT token from @var{file}. Support both files that only have the token and
+files that have the token in the @verbatim{SLURM_JWT=token} format."
   (call-with-input-file file
-    get-string-all))
+    (compose (cut string-trim-prefix "SLURM_JWT=" <>)
+             string-trim-both
+             get-string-all)))
 
 (define main
   (match-lambda
