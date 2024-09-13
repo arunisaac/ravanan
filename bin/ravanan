@@ -89,6 +89,11 @@ Slurm API batch system options:
 "
           program))
 
+(define (read-jwt file)
+  "Read JWT token from @var{file}."
+  (call-with-input-file file
+    get-string-all))
+
 (define main
   (match-lambda
     ((program args ...)
@@ -141,8 +146,7 @@ Slurm API batch system options:
                                    #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)
                                    #:slurm-api-endpoint (assq-ref args 'slurm-api-endpoint)
                                    #:slurm-jwt (and (assq-ref args 'slurm-jwt)
-                                                    (call-with-input-file (assq-ref args 'slurm-jwt)
-                                                      get-string-all)))
+                                                    (read-jwt (assq-ref args 'slurm-jwt))))
                      (current-output-port)
                      #:pretty #t)
           (newline (current-output-port))))))))
