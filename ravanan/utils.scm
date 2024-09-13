@@ -17,21 +17,11 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan utils)
-  #:use-module (rnrs base)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
-  #:export (assoc-ref*
-            json-ref
+  #:export (json-ref
             call-with-temporary-file))
-
-(define (assoc-ref* alist key)
-  "Return value mapped to @var{key} in @var{alist}. Raise an &assertion
-if not found."
-  (match (assoc key alist)
-    ((_ . value) value)
-    (#f (assertion-violation (cons key alist)
-                             "Missing key in association list"))))
 
 (define (json-ref scm . keys)
   "Extract subtree of JSON @var{scm} that is addressed by @var{keys}."

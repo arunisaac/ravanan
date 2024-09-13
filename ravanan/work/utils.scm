@@ -17,12 +17,14 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan work utils)
+  #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
   #:export (list->dotted-list
+            assoc-ref*
             assoc-set
             call-with-temporary-directory
             call-with-input-pipe))
@@ -34,6 +36,14 @@ pairs."
          ((key value)
           (cons key value)))
        lst))
+
+(define (assoc-ref* alist key)
+  "Return value mapped to @var{key} in @var{alist}. Raise an &assertion
+if not found."
+  (match (assoc key alist)
+    ((_ . value) value)
+    (#f (assertion-violation (cons key alist)
+                             "Missing key in association list"))))
 
 (define (assoc-set alist . pairs)
   "Functionally set @var{pairs} in @var{alist}. @var{alist} is not

@@ -25,7 +25,6 @@
   #:use-module (ravanan monads)
   #:use-module (ravanan propnet)
   #:use-module (ravanan reader)
-  #:use-module (ravanan utils)
   #:use-module (ravanan vectors)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work ui)
