@@ -636,7 +636,7 @@ path."
 @code{inputs-directory} and return a new association list with updated
 @code{location} and @code{path} fields.
 
-The returned G-expressions will reference an @code{inputs-directory} variable."
+The returned G-expression will reference an @code{inputs-directory} variable."
   #~(list->dotted-list
      `#$(map (match-lambda
                ((id . input)
