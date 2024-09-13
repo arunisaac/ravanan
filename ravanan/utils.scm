@@ -20,8 +20,15 @@
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
-  #:export (json-ref
+  #:export (string-trim-prefix
+            json-ref
             call-with-temporary-file))
+
+(define (string-trim-prefix prefix str)
+  "Remove @var{prefix} from @var{str} if it exists. Else, return @var{str} as is."
+  (if (string-prefix? prefix str)
+      (substring str (string-length prefix))
+      str))
 
 (define (json-ref scm . keys)
   "Extract subtree of JSON @var{scm} that is addressed by @var{keys}."
