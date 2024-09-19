@@ -128,7 +128,12 @@ add to the inbox."
                    (cons propagator-input-name
                          (maybe-assoc-ref (just cells) cell-name))))
                 (propagator-inputs propagator))))
-  
+
+  ;; We implement propagator networks as a state machine. The state consists of
+  ;; the current values of all the cells and the list of all propagators
+  ;; currently in flight. Each iteration of loop represents one state
+  ;; transition. This is a very functional approach. Propagator network
+  ;; implementations don't necessarily have to be mutational.
   (let loop ((cells (list))
              (cell-values-inbox initial-cell-values)
              ;; Pre-schedule all propagators to ensure we trigger those
