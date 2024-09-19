@@ -24,6 +24,7 @@
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
   #:export (list->dotted-list
+            alist=?
             assoc-ref*
             assoc-set
             call-with-temporary-directory
@@ -36,6 +37,11 @@ pairs."
          ((key value)
           (cons key value)))
        lst))
+
+(define (alist=? alist1 alist2)
+  "Return @code{#t} if @var{alist1} and @var{alist2} are equal. Keys and values are
+compared using @code{equal?}, and the order of key-value pairs does not matter."
+  (lset= equal? alist1 alist2))
 
 (define (assoc-ref* alist key)
   "Return value mapped to @var{key} in @var{alist}. Raise an &assertion
