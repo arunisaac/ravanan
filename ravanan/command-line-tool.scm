@@ -769,8 +769,9 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                       (list))
                                      ((File)
                                       (list (cons output-id
-                                                  (canonicalize-file-value output-value
-                                                                           workflow-output-directory))))
+                                                  (copy-file-value
+                                                   (canonicalize-file-value output-value)
+                                                   workflow-output-directory))))
                                      (else
                                       (list (cons output-id output-value))))))
                                '#$(vector->list (assoc-ref cwl "outputs"))))
@@ -843,24 +844,29 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                            (guix search-paths)
                            (json))
 
-              (define (canonicalize-file-value value workflow-output-directory)
-                (let* ((path (or (assoc-ref value "location")
-                                 (assoc-ref value "path")))
-                       (workflow-output-path
-                        (expand-file-name (basename path)
-                                          workflow-output-directory)))
-                  ;; Copy file to the workflow output directory in the store.
-                  (copy-file path workflow-output-path)
-                  ;; Populate all fields of the File type value.
+              (define (copy-file-value value directory)
+                ;; Copy file represented by value to directory and return the
+                ;; new File value.
+                (let* ((path (assoc-ref* value "path"))
+                       (destination-path (expand-file-name (basename path)
+                                                           directory)))
+                  (copy-file path destination-path)
                   (assoc-set value
-                    (cons "location" (string-append "file://"
-                                                    workflow-output-path))
-                    (cons "path" workflow-output-path)
-                    (cons "basename" (basename path))
-                    (cons "nameroot" (file-name-stem path))
-                    (cons "nameext" (file-name-extension path))
-                    (cons "size" (stat:size (stat path)))
-                    (cons "checksum" (checksum path)))))
+                    (cons "location" (string-append "file://" destination-path))
+                    (cons "path" destination-path))))
+
+              (define (canonicalize-file-value value)
+                (let ((path (or (assoc-ref value "location")
+                                (assoc-ref value "path"))))
+                  ;; Populate all fields of the File type value.
+                  `(("class" . "File")
+                    ("location" . ,(string-append "file://" path))
+                    ("path" . ,path)
+                    ("basename" . ,(basename path))
+                    ("nameroot" . ,(file-name-stem path))
+                    ("nameext" . ,(file-name-extension path))
+                    ("size" . ,(stat:size (stat path)))
+                    ("checksum" . ,(checksum path)))))
 
               (define (capture-secondary-file path secondary-file
                                               workflow-output-directory)
@@ -874,9 +880,10 @@ directory of the workflow."
                        (secondary-file-path (string-append path pattern))
                        (secondary-file-value
                         (and (file-exists? secondary-file-path)
-                             (canonicalize-file-value `(("class" . "File")
-                                                        ("path" . ,secondary-file-path))
-                                                      workflow-output-directory))))
+                             (copy-file-value (canonicalize-file-value
+                                               `(("class" . "File")
+                                                 ("path" . ,secondary-file-path)))
+                                              workflow-output-directory))))
                   (if (and (assoc-ref* secondary-file "required")
                            (not secondary-file-value))
                       (user-error "Secondary file ~a missing for output path ~a"
@@ -885,9 +892,10 @@ directory of the workflow."
                       secondary-file-value)))
 
               (define (path->value path workflow-output-directory maybe-secondary-files)
-                (maybe-assoc-set (canonicalize-file-value `(("class" . "File")
-                                                            ("path" . ,path))
-                                                          workflow-output-directory)
+                (maybe-assoc-set (copy-file-value (canonicalize-file-value
+                                                   `(("class" . "File")
+                                                     ("path" . ,path)))
+                                                  workflow-output-directory)
                   (cons "secondaryFiles"
                         (maybe-let* ((secondary-files maybe-secondary-files))
                           (just (vector-filter-map (cut capture-secondary-file
