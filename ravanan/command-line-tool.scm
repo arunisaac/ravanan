@@ -826,10 +826,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest
     (check-requirements hints %command-line-tool-supported-requirements #t))
   ;; Copy input files and update corresponding input objects.
   (build-gexp-script name
-    (let ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
-                                                  #())
-                                              (or (assoc-ref cwl "hints")
-                                                  #()))))
+    (let* ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
+                                                   #())
+                                               (or (assoc-ref cwl "hints")
+                                                   #())))
+           (initial-work-dir-requirement (find-requirement requirements
+                                                           "InitialWorkDirRequirement")))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
                                                       (ravanan work monads)
                                                       (ravanan work ui)
@@ -970,6 +972,52 @@ directory of the workflow."
                            ((eq? matched-type 'null)
                             'null))))))
 
+              ;; Stage files.
+              ;; We currently support File and Dirent only. TODO: Support others.
+              (define (stage-files entries outputs-directory)
+                ;; Stage entries and return an association list mapping files
+                ;; (presumably input files) that were staged.
+                (filter-map (match-lambda
+                              ((entry-name entry)
+                               (cond
+                                ;; Stuff string literal into a file.
+                                ((string? entry)
+                                 (call-with-input-file entry-name
+                                   (cut put-string <> entry))
+                                 #f)
+                                ;; Symlink to the file.
+                                ((eq? (object-type entry)
+                                      'File)
+                                 ;; TODO: Stage secondary files too?
+                                 (rename-file (assoc-ref* entry "path")
+                                              entry-name)
+                                 (cons entry
+                                       (canonicalize-file-value
+                                        `(("class" . "File")
+                                          ("path" . ,entry-name))))))))
+                            entries))
+
+              (define (set-staged-path input staging-mapping)
+                ;; If input is a File type input that was staged, return new
+                ;; staged value. Else, return as is.
+                (cond
+                 ;; Recurse on vector inputs.
+                 ((vector? input)
+                  (list->vector
+                   (map (cut set-staged-path <> staging-mapping)
+                        (vector->list input))))
+                 ;; Try to replace File input value with staged value.
+                 ((eq? (object-type input)
+                       'File)
+                  (or (any (match-lambda
+                             ((old-value . new-value)
+                              (and (alist=? input old-value)
+                                   new-value)))
+                           staging-mapping)
+                      input))
+                 ;; Else, return as is.
+                 (else input)))
+
               ;; Set search paths for manifest.
               (for-each (match-lambda
                           ((specification . value)
@@ -986,7 +1034,6 @@ directory of the workflow."
               (call-with-temporary-directory
                (lambda (inputs-directory)
                  (let ((inputs
-                        ;; TODO: Update paths of staged files.
                         #$(copy-input-files-gexp
                            (resolve-inputs inputs (assoc-ref* cwl "inputs") store)))
                        (runtime `(("cores" . ,(total-processor-count)))))
@@ -1008,31 +1055,23 @@ directory of the workflow."
                        (lambda (outputs-directory)
                          (call-with-current-directory outputs-directory
                            (lambda ()
-                             ;; Stage files.
-                             ;; We currently support File and Dirent only. TODO:
-                             ;; Support others.
-                             (map (match-lambda
-                                    ((entry-name entry)
-                                     (cond
-                                      ;; Stuff string literal into a file.
-                                      ((string? entry)
-                                       (call-with-input-file entry-name
-                                         (cut put-string <> entry)))
-                                      ;; Symlink to the file.
-                                      ((eq? (object-type entry)
-                                            'File)
-                                       (symlink (assoc-ref entry "path")
-                                                entry-name)))))
-                                  (list #$@(from-maybe
-                                            (maybe-bind
-                                             (find-requirement requirements
-                                                               "InitialWorkDirRequirement")
-                                             (compose just files-to-stage))
-                                            (list))))
-                             ;; Actually run the command.
-                             #$run-command-gexp
-                             ;; Capture outputs.
-                             #$capture-outputs-gexp)))
+                             (let* ((staging-mapping
+                                     (stage-files (list #$@(from-maybe
+                                                            (maybe-bind initial-work-dir-requirement
+                                                                        (compose just files-to-stage))
+                                                            (list)))
+                                                  outputs-directory))
+                                    (inputs
+                                     (map (match-lambda
+                                            ((id . input)
+                                             (cons id
+                                                   (set-staged-path input
+                                                                    staging-mapping))))
+                                          inputs)))
+                               ;; Actually run the command.
+                               #$run-command-gexp
+                               ;; Capture outputs.
+                               #$capture-outputs-gexp))))
                        #$scratch))
                     #$scratch)))
                #$scratch)))))
