@@ -27,6 +27,7 @@
             alist=?
             assoc-ref*
             assoc-set
+            json-ref
             call-with-temporary-directory
             call-with-input-pipe))
 
@@ -61,6 +62,15 @@ mutated."
                    (alist-delete key alist))
             tail))
     (() alist)))
+
+(define (json-ref scm . keys)
+  "Extract subtree of JSON @var{scm} that is addressed by @var{keys}."
+  (match keys
+    ((key other-keys ...)
+     (apply json-ref
+            ((if (list? scm) assoc-ref vector-ref) scm key)
+            other-keys))
+    (() scm)))
 
 (define* (call-with-temporary-directory proc
                                         #:optional (parent-directory (getcwd)))

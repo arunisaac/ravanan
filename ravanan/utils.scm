@@ -21,7 +21,6 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:export (string-trim-prefix
-            json-ref
             call-with-temporary-file))
 
 (define (string-trim-prefix prefix str)
@@ -29,15 +28,6 @@
   (if (string-prefix? prefix str)
       (substring str (string-length prefix))
       str))
-
-(define (json-ref scm . keys)
-  "Extract subtree of JSON @var{scm} that is addressed by @var{keys}."
-  (match keys
-    ((key other-keys ...)
-     (apply json-ref
-            ((if (list? scm) assoc-ref vector-ref) scm key)
-            other-keys))
-    (() scm)))
 
 (define* (call-with-temporary-file proc #:optional (parent-directory (getcwd)))
   "Call @var{proc} with an output port to a new temporary file in

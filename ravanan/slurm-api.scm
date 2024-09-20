@@ -25,7 +25,7 @@
   #:use-module (web client)
   #:use-module (web uri)
   #:use-module (json)
-  #:use-module (ravanan utils)
+  #:use-module (ravanan work utils)
   #:export (submit-job
             job-state))
 
