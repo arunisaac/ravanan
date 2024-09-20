@@ -769,7 +769,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                       (list))
                                      ((File)
                                       (list (cons output-id
-                                                  (canonicalize-file-value output-value))))
+                                                  (canonicalize-file-value output-value
+                                                                           workflow-output-directory))))
                                      (else
                                       (list (cons output-id output-value))))))
                                '#$(vector->list (assoc-ref cwl "outputs"))))
