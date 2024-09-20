@@ -231,13 +231,19 @@ G-expressions are inserted."
                                 (assoc-ref* argument "valueFrom")))
                           %nothing))
 
-  (define (collect-bindings inputs+types+bindings)
-    (append-map input+type-tree+binding->command-line-binding
-                inputs+types+bindings))
+  (define (collect-bindings ids+inputs+types+bindings)
+    (append-map id+input+type-tree+binding->command-line-binding
+                ids+inputs+types+bindings))
   
-  (define input+type-tree+binding->command-line-binding
+  (define id+input+type-tree+binding->command-line-binding
     (match-lambda
-      ((input type-tree binding)
+      ;; We stretch the idea of an input id, by making it an address that
+      ;; identifies the exact location of a value in a tree that possibly
+      ;; contains array types. For example, '("foo") identifies the input "foo";
+      ;; '("foo" 1) identifies the 1th element of the array input "foo"; '("foo"
+      ;; 37 1) identifies the 1th element of the 37th element of the array input
+      ;; "foo"; etc.
+      ((id input type-tree binding)
        ;; Check type.
        (let* ((type (formal-parameter-type type-tree))
               (matched-type (match-type input type)))
@@ -258,17 +264,25 @@ G-expressions are inserted."
                     position
                     prefix
                     matched-type
-                    (append-map (lambda (input)
-                                  (input+type-tree+binding->command-line-binding
-                                   (list input
+                    (append-map (lambda (i input)
+                                  (id+input+type-tree+binding->command-line-binding
+                                   (list (append id (list i))
+                                         input
                                          (assoc-ref type-tree "items")
                                          (maybe-assoc-ref (just type-tree)
                                                           "inputBinding"))))
+                                (iota (vector-length input))
                                 (vector->list input))
                     (maybe-assoc-ref binding "itemSeparator"))))
             (else
-             (list (command-line-binding
-                    position prefix matched-type input %nothing)))))))))
+             (list (command-line-binding position
+                                         prefix
+                                         matched-type
+                                         ;; We defer access of input values to
+                                         ;; runtime when inputs have been fully
+                                         ;; resolved, staging is complete, etc.
+                                         #~(apply json-ref inputs '#$id)
+                                         %nothing)))))))))
   
   ;; For details of this algorithm, see §4.1 Input binding of the CWL
   ;; 1.2 CommandLineTool specification:
@@ -291,7 +305,8 @@ G-expressions are inserted."
                     ;; Exclude formal inputs without an inputBinding.
                     (and (assoc "inputBinding" formal-input)
                          (let ((id (assoc-ref formal-input "id")))
-                           (list (or (assoc-ref inputs id)
+                           (list (list id)
+                                 (or (assoc-ref inputs id)
                                      (assoc-ref formal-input "default")
                                      'null)
                                  (or (assoc-ref formal-input "type")
@@ -453,8 +468,7 @@ in which the G-expressions are inserted."
                       ((int)
                        (number->string value))
                       ((File)
-                       #~(expand-file-name #$(basename (assoc-ref value "location"))
-                                           inputs-directory))
+                       #~(assoc-ref* #$value "path"))
                       (else
                        (user-error "Invalid formal input type ~a"
                                    type)))))))))
