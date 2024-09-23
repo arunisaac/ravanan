@@ -55,31 +55,32 @@
    state))
 
 (define* (job-state-status state #:key slurm-api-endpoint slurm-jwt)
-  "Return current status of job with @var{state}---one of the symbols
-@code{completed}, @code{failed} or @code{pending}.
+  "Return current status and updated state of job with @var{state}. The status is
+one of the symbols @code{completed}, @code{failed} or @code{pending}.
 
 @var{slurm-api-endpoint} and @var{slurm-jwt} are the same as in
 @code{run-workflow} from @code{(ravanan workflow)}."
-  (cond
-   ;; Single machine jobs are run synchronously. So, they return success or
-   ;; failure immediately.
-   ((single-machine-job-state? state)
-    (if (single-machine-job-state-success? state)
-        'completed
-        'failed))
-   ;; Poll slurm for job state.
-   ((slurm-job-state? state)
-    (job-state (slurm-job-state-job-id state)
-               #:api-endpoint slurm-api-endpoint
-               #:jwt slurm-jwt))
-   ;; For vector states, poll each state element and return 'completed only if
-   ;; all state elements have completed.
-   ((vector? state)
-    (or (vector-every (lambda (state-element)
-                        (case (job-state-status state-element
-                                                #:slurm-api-endpoint slurm-api-endpoint
-                                                #:slurm-jwt slurm-jwt)
-                          ((completed) => identity)
-                          (else #f)))
-                      state)
-        'pending))))
+  (values (cond
+           ;; Single machine jobs are run synchronously. So, they return success
+           ;; or failure immediately.
+           ((single-machine-job-state? state)
+            (if (single-machine-job-state-success? state)
+                'completed
+                'failed))
+           ;; Poll slurm for job state.
+           ((slurm-job-state? state)
+            (job-state (slurm-job-state-job-id state)
+                       #:api-endpoint slurm-api-endpoint
+                       #:jwt slurm-jwt))
+           ;; For vector states, poll each state element and return 'completed
+           ;; only if all state elements have completed.
+           ((vector? state)
+            (or (vector-every (lambda (state-element)
+                                (case (job-state-status state-element
+                                                        #:slurm-api-endpoint slurm-api-endpoint
+                                                        #:slurm-jwt slurm-jwt)
+                                  ((completed) => identity)
+                                  (else #f)))
+                              state)
+                'pending)))
+          state))

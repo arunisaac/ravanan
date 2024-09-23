@@ -1119,9 +1119,9 @@ job state object."
                                  #:slurm-jwt slurm-jwt))))
 
   (define (poll state)
-    "Return current status of job @var{state} object---one of the symbols
-@code{pending} or @code{completed}. Raise an exception and exit if job has
-failed."
+    "Return current status and updated state of job @var{state} object. The status is
+one of the symbols @code{pending} or @code{completed}. Raise an exception and
+exit if job has failed."
     (guard (c ((job-failure? c)
                (let ((script (job-failure-script c)))
                  (user-error
@@ -1129,12 +1129,14 @@ failed."
                   script
                   (script->store-stdout-file script store)
                   (script->store-stderr-file script store)))))
-      (case (job-state-status state
-                              #:slurm-api-endpoint slurm-api-endpoint
-                              #:slurm-jwt slurm-jwt)
-        ((failed)
-         (raise-exception (job-failure (job-state-script state))))
-        (else => identity))))
+      (let ((status state (job-state-status state
+                                            #:slurm-api-endpoint slurm-api-endpoint
+                                            #:slurm-jwt slurm-jwt)))
+        (values (case status
+                  ((failed)
+                   (raise-exception (job-failure (job-state-script state))))
+                  (else => identity))
+                state))))
 
   (define (capture-output state)
     "Return output of completed job @var{state}."

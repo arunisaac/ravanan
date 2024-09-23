@@ -77,6 +77,13 @@
   (propagators-in-flight propnet-state-propagators-in-flight)
   (propagators-inbox propnet-state-propagators-inbox))
 
+(define (partition-map pred proc lst)
+  "Partition @var{lst} into two lists using @var{pred} like @code{partition}. Then,
+map @var{proc} over both the lists and return the resulting lists."
+  (let ((true-list false-list (partition pred lst)))
+    (values (map proc true-list)
+            (map proc false-list))))
+
 (define (activate-propagator schedule propagator inputs-alist)
   "Activate @var{propagator} with inputs from @var{inputs-alist}. If some
 required inputs are absent, do nothing. Schedule the propagator using
@@ -230,12 +237,18 @@ add to the inbox."
             (_
              (let ((finished-propagators
                     propagators-still-in-flight
-                    (partition (match-lambda
-                                 ((name . state)
-                                  (eq? ((scheduler-poll scheduler)
-                                        state)
-                                       'completed)))
-                               propagators-in-flight)))
+                    (partition-map (match-lambda
+                                     ((_ _ 'completed) #t)
+                                     (_ #f))
+                                   (match-lambda
+                                     ((name state _)
+                                      (cons name state)))
+                                   (map (match-lambda
+                                          ((name . state)
+                                           (let ((status state ((scheduler-poll scheduler)
+                                                                state)))
+                                             (list name state status))))
+                                        propagators-in-flight))))
                (match finished-propagators
                  ;; None of the propagators we checked have completed. Return a
                  ;; pending state.
