@@ -19,6 +19,7 @@
 (define-module (ravanan workflow)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-71)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (ravanan command-line-tool)
@@ -35,6 +36,11 @@
   (cons* "ScatterFeatureRequirement"
          "SubworkflowFeatureRequirement"
          %command-line-tool-supported-requirements))
+
+;; In batch systems that require it, poll job completion status every
+;; 5 seconds.
+(define %job-poll-interval
+  5)
 
 (define (value=? maybe-val1 maybe-val2)
   "Return @code{#t} if maybe-monadic values @var{maybe-val1} and
@@ -294,17 +300,30 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
                          (user-error "Required input `~a' not specified"
                                      input-id))))
                    (assoc-ref cwl "inputs"))
-  (let ((cell-values
-         (run-propnet
-          (propnet (workflow->propagators name cwl)
-                   value=?
-                   merge-values
-                   (command-line-tool-scheduler
-                    manifest scratch store batch-system
-                    #:guix-daemon-socket guix-daemon-socket
-                    #:slurm-api-endpoint slurm-api-endpoint
-                    #:slurm-jwt slurm-jwt))
-          inputs)))
-    ;; Capture outputs.
-    (vector-filter-map->list (cut capture-output cell-values <>)
-                             (assoc-ref* cwl "outputs"))))
+  (let loop ((state (schedule-propnet
+                     (propnet (workflow->propagators name cwl)
+                              value=?
+                              merge-values
+                              (command-line-tool-scheduler
+                               manifest scratch store batch-system
+                               #:guix-daemon-socket guix-daemon-socket
+                               #:slurm-api-endpoint slurm-api-endpoint
+                               #:slurm-jwt slurm-jwt))
+                     inputs)))
+    ;; Poll.
+    (let ((status state (poll-propnet state)))
+      (if (eq? status 'pending)
+          (begin
+            ;; Pause before looping and polling again so we don't bother the job
+            ;; server too often.
+            (sleep (case batch-system
+                     ;; Single machine jobs are run synchronously. So, there is
+                     ;; no need to wait to poll them.
+                     ((single-machine) 0)
+                     ((slurm-api) %job-poll-interval)))
+            (loop state))
+          ;; Capture outputs.
+          (vector-filter-map->list (cute capture-output
+                                         (capture-propnet-output state)
+                                         <>)
+                                   (assoc-ref* cwl "outputs"))))))

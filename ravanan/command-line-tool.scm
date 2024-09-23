@@ -85,11 +85,6 @@
 (define %worker-node
   (file-append node "/bin/node"))
 
-;; In batch systems that require it, poll job completion status every
-;; 5 seconds.
-(define %job-poll-interval
-  5)
-
 (define-immutable-record-type <scheduler-proc>
   (scheduler-proc name cwl scatter scatter-method)
   scheduler-proc?
@@ -1167,11 +1162,4 @@ failed."
                   (script->store-stderr-file script store))
           (capture-command-line-tool-output script store))))
 
-  (scheduler schedule
-             poll
-             (case batch-system
-               ;; Single machine jobs are run synchronously. So, there is no
-               ;; need to wait to poll them.
-               ((single-machine) 0)
-               ((slurm-api) %job-poll-interval))
-             capture-output))
+  (scheduler schedule poll capture-output))
