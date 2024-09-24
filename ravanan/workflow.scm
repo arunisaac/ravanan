@@ -283,10 +283,7 @@ job state object."
              (apply vector-map
                     (lambda input-elements
                       ;; Recurse with scattered inputs spliced in.
-                      (schedule (scheduler-proc (scheduler-proc-name proc)
-                                                (scheduler-proc-cwl proc)
-                                                %nothing
-                                                %nothing)
+                      (schedule (scheduler-proc name cwl %nothing %nothing)
                                 ;; Replace scattered inputs with single
                                 ;; elements.
                                 (apply assoc-set
