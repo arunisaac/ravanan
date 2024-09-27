@@ -637,7 +637,7 @@ The returned G-expression will reference an @code{inputs-directory} variable."
       #~,(let ((path-in-inputs-directory
                 (expand-file-name #$(assoc-ref input "basename")
                                   inputs-directory)))
-           (copy-file #$(assoc-ref input "location")
+           (copy-file #$(assoc-ref input "path")
                       path-in-inputs-directory)
            (maybe-assoc-set '#$input
              (cons "location"
