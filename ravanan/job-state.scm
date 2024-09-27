@@ -48,10 +48,10 @@
 
 (define (job-state-script state)
   ((cond
-     ((single-machine-job-state? state)
-      single-machine-job-state-script)
-     ((slurm-job-state? state)
-      slurm-job-state-script))
+    ((single-machine-job-state? state)
+     single-machine-job-state-script)
+    ((slurm-job-state? state)
+     slurm-job-state-script))
    state))
 
 (define* (job-state-status state #:key slurm-api-endpoint slurm-jwt)
