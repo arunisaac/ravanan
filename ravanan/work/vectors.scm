@@ -32,7 +32,8 @@
             vector-filter-map
             vector-filter-map->list
             vector-remove
-            vector-find)
+            vector-find
+            vector-member)
   #:re-export (vector-append
                vector-for-each
                vector-map
@@ -102,3 +103,7 @@ element exists, return @code{#f}."
                 (and (pred x)
                      x))
               vec))
+
+(define (vector-member x vec)
+  "Return @code{#t} if @var{x} is a member of @var{vec}. Else, return @code{#f}."
+  (member x (vector->list vec)))
