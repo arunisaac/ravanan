@@ -22,12 +22,13 @@
   #:use-module ((srfi srfi-43) #:select (vector-append
                                          (vector-map . vector-map-indexed)
                                          vector-any
-                                         vector-every
-                                         vector-fold))
+                                         vector-every))
+  #:use-module ((srfi srfi-43) #:select (vector-fold) #:prefix srfi-43:)
   #:export (vector-map->list
             vector-append-map
             vector-append-map->list
             map->vector
+            vector-fold
             vector-filter
             vector-filter-map
             vector-filter-map->list
@@ -41,11 +42,23 @@
                vector-any
                vector-every))
 
+(define (vector-fold proc init first-vector . other-vectors)
+  "Apply @var{proc} to the elements of @var{first-vector} and @var{other-vectors}
+to build a result, and return that result. Each @var{proc} call is @code{(proc
+result element1 element2 ...)} where @var{result} is the return value from the
+previous call to @var{proc}, or @var{init} for the first call."
+  (apply srfi-43:vector-fold
+         (lambda (_ result . elements)
+           (apply proc result elements))
+         init
+         first-vector
+         other-vectors))
+
 (define (vector-map->list proc first-vector . other-vectors)
   "Map @var{proc} over vectors and return a list of the results."
   (reverse
    (apply vector-fold
-          (lambda (_ result . elements)
+          (lambda (result . elements)
             (cons (apply proc elements)
                   result))
           (list)
@@ -56,7 +69,7 @@
   "Map @var{proc} over vectors and return a vector of the results appended
 together."
   (apply vector-fold
-         (lambda (_ result . elements)
+         (lambda (result . elements)
            (vector-append result
                           (apply proc elements)))
          (vector)
@@ -67,7 +80,7 @@ together."
   "Map @var{proc} over vectors and return a list of the results appended
 together."
   (apply vector-fold
-         (lambda (_ result . elements)
+         (lambda (result . elements)
            (append result
                    (apply proc elements)))
          (list)
