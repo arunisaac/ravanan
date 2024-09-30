@@ -18,9 +18,9 @@
 
 ;;; Commentary:
 
-;; This module isolates the various job-state record types and exports only a
-;; generic interface to them. In addition, it also exports constructors for the
-;; various job-state record types.
+;; This module isolates the job-state record types for the various batch systems
+;; and exports only a generic interface to them. In addition, it also exports
+;; constructors for the various job-state record types.
 
 ;;; Code:
 
