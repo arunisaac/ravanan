@@ -27,7 +27,6 @@
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
-  #:use-module (web uri)
   #:use-module (gcrypt base16)
   #:use-module (gcrypt hash)
   #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
@@ -59,7 +58,11 @@
             %command-line-tool-supported-requirements
             script->store-stdout-file
             script->store-stderr-file
-            capture-command-line-tool-output))
+            capture-command-line-tool-output
+
+            %store-files-directory
+            %store-data-directory
+            %store-logs-directory))
 
 (define %store-files-directory
   "files")
@@ -297,119 +300,6 @@ G-expressions are inserted."
       (< (command-line-binding-position binding1)
          (command-line-binding-position binding2))))))
 
-(define (location->path location)
-  "Convert file @var{location} URI to path."
-  (if (string-prefix? "/" location)
-      ;; Sometimes location is actually a path. In that case, return as is.
-      location
-      ;; If location is an URI, parse the URI and return the path part.
-      (uri-path (string->uri location))))
-
-(define (resolve-inputs inputs formal-inputs store)
-  "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
-files found into the @var{store} and return a tree of the fully
-resolved inputs.
-
-The returned @code{File} type objects are updated with @code{basename},
-@code{nameroot}, @code{nameext}, @code{checksum} and @code{size} fields, and
-store-interned paths in the @code{location} and @code{path} fields. The
-@code{basename} field contains the basename of the original path, and not the
-store-interned path."
-  (define (canonicalize-file-input input)
-    "Canonicalize @code{File} type @var{input} and its secondary files."
-    (let* ((path (or (and (assoc-ref input "location")
-                          (location->path (assoc-ref input "location")))
-                     (assoc-ref input "path")))
-           (interned-path (intern-file path store)))
-      (maybe-assoc-set input
-        (cons "location" (just interned-path))
-        (cons "path" (just interned-path))
-        (cons "basename" (just (basename path)))
-        (cons "nameroot" (just (file-name-stem path)))
-        (cons "nameext" (just (file-name-extension path)))
-        (cons "checksum" (just (checksum path)))
-        (cons "size" (just (stat:size (stat path))))
-        (cons "secondaryFiles"
-              (maybe-let* ((secondary-files (maybe-assoc-ref (just input)
-                                                             "secondaryFiles")))
-                (just (vector-map canonicalize-file-input
-                                  secondary-files)))))))
-
-  (define (match-secondary-file-pattern input pattern)
-    "Return @code{#t} if secondary file @var{pattern} matches at least one secondary
-file in @var{input}."
-    ;; TODO: Implement caret characters in SecondaryFileSchema DSL.
-    (vector-any (lambda (secondary-file)
-                  (string=? (assoc-ref* secondary-file "path")
-                            (string-append (assoc-ref* input "path")
-                                           pattern)))
-                (or (assoc-ref input "secondaryFiles")
-                    (user-error "Missing secondaryFiles in input ~a"
-                                input))))
-
-  (define (check-secondary-files input secondary-files)
-    "Check if all required @var{secondary-files} are present in @var{input}. If not,
-error out."
-    (vector-for-each (lambda (secondary-file)
-                       (let ((pattern (assoc-ref* secondary-file "pattern")))
-                         (when (and (assoc-ref* secondary-file "required")
-                                    (not (match-secondary-file-pattern input pattern)))
-                           (user-error "Secondary file ~a missing in input ~a"
-                                       pattern
-                                       input))))
-                     secondary-files))
-
-  (define (resolve inputs types maybe-secondary-files)
-    (vector-map (lambda (input type-tree maybe-secondary-files)
-                  ;; Check type.
-                  (let* ((type (formal-parameter-type type-tree))
-                         (matched-type (match-type input type)))
-                    (unless matched-type
-                      (error input "Type mismatch" input type))
-                    ;; TODO: Implement record and enum types.
-                    (cond
-                     ;; Recurse over array types.
-                     ((array-type? matched-type)
-                      (resolve input
-                               (make-vector (vector-length input)
-                                            (assoc-ref type-tree "items"))
-                               (make-vector (vector-length input)
-                                            maybe-secondary-files)))
-                     ;; Intern File type inputs and fully resolve them.
-                     ((eq? matched-type 'File)
-                      (let ((resolved-input (canonicalize-file-input input)))
-                        ;; Ensure secondary files are provided with File type
-                        ;; inputs.
-                        (maybe-bind maybe-secondary-files
-                                    (cut check-secondary-files resolved-input <>))
-                        resolved-input))
-                     ;; Return other input types unchanged.
-                     (else input))))
-                inputs
-                types
-                maybe-secondary-files))
-  
-  (vector-map->list (lambda (input formal-input)
-                      (cons (assoc-ref formal-input "id")
-                            input))
-                    (resolve (vector-map (lambda (formal-input)
-                                           (let ((id (assoc-ref* formal-input "id")))
-                                             (or (assoc-ref inputs id)
-                                                 (assoc-ref formal-input "default")
-                                                 'null)))
-                                         formal-inputs)
-                             (vector-map (lambda (formal-input)
-                                           (let ((id (assoc-ref* formal-input "id")))
-                                             (or (assoc-ref formal-input "type")
-                                                 (user-error "Type of input ~a not specified"
-                                                             id))))
-                                         formal-inputs)
-                             (vector-map (lambda (formal-input)
-                                           (maybe-assoc-ref (just formal-input)
-                                                            "secondaryFiles"))
-                                         formal-inputs))
-                    formal-inputs))
-
 (define (command-line-binding->args binding)
   "Return a list of arguments for @var{binding}. The returned list may
 contain strings or G-expressions. The G-expressions may reference an
@@ -602,23 +492,6 @@ path."
     ;; Return output values.
     (call-with-input-file store-data-file
       json->scm)))
-
-(define (intern-file file store)
-  "Intern @var{file} into the ravanan @var{store} unless it is already a store
-path. Return the interned path."
-  (if (string-prefix? store file)
-      ;; If file is already a store path, return it as is.
-      file
-      ;; Else, intern it and return the interned path.
-      (let ((interned-path
-             (expand-file-name
-              (file-name-join* %store-files-directory
-                               (string-append (sha1-hash file)
-                                              "-"
-                                              (basename file)))
-              store)))
-        (copy-file file interned-path)
-        interned-path)))
 
 (define (copy-input-files-gexp inputs)
   "Return a G-expression that copies @code{File} type inputs (along with secondary
@@ -1010,9 +883,7 @@ directory of the workflow."
 
               (call-with-temporary-directory
                (lambda (inputs-directory)
-                 (let ((inputs
-                        #$(copy-input-files-gexp
-                           (resolve-inputs inputs (assoc-ref* cwl "inputs") store)))
+                 (let ((inputs #$(copy-input-files-gexp inputs))
                        (runtime `(("cores" . ,(total-processor-count)))))
 
                    ;; Set environment defined by workflow.
