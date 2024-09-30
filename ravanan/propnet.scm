@@ -84,10 +84,10 @@ map @var{proc} over both the lists and return the resulting lists."
     (values (map proc true-list)
             (map proc false-list))))
 
-(define (activate-propagator schedule propagator inputs-alist)
+(define (activate-propagator scheduler propagator inputs-alist)
   "Activate @var{propagator} with inputs from @var{inputs-alist}. If some
 required inputs are absent, do nothing. Schedule the propagator using
-@var{schedule}."
+@var{scheduler}."
   (match (lset-difference equal?
                           (map (match-lambda
                                  ((input-name . _) input-name))
@@ -96,7 +96,8 @@ required inputs are absent, do nothing. Schedule the propagator using
                                  ((input-name . _) input-name))
                                inputs-alist)
                           (propagator-optional-inputs propagator))
-    (() (just (schedule (propagator-proc propagator) inputs-alist)))
+    (() (just ((scheduler-schedule scheduler)
+               (propagator-proc propagator) inputs-alist scheduler)))
     (_ %nothing)))
 
 (define (rassoc val alist)
@@ -215,7 +216,7 @@ add to the inbox."
                 (append (maybe-alist
                          (cons (propagator-name propagator)
                                (activate-propagator
-                                (scheduler-schedule scheduler)
+                                scheduler
                                 propagator
                                 (propagator-input-values cells propagator))))
                         propagators-in-flight)))
