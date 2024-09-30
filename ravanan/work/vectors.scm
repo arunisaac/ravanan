@@ -19,6 +19,7 @@
 (define-module (ravanan work vectors)
   #:use-module ((rnrs base) #:select (vector-for-each vector-map))
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module ((srfi srfi-43) #:select (vector-append
                                          (vector-map . vector-map-indexed)
                                          vector-any
@@ -27,6 +28,7 @@
   #:export (vector-map->list
             vector-append-map
             vector-append-map->list
+            vector-mapn
             map->vector
             vector-fold
             vector-filter
@@ -86,6 +88,18 @@ together."
          (list)
          first-vector
          other-vectors))
+
+(define (vector-mapn proc vec)
+  "Map @var{proc} over elements of @var{vec} and return a vector of the results.
+@var{proc} may return multiple values, and this function returns the same number
+of vectors."
+  (apply values
+         (map list->vector
+              (apply zip
+                     (vector-map->list (lambda (element)
+                                         (call-with-values (cut proc element)
+                                           list))
+                                       vec)))))
 
 (define (map->vector proc first-list . other-lists)
   "Map @var{proc} over lists and return a vector of the results."
