@@ -127,14 +127,14 @@ requirements and hints of the step."
           (just (fold inherit-requirements
                       (or (assoc-ref workflow "requirements")
                           #())
-                      (subset-requirements parent-requirements)
-                      (subset-requirements step-requirements))))
+                      (list (subset-requirements parent-requirements)
+                            (subset-requirements step-requirements)))))
     (cons "hints"
           (just (fold inherit-requirements
                       (or (assoc-ref workflow "hints")
                           #())
-                      (subset-requirements parent-hints)
-                      (subset-requirements step-hints))))))
+                      (list (subset-requirements parent-hints)
+                            (subset-requirements step-hints)))))))
 
 (define (coerce-type val type)
   "Coerce @var{val} to @var{type}."
