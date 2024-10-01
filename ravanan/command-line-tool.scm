@@ -115,7 +115,7 @@
                      (let ((class (assoc-ref requirement "class")))
                        (unless (member class supported-requirements)
                          (if hint?
-                             (warning "Ignoring ~a hint; it is not supported~%"
+                             (warning "Ignoring ~a hint; it is not supported"
                                       class)
                              (user-error "Requirement ~a not supported"
                                          class)))))
