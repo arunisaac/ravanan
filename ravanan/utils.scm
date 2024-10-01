@@ -19,7 +19,6 @@
 (define-module (ravanan utils)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
-  #:use-module (ice-9 match)
   #:export (string-trim-prefix
             call-with-temporary-file))
 
