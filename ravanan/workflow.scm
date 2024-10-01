@@ -38,10 +38,17 @@
   #:use-module (ravanan work vectors)
   #:export (run-workflow))
 
+(define %workflow-only-requirements
+  (list "ScatterFeatureRequirement"
+        "SubworkflowFeatureRequirement"))
+
 (define %supported-requirements
-  (cons* "ScatterFeatureRequirement"
-         "SubworkflowFeatureRequirement"
-         %command-line-tool-supported-requirements))
+  (append %workflow-only-requirements
+          %command-line-tool-supported-requirements))
+
+(define (supported-requirements batch-system)
+  (append %workflow-only-requirements
+          (command-line-tool-supported-requirements batch-system)))
 
 ;; In batch systems that require it, poll job completion status every
 ;; 5 seconds.
@@ -188,9 +195,10 @@ propagator."
                                         (assoc-ref output "id")))
                                 (assoc-ref cwl "outputs"))))
 
-(define* (workflow-class->propnet name cwl scheduler)
-  "Return a propagator network scheduled using @var{scheduler} for @var{cwl}, a
-@code{Workflow} class workflow with @var{name}."
+(define* (workflow-class->propnet name cwl scheduler batch-system)
+  "Return a propagator network scheduled using @var{scheduler} on
+@var{batch-system} for @var{cwl}, a @code{Workflow} class workflow with
+@var{name}."
   (define (normalize-scatter-method scatter-method)
     (assoc-ref* '(("dotproduct" . dot-product)
                   ("nested_crossproduct" . nested-cross-product)
@@ -233,9 +241,13 @@ propagator."
 
   (maybe-let* ((requirements (maybe-assoc-ref (just cwl) "requirements")))
     (check-requirements requirements
+                        batch-system
+                        supported-requirements
                         %supported-requirements))
   (maybe-let* ((hints (maybe-assoc-ref (just cwl) "hints")))
     (check-requirements hints
+                        batch-system
+                        supported-requirements
                         %supported-requirements
                         #t))
   (propnet (vector-map->list step->propagator
@@ -296,7 +308,10 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
        ((string=? class "ExpressionTool")
         (error "Workflow class not implemented yet" class))
        ((string=? class "Workflow")
-        (workflow-state (schedule-propnet (workflow-class->propnet name cwl scheduler)
+        (workflow-state (schedule-propnet (workflow-class->propnet name
+                                                                   cwl
+                                                                   scheduler
+                                                                   batch-system)
                                           inputs)
                         (assoc-ref* cwl "outputs"))))))
 

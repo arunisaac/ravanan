@@ -48,6 +48,7 @@
             check-requirements
             inherit-requirements
             %command-line-tool-supported-requirements
+            command-line-tool-supported-requirements
             script->store-stdout-file
             script->store-stderr-file
             capture-command-line-tool-output
@@ -69,6 +70,9 @@
   (list "EnvVarRequirement"
         "InlineJavascriptRequirement"
         "InitialWorkDirRequirement"))
+
+(define (command-line-tool-supported-requirements batch-system)
+  %command-line-tool-supported-requirements)
 
 ;; node executable for evaluating javascript on worker nodes
 (define %worker-node
@@ -99,18 +103,34 @@
   (load-listing? output-binding-load-listing?)
   (output-eval output-binding-output-eval))
 
-(define* (check-requirements requirements supported-requirements
+(define* (check-requirements requirements
+                             batch-system
+                             supported-requirements-for-batch-system
+                             supported-requirements
                              #:optional hint?)
-  "Error out if any of @var{requirements} are not in
-@var{supported-requirements}. If @var{hint?} is @code{#t}, only print a warning."
+  "Error out if any of @var{requirements} are not supported by @var{batch-system}.
+If @var{hint?} is @code{#t}, only print a warning.
+@var{supported-requirements-for-batch-system} is a function that when passed a
+batch system returns the requirements supported by it.
+@var{supported-requirements} is the list of requirements supported by at least
+one batch system."
   (vector-for-each (lambda (requirement)
                      (let ((class (assoc-ref requirement "class")))
-                       (unless (member class supported-requirements)
+                       (unless (member class
+                                       (supported-requirements-for-batch-system batch-system))
                          (if hint?
-                             (warning "Ignoring ~a hint; it is not supported"
-                                      class)
-                             (user-error "Requirement ~a not supported"
-                                         class)))))
+                             (if (member class supported-requirements)
+                                 (warning "Ignoring ~a hint; it is not supported for batch system ~a"
+                                          class
+                                          batch-system)
+                                 (warning "Ignoring ~a hint; it is not supported"
+                                          class))
+                             (if (member class supported-requirements)
+                                 (user-error "Requirement ~a not supported for batch system ~a"
+                                             class
+                                             batch-system)
+                                 (user-error "Requirement ~a not supported"
+                                             class))))))
                    requirements))
 
 (define (inherit-requirements requirements supplementary-requirements)
@@ -384,7 +404,8 @@ path."
   ;; TODO: Write to the store atomically.
   (let* ((script
           (build-command-line-tool-script name manifest cwl inputs
-                                          scratch store guix-daemon-socket))
+                                          scratch store batch-system
+                                          guix-daemon-socket))
          (store-files-directory (script->store-files-directory script store))
          (store-data-file (script->store-data-file script store))
          (stdout-file (script->store-stdout-file script store))
@@ -548,10 +569,11 @@ order of keys."
    (else tree)))
 
 (define (build-command-line-tool-script name manifest cwl inputs
-                                        scratch store guix-daemon-socket)
+                                        scratch store batch-system
+                                        guix-daemon-socket)
   "Build and return script to run @code{CommandLineTool} class workflow @var{cwl}
 named @var{name} with @var{inputs} using tools from Guix manifest
-@var{manifest}.
+@var{manifest} and on @var{batch-system}.
 
 @var{scratch}, @var{store} and @var{guix-daemon-socket} are the same as in
 @code{run-workflow} from @code{(ravanan workflow)}."
@@ -685,9 +707,16 @@ named @var{name} with @var{inputs} using tools from Guix manifest
             (newline out)))))
   
   (maybe-let* ((requirements (maybe-assoc-ref (just cwl) "requirements")))
-    (check-requirements requirements %command-line-tool-supported-requirements))
+    (check-requirements requirements
+                        batch-system
+                        command-line-tool-supported-requirements
+                        %command-line-tool-supported-requirements))
   (maybe-let* ((hints (maybe-assoc-ref (just cwl) "hints")))
-    (check-requirements hints %command-line-tool-supported-requirements #t))
+    (check-requirements hints
+                        batch-system
+                        command-line-tool-supported-requirements
+                        %command-line-tool-supported-requirements
+                        #t))
   ;; Copy input files and update corresponding input objects.
   (build-gexp-script name
     (let* ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
