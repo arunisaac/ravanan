@@ -30,7 +30,6 @@
   #:use-module (ravanan command-line-tool)
   #:use-module (ravanan job-state)
   #:use-module (ravanan propnet)
-  #:use-module (ravanan reader)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
