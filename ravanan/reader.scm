@@ -281,5 +281,7 @@ each association list of the returned vector of association lists. If
       ((member val (list "false" "no")) #f)
       (else (error "Unable to coerce value to type" val type))))
     ((number)
-     (string->number val))
+     (if (number? val)
+         val
+         (string->number val)))
     (else val)))
