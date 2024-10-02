@@ -28,7 +28,8 @@
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (read-workflow
-            read-inputs))
+            read-inputs
+            coerce-type))
 
 (define (preprocess-include tree)
   (cond
@@ -269,3 +270,14 @@ each association list of the returned vector of association lists. If
                (call-with-input-file (basename inputs-file)
                  json->scm)
                (read-yaml-file (basename inputs-file)))))))
+
+(define (coerce-type val type)
+  "Coerce @var{val} to @var{type}."
+  ;; This function exists to handle YAML's type ambiguities.
+  (case type
+    ((boolean)
+     (cond
+      ((member val (list "true" "yes")) #t)
+      ((member val (list "false" "no")) #f)
+      (else (error "Unable to coerce value to type" val type))))
+    (else val)))
