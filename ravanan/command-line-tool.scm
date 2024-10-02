@@ -632,7 +632,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest
   (define (cores batch-system)
     (case batch-system
       ((slurm-api)
-       #~(getenv "SLURM_CPUS_ON_NODE"))
+       #~(string->number (getenv "SLURM_CPUS_ON_NODE")))
       ((single-machine)
        #~(total-processor-count))
       (else
