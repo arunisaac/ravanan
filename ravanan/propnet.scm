@@ -210,8 +210,15 @@ add to the inbox."
                 cell-values-inbox
                 other-propagators
                 ;; We don't need to cancel or forget about previous runs of the
-                ;; same propagator because cells only "accumulate" information;
-                ;; they never remove it.
+                ;; same propagator because cells only *accumulate* information;
+                ;; they never remove it. Any previous runs of the same
+                ;; propagator will only *add to* the information in the output
+                ;; cells. Previous runs may be closer to completion and taking
+                ;; advantage of their output may allow later stages to start
+                ;; running sooner, thus improving throughput. In our CWL
+                ;; application of propnets, this will never result in the same
+                ;; step being recomputed; so this approach does not come at a
+                ;; higher computational cost.
                 (append (maybe-alist
                          (cons (propagator-name propagator)
                                (activate-propagator
