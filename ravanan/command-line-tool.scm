@@ -451,6 +451,7 @@ path."
                                           ,store-data-file))
                                        stdout-file
                                        stderr-file
+                                       1
                                        name
                                        script
                                        #:api-endpoint slurm-api-endpoint
@@ -606,6 +607,15 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                        (assoc-ref listing-entry "entry")))))
                       (assoc-ref initial-work-dir-requirement
                                  "listing")))
+
+  (define (cores batch-system)
+    (case batch-system
+      ((slurm-api)
+       #~(getenv "SLURM_CPUS_ON_NODE"))
+      ((single-machine)
+       #~(total-processor-count))
+      (else
+       (assertion-violation batch-system "Unknown batch system"))))
 
   (define stdout-filename
     (cond
@@ -927,7 +937,7 @@ directory of the workflow."
               (call-with-temporary-directory
                (lambda (inputs-directory)
                  (let ((inputs #$(copy-input-files-gexp (canonicalize-json inputs)))
-                       (runtime `(("cores" . ,(total-processor-count)))))
+                       (runtime `(("cores" . ,#$(cores batch-system)))))
 
                    ;; Set environment defined by workflow.
                    (for-each (match-lambda
