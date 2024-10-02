@@ -438,10 +438,14 @@ path."
                                              (or (assoc-ref cwl "hints")
                                                  #())))
          (cpus (from-maybe
-                (maybe-let* ((cores-min (maybe-assoc-ref (find-requirement requirements
-                                                                           "ResourceRequirement")
-                                                         "coresMin")))
-                  (just (inexact->exact (ceiling (coerce-type cores-min 'number)))))
+                (maybe-bind (maybe-assoc-ref (find-requirement requirements
+                                                               "ResourceRequirement")
+                                             "coresMin")
+                            (compose just
+                                     inexact->exact
+                                     ceiling
+                                     (cut coerce-type <> 'number)
+                                     (cut coerce-expression-local <> inputs)))
                 1))
          (store-files-directory (script->store-files-directory script store))
          (store-data-file (script->store-data-file script store))
