@@ -205,13 +205,12 @@ evaluates it. This G-expression references variables @code{inputs} and
 @code{runtime}."
   (if (and (string? expression)
            (javascript-expression? expression))
-      #~(evaluate-parameter-reference
-         #$%worker-node
-         #$(interpolate-parameter-references expression)
-         inputs
-         'null
-         runtime
-         (list))
+      #~(evaluate-parameter-reference #$%worker-node
+                                      #$(interpolate-parameter-references expression)
+                                      inputs
+                                      'null
+                                      runtime
+                                      (list))
       expression))
 
 (define (coerce-expression-local expression inputs)
