@@ -214,6 +214,24 @@ evaluates it. This G-expression references variables @code{inputs} and
          (list))
       expression))
 
+(define (coerce-expression-local expression inputs)
+  "Coerce @var{expression}, which may reference @var{inputs}, into a scheme JSON
+tree.
+
+When @var{expression} is a scheme JSON tree, return it as is. When
+@var{expression} is a javascript expression, evaluate it and return the result.
+This function is similar to @code{coerce-expression-local}, but executes locally
+instead of staging onto a G-expression."
+  (if (and (string? expression)
+           (javascript-expression? expression))
+      (evaluate-parameter-reference %node
+                                    (interpolate-parameter-references expression)
+                                    inputs
+                                    'null
+                                    (list)
+                                    (list))
+      expression))
+
 (define (build-command cwl inputs)
   "Return a list of @code{<command-line-binding>} objects for the
 @code{CommandLineTool} class workflow @var{cwl} and @var{inputs}. The
