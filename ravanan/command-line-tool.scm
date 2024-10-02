@@ -372,7 +372,7 @@ in which the G-expressions are inserted."
                       ((string)
                        value)
                       ((int)
-                       (number->string value))
+                       #~(number->string #$value))
                       ((File)
                        #~(assoc-ref* #$value "path"))
                       (else
