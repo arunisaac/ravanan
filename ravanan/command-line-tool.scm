@@ -37,6 +37,7 @@
   #:use-module (guix store)
   #:use-module (json)
   #:use-module (ravanan job-state)
+  #:use-module (ravanan reader)
   #:use-module (ravanan slurm-api)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
@@ -69,10 +70,18 @@
 (define %command-line-tool-supported-requirements
   (list "EnvVarRequirement"
         "InlineJavascriptRequirement"
-        "InitialWorkDirRequirement"))
+        "InitialWorkDirRequirement"
+        "ResourceRequirement"))
 
 (define (command-line-tool-supported-requirements batch-system)
-  %command-line-tool-supported-requirements)
+  (case batch-system
+    ((single-machine)
+     (delete "ResourceRequirement"
+             %command-line-tool-supported-requirements))
+    ((slurm-api)
+     %command-line-tool-supported-requirements)
+    (else
+     (assertion-violation batch-system "Unknown batch system"))))
 
 ;; node executable for evaluating javascript on worker nodes
 (define %worker-node
@@ -406,6 +415,16 @@ path."
           (build-command-line-tool-script name manifest cwl inputs
                                           scratch store batch-system
                                           guix-daemon-socket))
+         (requirements (inherit-requirements (or (assoc-ref cwl "requirements")
+                                                 #())
+                                             (or (assoc-ref cwl "hints")
+                                                 #())))
+         (cpus (from-maybe
+                (maybe-let* ((cores-min (maybe-assoc-ref (find-requirement requirements
+                                                                           "ResourceRequirement")
+                                                         "coresMin")))
+                  (just (inexact->exact (ceiling (coerce-type cores-min 'number)))))
+                1))
          (store-files-directory (script->store-files-directory script store))
          (store-data-file (script->store-data-file script store))
          (stdout-file (script->store-stdout-file script store))
@@ -451,7 +470,7 @@ path."
                                           ,store-data-file))
                                        stdout-file
                                        stderr-file
-                                       1
+                                       cpus
                                        name
                                        script
                                        #:api-endpoint slurm-api-endpoint
