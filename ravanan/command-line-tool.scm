@@ -569,6 +569,14 @@ order of keys."
    ;; Atoms
    (else tree)))
 
+(define (find-requirement requirements class)
+  "Find requirement of @var{class} among @var{requirements} and return a
+maybe-monadic value."
+  (maybe-vector-find (lambda (requirement)
+                       (string=? (assoc-ref* requirement "class")
+                                 class))
+                     requirements))
+
 (define (build-command-line-tool-script name manifest cwl inputs
                                         scratch store batch-system
                                         guix-daemon-socket)
@@ -578,12 +586,6 @@ named @var{name} with @var{inputs} using tools from Guix manifest
 
 @var{scratch}, @var{store} and @var{guix-daemon-socket} are the same as in
 @code{run-workflow} from @code{(ravanan workflow)}."
-  (define (find-requirement requirements class)
-    (maybe-vector-find (lambda (requirement)
-                         (string=? (assoc-ref* requirement "class")
-                                   class))
-                       requirements))
-  
   (define (environment-variables env-var-requirement)
     (just (vector-map->list (lambda (environment-definition)
                               #~(list #$(assoc-ref* environment-definition
