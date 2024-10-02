@@ -36,6 +36,7 @@
   #:use-module (guix search-paths)
   #:use-module (guix store)
   #:use-module (json)
+  #:use-module (ravanan config)
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
   #:use-module (ravanan slurm-api)
