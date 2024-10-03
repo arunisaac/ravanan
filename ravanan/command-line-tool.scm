@@ -37,6 +37,7 @@
   #:use-module (guix store)
   #:use-module (json)
   #:use-module (ravanan config)
+  #:use-module (ravanan javascript)
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
   #:use-module (ravanan slurm-api)
@@ -170,19 +171,6 @@ class. Else, return @code{#f}."
 (define (interpolate-parameter-references str)
   "Interpolate @var{str} with one or more parameter references into a javascript
 expression suitable for evaluation."
-  (define (tokenize str)
-    "Split @var{str} into alternating tokens of parameter reference and literal
-strings."
-    (let ((end (if (string-prefix? "$(" str)
-                   (1+ (string-index str #\)))
-                   (string-index str #\$))))
-      (if end
-          (cons (substring str 0 end)
-                (tokenize (substring str end)))
-          (if (string-null? str)
-              (list)
-              (list str)))))
-
   (string-join (map (lambda (token)
                       (if (and (string-prefix? "$(" token)
                                (string-suffix? ")" token))
@@ -193,7 +181,7 @@ strings."
                                         (string-length ")")))
                           ;; Surround with double quotes.
                           (string-append "\"" token "\"")))
-                    (tokenize str))
+                    (tokenize-parameter-references str))
                " + "))
 
 (define* (coerce-expression expression #:optional context)
@@ -209,21 +197,26 @@ context and return the value. @var{context} must be an association list with
 keys @code{input}, @code{self} and @code{runtime}."
   (if (and (string? expression)
            (javascript-expression? expression))
-      (if context
-          ;; Evaluate immediately.
-          (evaluate-parameter-reference %node
-                                        (interpolate-parameter-references expression)
-                                        inputs
-                                        'null
-                                        (list)
-                                        (list))
-          ;; Compile to a G-expression that evaluates expression.
-          #~(evaluate-parameter-reference #$%worker-node
-                                          #$(interpolate-parameter-references expression)
-                                          inputs
-                                          'null
-                                          runtime
-                                          (list)))
+      (from-maybe
+       ;; Try evaluating expression as a simple parameter reference that uses a
+       ;; subset of javascript.
+       (evaluate-simple-parameter-reference expression context)
+       ;; Perhaps this is a more complex javascript expression. Fall back to node.
+       (if context
+           ;; Evaluate immediately.
+           (evaluate-parameter-reference %node
+                                         (interpolate-parameter-references expression)
+                                         (assq-ref context 'inputs)
+                                         'null
+                                         (list)
+                                         (list))
+           ;; Compile to a G-expression that evaluates expression.
+           #~(evaluate-parameter-reference #$%worker-node
+                                           #$(interpolate-parameter-references expression)
+                                           inputs
+                                           'null
+                                           runtime
+                                           (list))))
       ;; Not a javascript expression, but some other JSON tree. Return it as is.
       expression))
 
