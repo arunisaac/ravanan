@@ -196,39 +196,35 @@ strings."
                     (tokenize str))
                " + "))
 
-(define (coerce-expression expression)
+(define* (coerce-expression expression #:optional context)
   "Coerce @var{expression} into a scheme JSON tree.
 
 When @var{expression} is a scheme JSON tree, return it as is. When
 @var{expression} is a javascript expression, return a G-expression that
 evaluates it. This G-expression references variables @code{inputs} and
-@code{runtime}."
+@code{runtime}.
+
+If @var{context} is not @code{#f}, evaluate the parameter reference in that
+context and return the value. @var{context} must be an association list with
+keys @code{input}, @code{self} and @code{runtime}."
   (if (and (string? expression)
            (javascript-expression? expression))
-      #~(evaluate-parameter-reference #$%worker-node
-                                      #$(interpolate-parameter-references expression)
-                                      inputs
-                                      'null
-                                      runtime
-                                      (list))
-      expression))
-
-(define (coerce-expression-local expression inputs)
-  "Coerce @var{expression}, which may reference @var{inputs}, into a scheme JSON
-tree.
-
-When @var{expression} is a scheme JSON tree, return it as is. When
-@var{expression} is a javascript expression, evaluate it and return the result.
-This function is similar to @code{coerce-expression-local}, but executes locally
-instead of staging onto a G-expression."
-  (if (and (string? expression)
-           (javascript-expression? expression))
-      (evaluate-parameter-reference %node
-                                    (interpolate-parameter-references expression)
-                                    inputs
-                                    'null
-                                    (list)
-                                    (list))
+      (if context
+          ;; Evaluate immediately.
+          (evaluate-parameter-reference %node
+                                        (interpolate-parameter-references expression)
+                                        inputs
+                                        'null
+                                        (list)
+                                        (list))
+          ;; Compile to a G-expression that evaluates expression.
+          #~(evaluate-parameter-reference #$%worker-node
+                                          #$(interpolate-parameter-references expression)
+                                          inputs
+                                          'null
+                                          runtime
+                                          (list)))
+      ;; Not a javascript expression, but some other JSON tree. Return it as is.
       expression))
 
 (define (build-command cwl inputs)
@@ -445,7 +441,9 @@ path."
                                      inexact->exact
                                      ceiling
                                      (cut coerce-type <> 'number)
-                                     (cut coerce-expression-local <> inputs)))
+                                     (cut coerce-expression
+                                          <>
+                                          `(("inputs" . ,inputs)))))
                 1))
          (store-files-directory (script->store-files-directory script store))
          (store-data-file (script->store-data-file script store))
