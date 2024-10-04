@@ -36,8 +36,7 @@
             run-command
             sha1-hash
             checksum
-            evaluate-javascript
-            evaluate-parameter-reference))
+            evaluate-javascript))
 
 (define (value->string x)
   "Convert value @var{x} to a string."
@@ -206,20 +205,3 @@ status in @var{success-codes} as success. Error out otherwise."
                                 (format #f "--eval=~a console.log(\"%j\", ~a)"
                                         preamble expression))
       json->scm)))
-
-(define (evaluate-parameter-reference node expression inputs self runtime expression-lib)
-  "Evaluate parameter reference @var{expression} using
-@var{node}. @var{inputs}, @var{self} and @var{runtime} provide the
-context in which @var{expression} is evaluated. @var{expression-lib}
-is a list of expressions evaluated before evaluating @var{expression}."
-  (define (set-variable name value)
-    (format #f "~a = ~a;"
-            name
-            (scm->json-string value)))
-
-  (evaluate-javascript node
-                       expression
-                       (string-join (append expression-lib
-                                            (list (set-variable "inputs" inputs)
-                                                  (set-variable "self" self)
-                                                  (set-variable "runtime" runtime))))))

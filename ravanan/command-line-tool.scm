@@ -27,7 +27,6 @@
   #:use-module (ice-9 match)
   #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
   #:use-module ((gnu packages guile-xyz) #:select (guile-filesystem))
-  #:use-module ((gnu packages node) #:select (node))
   #:use-module (guix derivations)
   #:use-module (guix gexp)
   #:use-module (guix modules)
@@ -36,7 +35,6 @@
   #:use-module (guix search-paths)
   #:use-module (guix store)
   #:use-module (json)
-  #:use-module (ravanan config)
   #:use-module (ravanan javascript)
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
@@ -84,10 +82,6 @@
      %command-line-tool-supported-requirements)
     (else
      (assertion-violation batch-system "Unknown batch system"))))
-
-;; node executable for evaluating javascript on worker nodes
-(define %worker-node
-  (file-append node "/bin/node"))
 
 (define-immutable-record-type <formal-output>
   (formal-output id type binding)
@@ -168,22 +162,6 @@ class. Else, return @code{#f}."
 @code{#f}."
   (string-contains str "$("))
 
-(define (interpolate-parameter-references str)
-  "Interpolate @var{str} with one or more parameter references into a javascript
-expression suitable for evaluation."
-  (string-join (map (lambda (token)
-                      (if (and (string-prefix? "$(" token)
-                               (string-suffix? ")" token))
-                          ;; Strip $(…).
-                          (substring token
-                                     (string-length "$(")
-                                     (- (string-length token)
-                                        (string-length ")")))
-                          ;; Surround with double quotes.
-                          (string-append "\"" token "\"")))
-                    (tokenize-parameter-references str))
-               " + "))
-
 (define* (coerce-expression expression #:optional context)
   "Coerce @var{expression} into a scheme JSON tree.
 
@@ -197,26 +175,8 @@ context and return the value. @var{context} must be an association list with
 keys @code{input}, @code{self} and @code{runtime}."
   (if (and (string? expression)
            (javascript-expression? expression))
-      (from-maybe
-       ;; Try evaluating expression as a simple parameter reference that uses a
-       ;; subset of javascript.
-       (evaluate-simple-parameter-reference expression context)
-       ;; Perhaps this is a more complex javascript expression. Fall back to node.
-       (if context
-           ;; Evaluate immediately.
-           (evaluate-parameter-reference %node
-                                         (interpolate-parameter-references expression)
-                                         (assq-ref context 'inputs)
-                                         'null
-                                         (list)
-                                         (list))
-           ;; Compile to a G-expression that evaluates expression.
-           #~(evaluate-parameter-reference #$%worker-node
-                                           #$(interpolate-parameter-references expression)
-                                           inputs
-                                           'null
-                                           runtime
-                                           (list))))
+      ;; Evaluate javascript expression.
+      (evaluate-parameter-reference expression context)
       ;; Not a javascript expression, but some other JSON tree. Return it as is.
       expression))
 

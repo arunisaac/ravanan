@@ -24,30 +24,46 @@
 
 (test-equal "evaluate parameter reference"
   "c"
-  (from-maybe
-   (evaluate-simple-parameter-reference "$(inputs.message['bar'][\"foo\"][2])"
-                                        '(("inputs" ("message" ("bar" ("foo" . #("a" "b" "c" "d")))))))
-   #f))
+  (evaluate-parameter-reference "$(inputs.message['bar'][\"foo\"][2])"
+                                '(("inputs" ("message" ("bar" ("foo" . #("a" "b" "c" "d"))))))))
 
 (test-equal "evaluate parameter reference with string interpolation"
   "24foo12foobar"
-  (from-maybe
-   (evaluate-simple-parameter-reference "$(runtime.cores)foo$(inputs.threads)$(inputs.output_filename)"
-                                        '(("inputs"
-                                           ("threads" . 12)
-                                           ("output_filename" . "foobar"))
-                                          ("runtime" ("cores" . 24))))
-   #f))
+  (evaluate-parameter-reference "$(runtime.cores)foo$(inputs.threads)$(inputs.output_filename)"
+                                '(("inputs"
+                                   ("threads" . 12)
+                                   ("output_filename" . "foobar"))
+                                  ("runtime" ("cores" . 24)))))
 
 (test-equal "evaluate parameter reference with string interpolation of JSON trees"
   "foo[0,1,2,3]{\"bar\":2,\"foo\":1}"
-  (from-maybe
-   (evaluate-simple-parameter-reference "foo$(inputs.vector)$(inputs.object)"
-                                        '(("inputs"
-                                           ("object"
-                                            ("foo" . 1)
-                                            ("bar" . 2))
-                                           ("vector" . #(0 1 2 3)))))
-   #f))
+  (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)"
+                                '(("inputs"
+                                   ("object"
+                                    ("foo" . 1)
+                                    ("bar" . 2))
+                                   ("vector" . #(0 1 2 3))))))
+
+(test-equal "evaluate parameter reference with node"
+  "3"
+  (evaluate-parameter-reference "$(inputs.n + 1)"
+                                '(("inputs" ("n" . 2)))))
+
+(test-equal "evaluate parameter reference with string interpolation using node"
+  "24foo24foobar"
+  (evaluate-parameter-reference "$(runtime.cores)foo$(inputs.threads*2)$(inputs.output_filename)"
+                                '(("inputs"
+                                   ("threads" . 12)
+                                   ("output_filename" . "foobar"))
+                                  ("runtime" ("cores" . 24)))))
+
+(test-equal "evaluate parameter reference with string interpolation of JSON trees using node"
+  "foo[0,1,2,3]{\"bar\":2,\"foo\":1}20"
+  (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)$(inputs.object.foo*20)"
+                                '(("inputs"
+                                   ("object"
+                                    ("foo" . 1)
+                                    ("bar" . 2))
+                                   ("vector" . #(0 1 2 3))))))
 
 (test-end "javascript")
