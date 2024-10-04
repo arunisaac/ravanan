@@ -586,28 +586,6 @@ The returned G-expression will reference an @code{inputs-directory} variable."
                 (list id (copy-input-files input))))
              inputs)))
 
-(define (canonicalize-json tree)
-  "Canonicalize JSON @var{tree} by recursively sorting objects in lexicographic
-order of keys."
-  ;; We need to canonicalize JSON trees before inserting them into
-  ;; G-expressions. If we don't, we would have degenerate G-expressions that
-  ;; produce exactly the same result.
-  (cond
-   ;; Sort objects by lexicographic order of keys, and recurse.
-   ((list? tree)
-    (sort (map (match-lambda
-                 ((key . value)
-                  (cons key (canonicalize-json value))))
-               tree)
-          (match-lambda*
-            (((key1 . _) (key2 . _))
-             (string< key1 key2)))))
-   ;; Do not rearrange arrays. Just recurse.
-   ((vector? tree)
-    (vector-map canonicalize-json tree))
-   ;; Atoms
-   (else tree)))
-
 (define (find-requirement requirements class)
   "Find requirement of @var{class} among @var{requirements} and return a
 maybe-monadic value."
@@ -977,6 +955,9 @@ directory of the workflow."
 
               (call-with-temporary-directory
                (lambda (inputs-directory)
+                 ;; We need to canonicalize JSON trees before inserting them
+                 ;; into G-expressions. If we don't, we would have degenerate
+                 ;; G-expressions that produce exactly the same result.
                  (let ((inputs #$(copy-input-files-gexp (canonicalize-json inputs)))
                        (runtime `(("cores" . ,#$(cores batch-system)))))
 

@@ -23,11 +23,13 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
+  #:use-module (ravanan work vectors)
   #:export (list->dotted-list
             alist=?
             assoc-ref*
             assoc-set
             json-ref
+            canonicalize-json
             call-with-temporary-directory
             call-with-input-pipe))
 
@@ -71,6 +73,25 @@ mutated."
             ((if (list? scm) assoc-ref vector-ref) scm key)
             other-keys))
     (() scm)))
+
+(define (canonicalize-json tree)
+  "Canonicalize JSON @var{tree} by recursively sorting objects in lexicographic
+order of keys."
+  (cond
+   ;; Sort objects by lexicographic order of keys, and recurse.
+   ((list? tree)
+    (sort (map (match-lambda
+                 ((key . value)
+                  (cons key (canonicalize-json value))))
+               tree)
+          (match-lambda*
+            (((key1 . _) (key2 . _))
+             (string< key1 key2)))))
+   ;; Do not rearrange arrays. Just recurse.
+   ((vector? tree)
+    (vector-map canonicalize-json tree))
+   ;; Atoms
+   (else tree)))
 
 (define* (call-with-temporary-directory proc
                                         #:optional (parent-directory (getcwd)))
