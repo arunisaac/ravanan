@@ -106,8 +106,7 @@ The returned value is maybe-monadic. If @var{expression} fails to parse,
     (#f %nothing)))
 
 (define (tokenize-parameter-references str)
-  "Split @var{str} into alternating tokens of parameter reference and literal
-strings."
+  "Split @var{str} into tokens of parameter reference and literal strings."
   (let ((end (if (string-prefix? "$(" str)
                  (1+ (string-index str #\)))
                  (string-index str #\$))))
