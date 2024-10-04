@@ -65,7 +65,7 @@
                             (if (maybe-valid? record)
                                 (begin
                                   (display "[Just " port)
-                                  (display (maybe-value record) port)
+                                  (write (maybe-value record) port)
                                   (display "]" port))
                                 (display "Nothing" port))))
 
