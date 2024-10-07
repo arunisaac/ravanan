@@ -245,7 +245,7 @@ propagator."
            merge-values
            scheduler))
 
-(define* (workflow-scheduler manifest scratch store batch-system
+(define* (workflow-scheduler manifest-file scratch store batch-system
                              #:key guix-daemon-socket
                              slurm-api-endpoint slurm-jwt)
   (define (schedule proc inputs scheduler)
@@ -290,7 +290,7 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
              ((string=? class "CommandLineTool")
               (command-line-tool-state
                (run-command-line-tool name
-                                      manifest
+                                      manifest-file
                                       cwl
                                       inputs
                                       scratch
@@ -570,12 +570,12 @@ error out."
                                          formal-inputs))
                     formal-inputs))
 
-(define* (run-workflow name manifest cwl inputs
+(define* (run-workflow name manifest-file cwl inputs
                        scratch store batch-system
                        #:key guix-daemon-socket
                        slurm-api-endpoint slurm-jwt)
   "Run a workflow @var{cwl} named @var{name} with @var{inputs} using
-tools from Guix @var{manifest}.
+tools from Guix manifest in @var{manifest-file}.
 
 @var{scratch} is the path to the scratch area on all worker nodes. The
 scratch area need not be shared. @var{store} is the path to the shared
@@ -591,7 +591,7 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
 @var{slurm-jwt} are only used when @var{batch-system} is
 @code{'slurm-api}."
   (let ((scheduler (workflow-scheduler
-                    manifest scratch store batch-system
+                    manifest-file scratch store batch-system
                     #:guix-daemon-socket guix-daemon-socket
                     #:slurm-api-endpoint slurm-api-endpoint
                     #:slurm-jwt slurm-jwt)))

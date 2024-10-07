@@ -367,19 +367,19 @@ path."
                                      (string-append (basename script) ".stderr"))
                     store))
 
-(define* (run-command-line-tool name manifest cwl inputs
+(define* (run-command-line-tool name manifest-file cwl inputs
                                 scratch store batch-system
                                 #:key guix-daemon-socket
                                 slurm-api-endpoint slurm-jwt)
   "Run @code{CommandLineTool} class workflow @var{cwl} named @var{name} with
-@var{inputs} using tools from Guix @var{manifest}.
+@var{inputs} using tools from Guix manifest in @var{manifest-file}.
 
 @var{scratch}, @var{store}, @var{batch-system}, @var{guix-daemon-socket},
 @var{slurm-api-endpoint} and @var{slurm-jwt} are the same as in
 @code{run-workflow} from @code{(ravanan workflow)}."
   ;; TODO: Write to the store atomically.
   (let* ((script
-          (build-command-line-tool-script name manifest cwl inputs
+          (build-command-line-tool-script name manifest-file cwl inputs
                                           scratch store batch-system
                                           guix-daemon-socket))
          (requirements (inherit-requirements (or (assoc-ref cwl "requirements")
@@ -547,12 +547,37 @@ maybe-monadic value."
                                  class))
                      requirements))
 
-(define (build-command-line-tool-script name manifest cwl inputs
+(define (load-manifest manifest-file)
+  "Load Guix manifest from @var{manifest-file} and return it."
+  ;; We load the manifest file into a dummy module of its own so that any
+  ;; definitions from there don't leak into this module. We also ensure that
+  ;; this dummy module is different for different manifest files so that
+  ;; definitions from one manifest file don't leak into other manifest files.
+  (let ((manifest-module
+         (resolve-module (match (file-name-split (canonicalize-file-name manifest-file))
+                           (("" parts ...)
+                            (map string->symbol parts))))))
+    ;; Import modules required for loading manifests.
+    (for-each (lambda (module-name)
+                (module-use! manifest-module (resolve-interface module-name)))
+              '((guile)
+                (gnu packages)
+                (guix profiles)))
+    (save-module-excursion
+     (lambda ()
+       (set-current-module manifest-module)
+       ;; Our use of load triggers a "Add #:declarative? #f to your
+       ;; define-module invocation" warning during compilation. But, it is
+       ;; probably safe to ignore this warning since we use load only within a
+       ;; dummy module.
+       (load (canonicalize-path manifest-file))))))
+
+(define (build-command-line-tool-script name manifest-file cwl inputs
                                         scratch store batch-system
                                         guix-daemon-socket)
   "Build and return script to run @code{CommandLineTool} class workflow @var{cwl}
-named @var{name} with @var{inputs} using tools from Guix manifest
-@var{manifest} and on @var{batch-system}.
+named @var{name} with @var{inputs} using tools from Guix manifest in
+@var{manifest-file} and on @var{batch-system}.
 
 @var{scratch}, @var{store} and @var{guix-daemon-socket} are the same as in
 @code{run-workflow} from @code{(ravanan workflow)}."
@@ -706,7 +731,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest
                                                (or (assoc-ref cwl "hints")
                                                    #())))
            (initial-work-dir-requirement (find-requirement requirements
-                                                           "InitialWorkDirRequirement")))
+                                                           "InitialWorkDirRequirement"))
+           (manifest (load-manifest manifest-file)))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
                                                       (ravanan work monads)
                                                       (ravanan work ui)

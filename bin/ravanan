@@ -97,27 +97,6 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
              string-trim-both
              get-string-all)))
 
-(define (load-manifest manifest-file)
-  "Load manifest from @var{manifest-file} and return it."
-  ;; We load the manifest file into a dummy module of its own so that any
-  ;; definitions from there don't leak out. We also ensure that this dummy
-  ;; module is different for different manifest files so that definitions from
-  ;; one manifest file don't leak into other manifest files.
-  (let ((manifest-file-path (canonicalize-file-name manifest-file))
-        (manifest-module (resolve-module (match (file-name-split manifest-file-path)
-                                           (("" parts ...)
-                                            (map string->symbol parts))))))
-    ;; Import modules required for loading manifests.
-    (for-each (lambda (module-name)
-                (module-use! manifest-module (resolve-interface module-name)))
-              '((guile)
-                (gnu packages)
-                (guix profiles)))
-    (save-module-excursion
-     (lambda ()
-       (set-current-module manifest-module)
-       (load manifest-file-path)))))
-
 (define main
   (match-lambda
     ((program args ...)
@@ -151,9 +130,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
           ;; We must not try to compile guix manifest files.
           (set! %load-should-auto-compile #f)
           (scm->json (run-workflow (file-name-stem workflow-file)
-                                   (load-manifest
-                                    (canonicalize-path
-                                     (assq-ref args 'guix-manifest-file)))
+                                   (canonicalize-path
+                                    (assq-ref args 'guix-manifest-file))
                                    (read-workflow workflow-file)
                                    (read-inputs inputs-file)
                                    (case (assq-ref args 'batch-system)
