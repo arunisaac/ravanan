@@ -69,6 +69,7 @@
 
 (define %command-line-tool-supported-requirements
   (list "EnvVarRequirement"
+        "GuixManifestRequirement"
         "InlineJavascriptRequirement"
         "InitialWorkDirRequirement"
         "ResourceRequirement"))
@@ -732,7 +733,13 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
                                                    #())))
            (initial-work-dir-requirement (find-requirement requirements
                                                            "InitialWorkDirRequirement"))
-           (manifest (load-manifest manifest-file)))
+           (manifest
+            (load-manifest
+             (from-maybe
+              (maybe-bind (find-requirement requirements "GuixManifestRequirement")
+                          (compose just
+                                   (cut assoc-ref* <> "manifest")))
+              manifest-file))))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
                                                       (ravanan work monads)
                                                       (ravanan work ui)
