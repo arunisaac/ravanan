@@ -567,6 +567,8 @@ maybe-monadic value."
     (save-module-excursion
      (lambda ()
        (set-current-module manifest-module)
+       ;; Do not auto-compile manifest files.
+       (set! %load-should-auto-compile #f)
        ;; Our use of load triggers a "Add #:declarative? #f to your
        ;; define-module invocation" warning during compilation. But, it is
        ;; probably safe to ignore this warning since we use load only within a
