@@ -17,8 +17,21 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (use-modules (srfi srfi-64)
+             (guix gexp)
+             (ice-9 match)
              (ravanan work monads)
              (ravanan javascript))
+
+(define (gexp->sexp-rec exp)
+  "Recursively convert G-expression @var{exp} into an approximate S-expression."
+  (match exp
+    ((? gexp? exp)
+     (gexp->sexp-rec (gexp->approximate-sexp exp)))
+    ((head tail ...)
+     (cons (gexp->sexp-rec head)
+           (map gexp->sexp-rec tail)))
+    (atom
+     atom)))
 
 (test-begin "javascript")
 
@@ -65,5 +78,68 @@
                                     ("foo" . 1)
                                     ("bar" . 2))
                                    ("vector" . #(0 1 2 3))))))
+
+(test-equal "evaluate parameter reference (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list (json-ref inputs "message" "bar" "foo" 2)))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "$(inputs.message['bar'][\"foo\"][2])")))
+
+(test-equal "evaluate parameter reference with string interpolation (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list (json-ref runtime "cores")
+               "foo"
+               (json-ref inputs "threads")
+               (json-ref inputs "output_filename")))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "$(runtime.cores)foo$(inputs.threads)$(inputs.output_filename)")))
+
+(test-equal "evaluate parameter reference with string interpolation of JSON trees (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list "foo" (json-ref inputs "vector") (json-ref inputs "object")))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)")))
+
+(test-equal "evaluate parameter reference with node (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list (evaluate-javascript (*approximate*) "(inputs.n + 1)" "")))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "$(inputs.n + 1)")))
+
+(test-equal "evaluate parameter reference with string interpolation using node (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list (json-ref runtime "cores")
+               "foo"
+               (evaluate-javascript (*approximate*) "(inputs.threads*2)" "")
+               (json-ref inputs "output_filename")))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "$(runtime.cores)foo$(inputs.threads*2)$(inputs.output_filename)")))
+
+(test-equal "evaluate parameter reference with string interpolation of JSON trees using node (without context)"
+  '(string-join
+    (map (lambda (token)
+           (if (string? token) token (scm->json-string (canonicalize-json token))))
+         (list "foo"
+               (json-ref inputs "vector")
+               (json-ref inputs "object")
+               (evaluate-javascript (*approximate*) "(inputs.object.foo*20)" "")))
+    "")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)$(inputs.object.foo*20)")))
 
 (test-end "javascript")
