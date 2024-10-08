@@ -40,6 +40,14 @@
   (evaluate-parameter-reference "$(inputs.message['bar'][\"foo\"][2])"
                                 '(("inputs" ("message" ("bar" ("foo" . #("a" "b" "c" "d"))))))))
 
+(test-equal "evaluate parameter reference to JSON object"
+  '(("class" . "File")
+    ("path" . "/foo/bar"))
+  (evaluate-parameter-reference "$(inputs.fasta)"
+                                '(("inputs" ("fasta"
+                                             ("class" . "File")
+                                             ("path" . "/foo/bar"))))))
+
 (test-equal "evaluate parameter reference with string interpolation"
   "24foo12foobar"
   (evaluate-parameter-reference "$(runtime.cores)foo$(inputs.threads)$(inputs.output_filename)"
@@ -58,9 +66,14 @@
                                    ("vector" . #(0 1 2 3))))))
 
 (test-equal "evaluate parameter reference with node"
-  "3"
+  3
   (evaluate-parameter-reference "$(inputs.n + 1)"
                                 '(("inputs" ("n" . 2)))))
+
+(test-equal "evaluate parameter reference to JSON object using node"
+  '(json-ref inputs "fasta")
+  (gexp->sexp-rec
+   (evaluate-parameter-reference "$(inputs.fasta)")))
 
 (test-equal "evaluate parameter reference with string interpolation using node"
   "24foo24foobar"
@@ -80,11 +93,7 @@
                                    ("vector" . #(0 1 2 3))))))
 
 (test-equal "evaluate parameter reference (without context)"
-  '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
-         (list (json-ref inputs "message" "bar" "foo" 2)))
-    "")
+  '(json-ref inputs "message" "bar" "foo" 2)
   (gexp->sexp-rec
    (evaluate-parameter-reference "$(inputs.message['bar'][\"foo\"][2])")))
 
@@ -110,11 +119,7 @@
    (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)")))
 
 (test-equal "evaluate parameter reference with node (without context)"
-  '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
-         (list (evaluate-javascript (*approximate*) "(inputs.n + 1)" "")))
-    "")
+  '(evaluate-javascript (*approximate*) "(inputs.n + 1)" "")
   (gexp->sexp-rec
    (evaluate-parameter-reference "$(inputs.n + 1)")))
 

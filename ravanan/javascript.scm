@@ -175,21 +175,27 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
         ;; token is a string literal.
         token))
 
-  (let ((evaluated-tokens (map evaluate-token
-                               (tokenize-parameter-references str))))
-    (if context
-        ;; Evaluate immediately.
-        (string-join (map (lambda (token)
-                            (if (string? token)
-                                token
-                                (scm->json-string (canonicalize-json token))))
-                          evaluated-tokens)
-                     "")
-        ;; Compile to a G-expression that interpolates parameter reference
-        ;; string.
-        #~(string-join (map (lambda (token)
-                              (if (string? token)
-                                  token
-                                  (scm->json-string (canonicalize-json token))))
-                            (list #$@evaluated-tokens))
-                       ""))))
+  (match (tokenize-parameter-references str)
+    ;; There is only one token. This is not a string interpolation. Do not
+    ;; serialize JSON.
+    ((only-token)
+     (evaluate-token only-token))
+    ;; This is a string interpolation. Evaluate tokens and serialize JSON.
+    (tokens
+     (let ((evaluated-tokens (map evaluate-token tokens)))
+       (if context
+           ;; Evaluate immediately.
+           (string-join (map (lambda (token)
+                               (if (string? token)
+                                   token
+                                   (scm->json-string (canonicalize-json token))))
+                             evaluated-tokens)
+                        "")
+           ;; Compile to a G-expression that interpolates parameter reference
+           ;; string.
+           #~(string-join (map (lambda (token)
+                                 (if (string? token)
+                                     token
+                                     (scm->json-string (canonicalize-json token))))
+                               (list #$@evaluated-tokens))
+                          ""))))))
