@@ -111,7 +111,7 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
               ;; Evaluate immediately.
               (apply json-ref context symbol segments)
               ;; Compile to a G-expression that evaluates expression.
-              #~(json-ref #$symbol #$@segments))))
+              #~(json-ref #$(string->symbol symbol) #$@segments))))
        ;; Perhaps this is a more complex javascript expression.
        (#f
         (evaluate-using-node expression context expression-lib))))
