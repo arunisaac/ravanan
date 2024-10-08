@@ -133,7 +133,8 @@ the node javascript engine."
                                          . value)
                                         (set-variable name value))
                                        (_ #f))
-                                     context))))
+                                     (or context
+                                         (list))))))
 
   (if context
       ;; Evaluate immediately.
