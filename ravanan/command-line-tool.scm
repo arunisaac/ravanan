@@ -563,6 +563,7 @@ maybe-monadic value."
                 (module-use! manifest-module (resolve-interface module-name)))
               '((guile)
                 (gnu packages)
+                (guix gexp)
                 (guix profiles)))
     (save-module-excursion
      (lambda ()
