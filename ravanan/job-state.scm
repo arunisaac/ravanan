@@ -26,6 +26,7 @@
 
 (define-module (ravanan job-state)
   #:use-module (srfi srfi-9 gnu)
+  #:use-module (ravanan batch-system)
   #:use-module (ravanan slurm-api)
   #:use-module (ravanan work vectors)
   #:export (single-machine-job-state
@@ -54,12 +55,10 @@
      slurm-job-state-script))
    state))
 
-(define* (job-state-status state #:key slurm-api-endpoint slurm-jwt)
-  "Return current status and updated state of job with @var{state}. The status is
-one of the symbols @code{completed}, @code{failed} or @code{pending}.
-
-@var{slurm-api-endpoint} and @var{slurm-jwt} are the same as in
-@code{run-workflow} from @code{(ravanan workflow)}."
+(define* (job-state-status state batch-system)
+  "Return current status and updated state of job with @var{state} on
+@var{batch-system}. The status is one of the symbols @code{completed},
+@code{failed} or @code{pending}."
   (values (cond
            ;; Single machine jobs are run synchronously. So, they return success
            ;; or failure immediately.
@@ -70,15 +69,13 @@ one of the symbols @code{completed}, @code{failed} or @code{pending}.
            ;; Poll slurm for job state.
            ((slurm-job-state? state)
             (job-state (slurm-job-state-job-id state)
-                       #:api-endpoint slurm-api-endpoint
-                       #:jwt slurm-jwt))
+                       #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                       #:jwt (slurm-api-batch-system-jwt batch-system)))
            ;; For vector states, poll each state element and return 'completed
            ;; only if all state elements have completed.
            ((vector? state)
             (or (vector-every (lambda (state-element)
-                                (case (job-state-status state-element
-                                                        #:slurm-api-endpoint slurm-api-endpoint
-                                                        #:slurm-jwt slurm-jwt)
+                                (case (job-state-status state-element batch-system)
                                   ((completed) => identity)
                                   (else #f)))
                               state)

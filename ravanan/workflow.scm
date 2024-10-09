@@ -27,6 +27,7 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (web uri)
+  #:use-module (ravanan batch-system)
   #:use-module (ravanan command-line-tool)
   #:use-module (ravanan job-state)
   #:use-module (ravanan propnet)
@@ -246,8 +247,7 @@ propagator."
            scheduler))
 
 (define* (workflow-scheduler manifest-file scratch store batch-system
-                             #:key guix-daemon-socket
-                             slurm-api-endpoint slurm-jwt)
+                             #:key guix-daemon-socket)
   (define (schedule proc inputs scheduler)
     "Schedule @var{proc} with inputs from the @var{inputs} association list. Return a
 job state object. @var{proc} may either be a @code{<propnet>} object or a
@@ -296,9 +296,7 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
                                       scratch
                                       store
                                       batch-system
-                                      #:guix-daemon-socket guix-daemon-socket
-                                      #:slurm-api-endpoint slurm-api-endpoint
-                                      #:slurm-jwt slurm-jwt)
+                                      #:guix-daemon-socket guix-daemon-socket)
                (assoc-ref* cwl "outputs")))
              ((string=? class "ExpressionTool")
               (error "Workflow class not implemented yet" class))
@@ -335,8 +333,7 @@ exit if job has failed."
        ((command-line-tool-state? state)
         (let ((status updated-job-state
                       (job-state-status (command-line-tool-state-job-state state)
-                                        #:slurm-api-endpoint slurm-api-endpoint
-                                        #:slurm-jwt slurm-jwt)))
+                                        batch-system)))
           (values (case status
                     ((failed)
                      (raise-exception (job-failure
@@ -572,29 +569,18 @@ error out."
 
 (define* (run-workflow name manifest-file cwl inputs
                        scratch store batch-system
-                       #:key guix-daemon-socket
-                       slurm-api-endpoint slurm-jwt)
+                       #:key guix-daemon-socket)
   "Run a workflow @var{cwl} named @var{name} with @var{inputs} using
 tools from Guix manifest in @var{manifest-file}.
 
-@var{scratch} is the path to the scratch area on all worker nodes. The
-scratch area need not be shared. @var{store} is the path to the shared
-ravanan store. @var{batch-system} is a symbol representing one of the
-supported batch systems (either @code{'single-machine} or
-@code{'slurm-api}).
+@var{scratch} is the path to the scratch area on all worker nodes. The scratch
+area need not be shared. @var{store} is the path to the shared ravanan store.
+@var{batch-system} is an object representing one of the supported batch systems.
 
-@var{guix-daemon-socket} is the Guix daemon socket to connect to.
-
-@var{slurm-api-endpoint}, a @code{<uri>} object, is the slurm API
-endpoint to connect to. @var{slurm-jwt}, a string, is the JWT token to
-authenticate to the slurm API with. @var{slurm-api-endpoint} and
-@var{slurm-jwt} are only used when @var{batch-system} is
-@code{'slurm-api}."
+@var{guix-daemon-socket} is the Guix daemon socket to connect to."
   (let ((scheduler (workflow-scheduler
                     manifest-file scratch store batch-system
-                    #:guix-daemon-socket guix-daemon-socket
-                    #:slurm-api-endpoint slurm-api-endpoint
-                    #:slurm-jwt slurm-jwt)))
+                    #:guix-daemon-socket guix-daemon-socket)))
     (let loop ((state ((scheduler-schedule scheduler)
                        (scheduler-proc name cwl %nothing %nothing)
                        inputs
@@ -605,11 +591,13 @@ authenticate to the slurm API with. @var{slurm-api-endpoint} and
             (begin
               ;; Pause before looping and polling again so we don't bother the
               ;; job server too often.
-              (sleep (case batch-system
+              (sleep (cond
                        ;; Single machine jobs are run synchronously. So, there
                        ;; is no need to wait to poll them.
-                       ((single-machine) 0)
-                       ((slurm-api) %job-poll-interval)))
+                       ((eq? batch-system 'single-machine)
+                        0)
+                       ((slurm-api-batch-system? batch-system)
+                        %job-poll-interval)))
               (loop state))
             ;; Capture outputs.
             ((scheduler-capture-output scheduler) state))))))

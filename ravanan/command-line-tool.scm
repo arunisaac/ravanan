@@ -35,6 +35,7 @@
   #:use-module (guix search-paths)
   #:use-module (guix store)
   #:use-module (json)
+  #:use-module (ravanan batch-system)
   #:use-module (ravanan javascript)
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
@@ -75,11 +76,11 @@
         "ResourceRequirement"))
 
 (define (command-line-tool-supported-requirements batch-system)
-  (case batch-system
-    ((single-machine)
+  (cond
+    ((eq? batch-system 'single-machine)
      (delete "ResourceRequirement"
              %command-line-tool-supported-requirements))
-    ((slurm-api)
+    ((slurm-api-batch-system? batch-system)
      %command-line-tool-supported-requirements)
     (else
      (assertion-violation batch-system "Unknown batch system"))))
@@ -370,14 +371,12 @@ path."
 
 (define* (run-command-line-tool name manifest-file cwl inputs
                                 scratch store batch-system
-                                #:key guix-daemon-socket
-                                slurm-api-endpoint slurm-jwt)
+                                #:key guix-daemon-socket)
   "Run @code{CommandLineTool} class workflow @var{cwl} named @var{name} with
 @var{inputs} using tools from Guix manifest in @var{manifest-file}.
 
-@var{scratch}, @var{store}, @var{batch-system}, @var{guix-daemon-socket},
-@var{slurm-api-endpoint} and @var{slurm-jwt} are the same as in
-@code{run-workflow} from @code{(ravanan workflow)}."
+@var{scratch}, @var{store}, @var{batch-system} and @var{guix-daemon-socket} are
+the same as in @code{run-workflow} from @code{(ravanan workflow)}."
   ;; TODO: Write to the store atomically.
   (let* ((script
           (build-command-line-tool-script name manifest-file cwl inputs
@@ -422,8 +421,8 @@ path."
           (when (file-exists? store-files-directory)
             (delete-file-recursively store-files-directory))
           (mkdir store-files-directory)
-          (case batch-system
-            ((single-machine)
+          (cond
+            ((eq? batch-system 'single-machine)
              (setenv "WORKFLOW_OUTPUT_DIRECTORY" store-files-directory)
              (setenv "WORKFLOW_OUTPUT_DATA_FILE" store-data-file)
              (format (current-error-port)
@@ -434,7 +433,7 @@ path."
                                                 (lambda ()
                                                   (with-error-to-file stderr-file
                                                     (cut system* script)))))))
-            ((slurm-api)
+            ((slurm-api-batch-system? batch-system)
              (format (current-error-port)
                      "Submitting job ~a~%"
                      script)
@@ -447,8 +446,8 @@ path."
                                        cpus
                                        name
                                        script
-                                       #:api-endpoint slurm-api-endpoint
-                                       #:jwt slurm-jwt)))
+                                       #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                       #:jwt (slurm-api-batch-system-jwt batch-system))))
                (format (current-error-port)
                        "~a submitted as job ID ~a~%"
                        script
@@ -610,10 +609,10 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
                                  "listing")))
 
   (define (cores batch-system)
-    (case batch-system
-      ((slurm-api)
+    (cond
+      ((slurm-api-batch-system? batch-system)
        #~(string->number (getenv "SLURM_CPUS_ON_NODE")))
-      ((single-machine)
+      ((eq? batch-system 'single-machine)
        #~(total-processor-count))
       (else
        (assertion-violation batch-system "Unknown batch system"))))
