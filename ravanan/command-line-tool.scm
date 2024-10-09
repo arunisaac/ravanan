@@ -448,7 +448,8 @@ the same as in @code{run-workflow} from @code{(ravanan workflow)}."
                                        script
                                        #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
                                        #:jwt (slurm-api-batch-system-jwt batch-system)
-                                       #:partition (slurm-api-batch-system-partition batch-system))))
+                                       #:partition (slurm-api-batch-system-partition batch-system)
+                                       #:nice (slurm-api-batch-system-nice batch-system))))
                (format (current-error-port)
                        "~a submitted as job ID ~a~%"
                        script

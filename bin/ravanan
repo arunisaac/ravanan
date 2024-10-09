@@ -60,6 +60,10 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
         (option (list "slurm-partition") #t #f
                 (lambda (opt name arg result)
                   (acons 'slurm-partition arg result)))
+        (option (list "slurm-nice") #t #f
+                (lambda (opt name arg result)
+                  (acons 'slurm-nice (string->number arg)
+                         result)))
         (option (list "help") #f #t
                 (lambda (opt name arg result)
                   (acons 'help #t result)))))
@@ -89,6 +93,7 @@ Slurm API batch system options:
   --slurm-api-endpoint=SLURM-API-ENDPOINT    slurm API endpoint to connect to
   --slurm-jwt=SLURM-JWT                      slurm JWT to authenticate with
   --slurm-partition=SLURM-PARTITION          slurm partition to request
+  --slurm-nice=SLURM-NICE                    slurm job priority adjustment
 "
           program))
 
@@ -157,7 +162,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                        (assq-ref args 'slurm-api-endpoint)
                                        (and (assq-ref args 'slurm-jwt)
                                             (read-jwt (assq-ref args 'slurm-jwt)))
-                                       (assq-ref args 'slurm-partition))))
+                                       (assq-ref args 'slurm-partition)
+                                       (assq-ref args 'slurm-nice))))
                                    #:guix-daemon-socket (assq-ref args 'guix-daemon-socket))
                      (current-output-port)
                      #:pretty #t)

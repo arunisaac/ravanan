@@ -63,15 +63,15 @@ document and pass in as the body of the HTTP request."
                               (cut scm->json body-scm <>))))
 
 (define* (submit-job environment stdout-file stderr-file cpus name script
-                     #:key api-endpoint jwt partition)
+                     #:key api-endpoint jwt partition nice)
   "Submit job named @var{name} running @var{script} to slurm via @var{api-endpoint}
-and authenticating using @var{jwt}. Request slurm @var{partition} if it is not
-@code{#f}. @var{environment} is an association list of environment variables to
-set in the job. @var{stdout-file} and @var{stderr-file} are files in which to
-write the stdout and stderr of the job respectively. @var{cpus} is the number of
-CPUs (in slurm terminology, a CPU is a hyperthread; see
-@url{https://slurm.schedmd.com/faq.html#cpu_count, the Slurm FAQ}) to request
-for the job."
+and authenticating using @var{jwt}. Request slurm @var{partition} and @var{nice}
+adjustment if they are not @code{#f}. @var{environment} is an association list
+of environment variables to set in the job. @var{stdout-file} and
+@var{stderr-file} are files in which to write the stdout and stderr of the job
+respectively. @var{cpus} is the number of CPUs (in slurm terminology, a CPU is a
+hyperthread; see @url{https://slurm.schedmd.com/faq.html#cpu_count, the Slurm
+FAQ}) to request for the job."
   (define job-spec
     (append `(("name" . ,name)
               ("script" . ,(string-append "#!/bin/bash\n" script))
@@ -86,6 +86,9 @@ for the job."
               ("minimum_cpus" . ,cpus))
             (if partition
                 `(("partition" . ,partition))
+                '())
+            (if nice
+                `(("nice" . ,nice))
                 '())))
   
   (let ((response (slurm-http-post api-endpoint
