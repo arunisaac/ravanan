@@ -447,21 +447,32 @@ is the class of the workflow."
       (uri-path (string->uri location))))
 
 (define (intern-file file store)
-  "Intern @var{file} into the ravanan @var{store} unless it is already a store
-path. Return the interned path."
-  (if (string-prefix? store file)
-      ;; If file is already a store path, return it as is.
-      file
-      ;; Else, intern it and return the interned path.
-      (let ((interned-path
-             (expand-file-name
-              (file-name-join* %store-files-directory
-                               (string-append (sha1-hash file)
-                                              "-"
-                                              (basename file)))
-              store)))
-        (copy-file file interned-path)
-        interned-path)))
+  "Intern @code{File} type object @var{file} into the ravanan @var{store} unless it
+is already a store path. Return an updated @code{File} type object with the
+interned path and location."
+  (let* ((path (assoc-ref file "path"))
+         (checksum (assoc-ref file "checksum"))
+         (sha1 (if (and checksum
+                        (string-prefix? "sha1$" checksum))
+                   (string-drop checksum (string-length "sha1$"))
+                   (sha1-hash path)))
+         (interned-path
+          (if (string-prefix? store path)
+              ;; If file is already a store path, return it as is.
+              path
+              ;; Else, intern it and return the interned path.
+              (let ((interned-path
+                     (expand-file-name
+                      (file-name-join* %store-files-directory
+                                       (string-append sha1
+                                                      "-"
+                                                      (basename path)))
+                      store)))
+                (copy-file path interned-path)
+                interned-path))))
+    (maybe-assoc-set file
+      (cons "location" (just (string-append "file://" interned-path)))
+      (cons "path" (just interned-path)))))
 
 (define (resolve-inputs inputs formal-inputs store)
   "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
@@ -477,17 +488,23 @@ store-interned path."
     (let* ((path (or (and (assoc-ref input "location")
                           (location->path (assoc-ref input "location")))
                      (assoc-ref input "path")))
-           (interned-path (intern-file path store)))
-      (maybe-assoc-set input
-        (cons "location" (just interned-path))
-        (cons "path" (just interned-path))
+           (interned-input
+            ;; Compute the checksum, but only if it is not provided. If it is
+            ;; provided, trust that it is correct. This avoids costly (think
+            ;; hashing terabytes of data) hash computations causing a long delay
+            ;; before the workflow actually starts running.
+            (intern-file (maybe-assoc-set input
+                           (cons "path" (just path))
+                           (cons "checksum" (just (or (assoc-ref input "checksum")
+                                                      (checksum path)))))
+                         store)))
+      (maybe-assoc-set interned-input
         (cons "basename" (just (basename path)))
         (cons "nameroot" (just (file-name-stem path)))
         (cons "nameext" (just (file-name-extension path)))
-        (cons "checksum" (just (checksum path)))
         (cons "size" (just (stat:size (stat path))))
         (cons "secondaryFiles"
-              (maybe-let* ((secondary-files (maybe-assoc-ref (just input)
+              (maybe-let* ((secondary-files (maybe-assoc-ref (just interned-input)
                                                              "secondaryFiles")))
                 (just (vector-map canonicalize-file-input
                                   secondary-files)))))))
