@@ -21,10 +21,12 @@
   #:export (slurm-api-batch-system
             slurm-api-batch-system?
             slurm-api-batch-system-endpoint
-            slurm-api-batch-system-jwt))
+            slurm-api-batch-system-jwt
+            slurm-api-batch-system-partition))
 
 (define-immutable-record-type <slurm-api-batch-system>
-  (slurm-api-batch-system endpoint jwt)
+  (slurm-api-batch-system endpoint jwt partition)
   slurm-api-batch-system?
   (endpoint slurm-api-batch-system-endpoint)
-  (jwt slurm-api-batch-system-jwt))
+  (jwt slurm-api-batch-system-jwt)
+  (partition slurm-api-batch-system-partition))
