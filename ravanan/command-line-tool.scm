@@ -820,10 +820,11 @@ directory of the workflow."
                                   path)
                       secondary-file-value)))
 
-              (define (path->value path workflow-output-directory maybe-secondary-files)
+              (define (path+sha1->value path sha1 workflow-output-directory maybe-secondary-files)
                 (maybe-assoc-set (copy-file-value (canonicalize-file-value
                                                    `(("class" . "File")
-                                                     ("path" . ,path)))
+                                                     ("path" . ,path)
+                                                     ("checksum" . ,(string-append "sha1$" sha1))))
                                                   workflow-output-directory)
                   (cons "secondaryFiles"
                         (maybe-let* ((secondary-files maybe-secondary-files))
@@ -833,26 +834,35 @@ directory of the workflow."
                                                         workflow-output-directory)
                                                    secondary-files))))))
 
+              (define (path->value path workflow-output-directory maybe-secondary-files)
+                (path+sha1->value path
+                                  (sha1-hash path)
+                                  workflow-output-directory
+                                  maybe-secondary-files))
+
               (define (stdout-output->value workflow-output-directory
                                             stdout-directory
                                             stdout-filename
                                             output)
                 (cons (assoc-ref output "id")
-                      (path->value
-                       (if (string=? stdout-filename
-                                     (file-name-join* stdout-directory "stdout"))
-                           ;; If stdout filename is unspecified, rename it to a
-                           ;; hash of its contents.
-                           (let ((hashed-filename
-                                  (file-name-join* stdout-directory
-                                                   (sha1-hash stdout-filename))))
-                             (rename-file stdout-filename
-                                          hashed-filename)
-                             hashed-filename)
-                           ;; Else, return the stdout filename as it is.
-                           stdout-filename)
-                       workflow-output-directory
-                       %nothing)))
+                      (let ((sha1 (sha1-hash stdout-filename)))
+                        ;; Use path+sha1->value instead of path->value to avoid
+                        ;; recomputing the SHA1 hash.
+                        (path+sha1->value
+                         (if (string=? stdout-filename
+                                       (file-name-join* stdout-directory "stdout"))
+                             ;; If stdout filename is unspecified, rename it to a
+                             ;; hash of its contents.
+                             (let ((hashed-filename
+                                    (file-name-join* stdout-directory sha1)))
+                               (rename-file stdout-filename
+                                            hashed-filename)
+                               hashed-filename)
+                             ;; Else, return the stdout filename as it is.
+                             stdout-filename)
+                         sha1
+                         workflow-output-directory
+                         %nothing))))
 
               (define (other-output->value workflow-output-directory
                                            output-id output-type-tree
