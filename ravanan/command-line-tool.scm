@@ -794,7 +794,8 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
                     ("nameroot" . ,(file-name-stem path))
                     ("nameext" . ,(file-name-extension path))
                     ("size" . ,(stat:size (stat path)))
-                    ("checksum" . ,(checksum path)))))
+                    ("checksum" . ,(or (assoc-ref value "checksum")
+                                       (checksum path))))))
 
               (define (capture-secondary-file path secondary-file
                                               workflow-output-directory)
