@@ -470,8 +470,15 @@ interned path and location."
                                                       "-"
                                                       (basename path)))
                       store)))
-                (unless (file-exists? interned-path)
-                  (copy-file path interned-path))
+                (if (file-exists? interned-path)
+                    (format (current-error-port)
+                            "~a previously interned into store as ~a~%"
+                            path interned-path)
+                    (begin
+                      (format (current-error-port)
+                              "Interning ~a into store as ~a~%"
+                              path interned-path)
+                      (copy-file path interned-path)))
                 interned-path))))
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
