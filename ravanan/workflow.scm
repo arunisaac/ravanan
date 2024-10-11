@@ -460,7 +460,9 @@ interned path and location."
           (if (string-prefix? store path)
               ;; If file is already a store path, return it as is.
               path
-              ;; Else, intern it and return the interned path.
+              ;; Else, intern it if it isn't already and return the interned
+              ;; path. Not re-interning already interned files saves us a lot of
+              ;; time especially with large files.
               (let ((interned-path
                      (expand-file-name
                       (file-name-join* %store-files-directory
@@ -468,7 +470,8 @@ interned path and location."
                                                       "-"
                                                       (basename path)))
                       store)))
-                (copy-file path interned-path)
+                (unless (file-exists? interned-path)
+                  (copy-file path interned-path))
                 interned-path))))
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
