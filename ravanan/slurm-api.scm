@@ -93,7 +93,7 @@ FAQ}) to request for the job."
   
   (let ((response (slurm-http-post api-endpoint
                                    jwt
-                                   "/slurm/v0.0.39/job/submit"
+                                   "/slurm/v0.0.41/job/submit"
                                    `(("jobs" . #(,job-spec))))))
     (match (json-ref response "errors")
       (#()
@@ -109,16 +109,16 @@ authenticating using @var{jwt}. Return value is one of the symbols
   ;; jobs too.
   (let ((response (slurm-http-get api-endpoint
                                   jwt
-                                  (string-append "/slurm/v0.0.39/job/"
+                                  (string-append "/slurm/v0.0.41/job/"
                                                  (number->string job-id)))))
     (match (json-ref response "errors")
       (#()
-       (string->symbol
-        (string-downcase
-         (json-ref (find (lambda (job)
-                           (= (json-ref job "job_id")
-                              job-id))
-                         (vector->list (json-ref response "jobs")))
-                   "job_state"))))
+       (match (json-ref (find (lambda (job)
+                                (= (json-ref job "job_id")
+                                   job-id))
+                              (vector->list (json-ref response "jobs")))
+                        "job_state")
+         (#(job-state)
+          (string->symbol (string-downcase job-state)))))
       (#(errors ...)
        (error "Slurm API error" errors)))))
