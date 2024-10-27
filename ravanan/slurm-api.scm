@@ -108,17 +108,48 @@ FAQ}) to request for the job."
   "Query the state of slurm @var{job-id} via @var{api-endpoint}
 authenticating using @var{jwt}. Return value is one of the symbols
 @code{pending}, @code{failed} and @code{completed}."
-  ;; TODO: What if job has been "archived"? Then, look up archived
-  ;; jobs too.
-  (let ((response (check-api-error
-                   (slurm-http-get api-endpoint
-                                   jwt
-                                   (string-append "/slurm/v0.0.41/job/"
-                                                  (number->string job-id))))))
-    (match (json-ref (find (lambda (job)
-                             (= (json-ref job "job_id")
-                                job-id))
-                           (vector->list (json-ref response "jobs")))
-                     "job_state")
-      (#(job-state)
-       (string->symbol (string-downcase job-state))))))
+  (let ((response (slurm-http-get api-endpoint
+                                  jwt
+                                  (string-append "/slurm/v0.0.41/job/"
+                                                 (number->string job-id)))))
+    (match (json-ref response "errors")
+      (#()
+       (match (json-ref (find (lambda (job)
+                                (= (json-ref job "job_id")
+                                   job-id))
+                              (vector->list (json-ref response "jobs")))
+                        "job_state")
+         (#(job-state)
+          (string->symbol (string-downcase job-state)))))
+      (#(errors ...)
+       ;; Check in slurmdbd if job has been completed and purged from
+       ;; slurmctld's active memory.
+       (match (find (lambda (error)
+                      (= (json-ref error "error_number")
+                         ;; Error number 2017 (Invalid job id specified) may
+                         ;; have occurred because the job has completed, has
+                         ;; exceeded MinJobAge (as set in slurm.conf) and has
+                         ;; therefore been purged from slurmctld's active
+                         ;; memory.
+                         2017))
+                    errors)
+         (error-2017
+          (let ((response
+                 (check-api-error
+                  (slurm-http-get api-endpoint
+                                  jwt
+                                  (string-append "/slurmdb/v0.0.41/job/"
+                                                 (number->string job-id))))))
+            (match (json-ref (find (lambda (job)
+                                     (= (json-ref job "job_id")
+                                        job-id))
+                                   (vector->list (json-ref response "jobs")))
+                             "exit_code" "status")
+              (#(job-state)
+               ;; job-state is either "SUCCESS" or "ERROR".
+               (if (eq? (string->symbol (string-downcase job-state))
+                        'success)
+                   'success
+                   'failed)))))
+         (#f
+          (check-api-error response)))))))
