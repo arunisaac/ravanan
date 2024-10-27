@@ -70,10 +70,10 @@
 
 (define %command-line-tool-supported-requirements
   (list "EnvVarRequirement"
-        "GuixManifestRequirement"
         "InlineJavascriptRequirement"
         "InitialWorkDirRequirement"
-        "ResourceRequirement"))
+        "ResourceRequirement"
+        "SoftwareRequirement"))
 
 (define (command-line-tool-supported-requirements batch-system)
   (cond
@@ -740,7 +740,7 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
            (manifest
             (load-manifest
              (from-maybe
-              (maybe-bind (find-requirement requirements "GuixManifestRequirement")
+              (maybe-bind (find-requirement requirements "SoftwareRequirement")
                           (compose just
                                    (cut assoc-ref* <> "manifest")))
               manifest-file))))
