@@ -73,7 +73,8 @@
         "InlineJavascriptRequirement"
         "InitialWorkDirRequirement"
         "ResourceRequirement"
-        "SoftwareRequirement"))
+        "SoftwareRequirement"
+        "WorkReuse"))
 
 (define (command-line-tool-supported-requirements batch-system)
   (cond
@@ -722,13 +723,23 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
     (check-requirements requirements
                         batch-system
                         command-line-tool-supported-requirements
-                        %command-line-tool-supported-requirements))
+                        %command-line-tool-supported-requirements)
+    ;; Error out if WorkReuse is disabled.
+    (maybe-let* ((work-reuse (find-requirement requirements "WorkReuse")))
+      (and (not (coerce-type (assoc-ref* work-reuse "enableReuse")
+                             'boolean))
+           (user-error "Disabling WorkReuse is not supported. ravanan's strong caching using Guix makes it unnecessary."))))
   (maybe-let* ((hints (maybe-assoc-ref (just cwl) "hints")))
     (check-requirements hints
                         batch-system
                         command-line-tool-supported-requirements
                         %command-line-tool-supported-requirements
-                        #t))
+                        #t)
+    ;; Warn if WorkReuse is disabled.
+    (maybe-let* ((work-reuse (find-requirement hints "WorkReuse")))
+      (and (not (coerce-type (assoc-ref* work-reuse "enableReuse")
+                             'boolean))
+           (warning "Ignoring disable of WorkReuse. ravanan's strong caching using Guix makes it unnecessary."))))
   ;; Copy input files and update corresponding input objects.
   (build-gexp-script name
     (let* ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
