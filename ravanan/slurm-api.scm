@@ -45,6 +45,12 @@ additional @var{headers}."
                                      #:streaming? #t)))
     (json->scm body)))
 
+(define (check-api-error json)
+  "Check @var{json} API response for errors, and raise an exception if any."
+  (match (json-ref json "errors")
+    (#() json)
+    (errors (error "Slurm API error" errors))))
+
 (define (slurm-http-get api-endpoint jwt path)
   "Make a HTTP GET request to @var{path} on a slurm @var{api-endpoint}
 authenticating using @var{jwt}."
@@ -90,16 +96,13 @@ FAQ}) to request for the job."
             (if nice
                 `(("nice" . ,nice))
                 '())))
-  
-  (let ((response (slurm-http-post api-endpoint
-                                   jwt
-                                   "/slurm/v0.0.41/job/submit"
-                                   `(("jobs" . #(,job-spec))))))
-    (match (json-ref response "errors")
-      (#()
-       (json-ref response "job_id"))
-      (#(errors ...)
-       (error "Slurm API error" errors)))))
+
+  (json-ref (check-api-error
+             (slurm-http-post api-endpoint
+                              jwt
+                              "/slurm/v0.0.41/job/submit"
+                              `(("jobs" . #(,job-spec)))))
+            "job_id"))
 
 (define* (job-state job-id #:key api-endpoint jwt)
   "Query the state of slurm @var{job-id} via @var{api-endpoint}
@@ -107,18 +110,15 @@ authenticating using @var{jwt}. Return value is one of the symbols
 @code{pending}, @code{failed} and @code{completed}."
   ;; TODO: What if job has been "archived"? Then, look up archived
   ;; jobs too.
-  (let ((response (slurm-http-get api-endpoint
-                                  jwt
-                                  (string-append "/slurm/v0.0.41/job/"
-                                                 (number->string job-id)))))
-    (match (json-ref response "errors")
-      (#()
-       (match (json-ref (find (lambda (job)
-                                (= (json-ref job "job_id")
-                                   job-id))
-                              (vector->list (json-ref response "jobs")))
-                        "job_state")
-         (#(job-state)
-          (string->symbol (string-downcase job-state)))))
-      (#(errors ...)
-       (error "Slurm API error" errors)))))
+  (let ((response (check-api-error
+                   (slurm-http-get api-endpoint
+                                   jwt
+                                   (string-append "/slurm/v0.0.41/job/"
+                                                  (number->string job-id))))))
+    (match (json-ref (find (lambda (job)
+                             (= (json-ref job "job_id")
+                                job-id))
+                           (vector->list (json-ref response "jobs")))
+                     "job_state")
+      (#(job-state)
+       (string->symbol (string-downcase job-state))))))
