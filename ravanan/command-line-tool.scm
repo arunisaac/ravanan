@@ -559,6 +559,34 @@ maybe-monadic value."
                            (guix gexp)
                            (guix profiles))))
 
+(define (manifest-file->environment manifest-file channels guix-daemon-socket)
+  "Build @var{manifest-file} and return an association list of environment
+variables to set to use the built profile. Connect to the Guix daemon specified
+by @var{guix-daemon-socket}. If @var{channels} is not @code{#f}, build manifest
+in a Guix inferior with @var{channels}."
+  (define (build-derivation drv guix-daemon-socket)
+    (if guix-daemon-socket
+        (parameterize ((%daemon-socket-uri guix-daemon-socket))
+          (build-derivation drv #f))
+        (with-store store
+          (run-with-store store
+            (mlet %store-monad ((drv drv))
+              (mbegin %store-monad
+                (built-derivations (list drv))
+                (return (derivation->output-path drv))))))))
+
+  (let ((manifest (load-manifest manifest-file)))
+    (map (match-lambda
+           ((specification . value)
+            (cons (search-path-specification-variable specification)
+                  value)))
+         (evaluate-search-paths
+          (manifest-search-paths manifest)
+          (list (build-derivation
+                 (profile-derivation manifest
+                                     #:allow-collisions? #t)
+                 guix-daemon-socket))))))
+
 (define (build-command-line-tool-script name manifest-file cwl inputs
                                         scratch store batch-system
                                         guix-daemon-socket)
@@ -729,13 +757,12 @@ named @var{name} with @var{inputs} using tools from Guix manifest in
                                                    #())))
            (initial-work-dir-requirement (find-requirement requirements
                                                            "InitialWorkDirRequirement"))
-           (manifest
-            (load-manifest
-             (from-maybe
-              (maybe-bind (find-requirement requirements "SoftwareRequirement")
-                          (compose just
-                                   (cut assoc-ref* <> "manifest")))
-              manifest-file))))
+           (manifest-file
+            (from-maybe
+             (maybe-bind (find-requirement requirements "SoftwareRequirement")
+                         (compose just
+                                  (cut assoc-ref* <> "manifest")))
+             manifest-file)))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
                                                       (ravanan work monads)
                                                       (ravanan work ui)
@@ -935,16 +962,11 @@ directory of the workflow."
 
               ;; Set search paths for manifest.
               (for-each (match-lambda
-                          ((specification . value)
-                           (setenv (search-path-specification-variable specification)
-                                   value)))
-                        (evaluate-search-paths
-                         (map sexp->search-path-specification
-                              '#$(map search-path-specification->sexp
-                                      (manifest-search-paths manifest)))
-                         (list #$(profile
-                                  (content manifest)
-                                  (allow-collisions? #t)))))
+                          ((name . value)
+                           (setenv name value)))
+                        '#$(manifest-file->environment manifest-file
+                                                       channels
+                                                       guix-daemon-socket))
 
               (call-with-temporary-directory
                (lambda (inputs-directory)
