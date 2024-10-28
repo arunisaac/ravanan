@@ -40,6 +40,7 @@
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
   #:use-module (ravanan slurm-api)
+  #:use-module (ravanan utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
@@ -552,31 +553,11 @@ maybe-monadic value."
 
 (define (load-manifest manifest-file)
   "Load Guix manifest from @var{manifest-file} and return it."
-  ;; We load the manifest file into a dummy module of its own so that any
-  ;; definitions from there don't leak into this module. We also ensure that
-  ;; this dummy module is different for different manifest files so that
-  ;; definitions from one manifest file don't leak into other manifest files.
-  (let ((manifest-module
-         (resolve-module (match (file-name-split (canonicalize-file-name manifest-file))
-                           (("" parts ...)
-                            (map string->symbol parts))))))
-    ;; Import modules required for loading manifests.
-    (for-each (lambda (module-name)
-                (module-use! manifest-module (resolve-interface module-name)))
-              '((guile)
-                (gnu packages)
-                (guix gexp)
-                (guix profiles)))
-    (save-module-excursion
-     (lambda ()
-       (set-current-module manifest-module)
-       ;; Do not auto-compile manifest files.
-       (set! %load-should-auto-compile #f)
-       ;; Our use of load triggers a "Add #:declarative? #f to your
-       ;; define-module invocation" warning during compilation. But, it is
-       ;; probably safe to ignore this warning since we use load only within a
-       ;; dummy module.
-       (load (canonicalize-path manifest-file))))))
+  (load-script manifest-file
+               #:modules '((guile)
+                           (gnu packages)
+                           (guix gexp)
+                           (guix profiles))))
 
 (define (build-command-line-tool-script name manifest-file cwl inputs
                                         scratch store batch-system
