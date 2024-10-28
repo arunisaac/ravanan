@@ -573,17 +573,6 @@ Close @var{inferior} when done, even if @var{proc} exits non-locally."
 variables to set to use the built profile. Connect to the Guix daemon specified
 by @var{guix-daemon-socket}. If @var{channels} is not @code{#f}, build manifest
 in a Guix inferior with @var{channels}."
-  (define (build-derivation drv guix-daemon-socket)
-    (if guix-daemon-socket
-        (parameterize ((%daemon-socket-uri guix-daemon-socket))
-          (build-derivation drv #f))
-        (with-store store
-          (run-with-store store
-            (mlet %store-monad ((drv drv))
-              (mbegin %store-monad
-                (built-derivations (list drv))
-                (return (derivation->output-path drv))))))))
-
   (if channels
       (call-with-inferior (inferior-for-channels channels)
         (cut inferior-eval
@@ -620,17 +609,34 @@ in a Guix inferior with @var{channels}."
                                                    #:allow-collisions? #t)
                                ,guix-daemon-socket))))))
              <>))
-      (let ((manifest (load-manifest manifest-file)))
-        (map (match-lambda
-               ((specification . value)
-                (cons (search-path-specification-variable specification)
-                      value)))
-             (evaluate-search-paths
-              (manifest-search-paths manifest)
-              (list (build-derivation
-                     (profile-derivation manifest
-                                         #:allow-collisions? #t)
-                     guix-daemon-socket)))))))
+      (manifest->environment (load-manifest manifest-file)
+                             guix-daemon-socket)))
+
+(define (manifest->environment manifest guix-daemon-socket)
+  "Build @var{manifest} and return an association list of environment
+variables to set to use the built profile. Connect to the Guix daemon specified
+by @var{guix-daemon-socket}."
+  (define (build-derivation drv guix-daemon-socket)
+    (if guix-daemon-socket
+        (parameterize ((%daemon-socket-uri guix-daemon-socket))
+          (build-derivation drv #f))
+        (with-store store
+          (run-with-store store
+            (mlet %store-monad ((drv drv))
+              (mbegin %store-monad
+                (built-derivations (list drv))
+                (return (derivation->output-path drv))))))))
+
+  (map (match-lambda
+         ((specification . value)
+          (cons (search-path-specification-variable specification)
+                value)))
+       (evaluate-search-paths
+        (manifest-search-paths manifest)
+        (list (build-derivation
+               (profile-derivation manifest
+                                   #:allow-collisions? #t)
+               guix-daemon-socket)))))
 
 (define (build-command-line-tool-script name manifest-file channels cwl inputs
                                         scratch store batch-system
