@@ -29,6 +29,7 @@
   #:use-module ((gnu packages guile-xyz) #:select (guile-filesystem))
   #:use-module (guix derivations)
   #:use-module (guix gexp)
+  #:use-module (guix inferior)
   #:use-module (guix modules)
   #:use-module (guix monads)
   #:use-module (guix profiles)
@@ -371,17 +372,18 @@ path."
                                      (string-append (basename script) ".stderr"))
                     store))
 
-(define* (run-command-line-tool name manifest-file cwl inputs
+(define* (run-command-line-tool name manifest-file channels cwl inputs
                                 scratch store batch-system
                                 #:key guix-daemon-socket)
   "Run @code{CommandLineTool} class workflow @var{cwl} named @var{name} with
 @var{inputs} using tools from Guix manifest in @var{manifest-file}.
 
-@var{scratch}, @var{store}, @var{batch-system} and @var{guix-daemon-socket} are
-the same as in @code{run-workflow} from @code{(ravanan workflow)}."
+@var{channels}, @var{scratch}, @var{store}, @var{batch-system} and
+@var{guix-daemon-socket} are the same as in @code{run-workflow} from
+@code{(ravanan workflow)}."
   ;; TODO: Write to the store atomically.
   (let* ((script
-          (build-command-line-tool-script name manifest-file cwl inputs
+          (build-command-line-tool-script name manifest-file channels cwl inputs
                                           scratch store batch-system
                                           guix-daemon-socket))
          (requirements (inherit-requirements (or (assoc-ref cwl "requirements")
@@ -559,6 +561,13 @@ maybe-monadic value."
                            (guix gexp)
                            (guix profiles))))
 
+(define (call-with-inferior inferior proc)
+  "Call @var{proc} with @var{inferior} and return the return value of @var{proc}.
+Close @var{inferior} when done, even if @var{proc} exits non-locally."
+  (dynamic-wind (const #t)
+                (cut proc inferior)
+                (cut close-inferior inferior)))
+
 (define (manifest-file->environment manifest-file channels guix-daemon-socket)
   "Build @var{manifest-file} and return an association list of environment
 variables to set to use the built profile. Connect to the Guix daemon specified
@@ -575,27 +584,63 @@ in a Guix inferior with @var{channels}."
                 (built-derivations (list drv))
                 (return (derivation->output-path drv))))))))
 
-  (let ((manifest (load-manifest manifest-file)))
-    (map (match-lambda
-           ((specification . value)
-            (cons (search-path-specification-variable specification)
-                  value)))
-         (evaluate-search-paths
-          (manifest-search-paths manifest)
-          (list (build-derivation
-                 (profile-derivation manifest
-                                     #:allow-collisions? #t)
-                 guix-daemon-socket))))))
+  (if channels
+      (call-with-inferior (inferior-for-channels channels)
+        (cut inferior-eval
+             `(begin
+                (use-modules (ice-9 match)
+                             (guix search-paths)
+                             (gnu packages)
+                             (guile)
+                             (guix gexp)
+                             (guix profiles))
 
-(define (build-command-line-tool-script name manifest-file cwl inputs
+                (define (build-derivation drv guix-daemon-socket)
+                  (if guix-daemon-socket
+                      (parameterize ((%daemon-socket-uri guix-daemon-socket))
+                        (build-derivation drv))
+                      (with-store store
+                        (run-with-store store
+                          (mlet %store-monad ((drv drv))
+                            (mbegin %store-monad
+                              (built-derivations (list drv))
+                              (return (derivation->output-path drv))))))))
+
+                ;; Do not auto-compile manifest files.
+                (set! %load-should-auto-compile #f)
+                (let ((manifest (load ,(canonicalize-path manifest-file))))
+                  (map (match-lambda
+                         ((specification . value)
+                          (cons (search-path-specification-variable specification)
+                                value)))
+                       (evaluate-search-paths
+                        (manifest-search-paths manifest)
+                        (list (build-derivation
+                               (profile-derivation manifest
+                                                   #:allow-collisions? #t)
+                               ,guix-daemon-socket))))))
+             <>))
+      (let ((manifest (load-manifest manifest-file)))
+        (map (match-lambda
+               ((specification . value)
+                (cons (search-path-specification-variable specification)
+                      value)))
+             (evaluate-search-paths
+              (manifest-search-paths manifest)
+              (list (build-derivation
+                     (profile-derivation manifest
+                                         #:allow-collisions? #t)
+                     guix-daemon-socket)))))))
+
+(define (build-command-line-tool-script name manifest-file channels cwl inputs
                                         scratch store batch-system
                                         guix-daemon-socket)
   "Build and return script to run @code{CommandLineTool} class workflow @var{cwl}
 named @var{name} with @var{inputs} using tools from Guix manifest in
 @var{manifest-file} and on @var{batch-system}.
 
-@var{scratch}, @var{store} and @var{guix-daemon-socket} are the same as in
-@code{run-workflow} from @code{(ravanan workflow)}."
+@var{channels}, @var{scratch}, @var{store} and @var{guix-daemon-socket} are the
+same as in @code{run-workflow} from @code{(ravanan workflow)}."
   (define (environment-variables env-var-requirement)
     (just (vector-map->list (lambda (environment-definition)
                               #~(list #$(assoc-ref* environment-definition

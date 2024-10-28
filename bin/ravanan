@@ -142,6 +142,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
           (scm->json (run-workflow (file-name-stem workflow-file)
                                    (canonicalize-path
                                     (assq-ref args 'guix-manifest-file))
+                                   #f
                                    (read-workflow workflow-file)
                                    (read-inputs inputs-file)
                                    (case (assq-ref args 'batch-system)

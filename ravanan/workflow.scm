@@ -246,7 +246,7 @@ propagator."
            merge-values
            scheduler))
 
-(define* (workflow-scheduler manifest-file scratch store batch-system
+(define* (workflow-scheduler manifest-file channels scratch store batch-system
                              #:key guix-daemon-socket)
   (define (schedule proc inputs scheduler)
     "Schedule @var{proc} with inputs from the @var{inputs} association list. Return a
@@ -291,6 +291,7 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
               (command-line-tool-state
                (run-command-line-tool name
                                       manifest-file
+                                      channels
                                       cwl
                                       inputs
                                       scratch
@@ -594,11 +595,12 @@ error out."
                                          formal-inputs))
                     formal-inputs))
 
-(define* (run-workflow name manifest-file cwl inputs
+(define* (run-workflow name manifest-file channels cwl inputs
                        scratch store batch-system
                        #:key guix-daemon-socket)
   "Run a workflow @var{cwl} named @var{name} with @var{inputs} using
-tools from Guix manifest in @var{manifest-file}.
+tools from Guix manifest in @var{manifest-file}. If @var{channels} is not
+@code{#f}, build the manifest in a Guix inferior with @var{channels}.
 
 @var{scratch} is the path to the scratch area on all worker nodes. The scratch
 area need not be shared. @var{store} is the path to the shared ravanan store.
@@ -606,7 +608,7 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
 
 @var{guix-daemon-socket} is the Guix daemon socket to connect to."
   (let ((scheduler (workflow-scheduler
-                    manifest-file scratch store batch-system
+                    manifest-file channels scratch store batch-system
                     #:guix-daemon-socket guix-daemon-socket)))
     (let loop ((state ((scheduler-schedule scheduler)
                        (scheduler-proc name cwl %nothing %nothing)
