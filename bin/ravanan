@@ -39,6 +39,9 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                       (acons 'batch-system (string->symbol arg)
                              result)
                       (error "Unknown batch system" arg))))
+        (option (list "guix-channels") #t #f
+                (lambda (opt name arg result)
+                  (acons 'guix-channels-file arg result)))
         (option (list "guix-daemon-socket") #t #f
                 (lambda (opt name arg result)
                   (acons 'guix-daemon-socket arg result)))
@@ -85,6 +88,7 @@ Run CWL-WORKFLOW with INPUTS.
 
 Guix options:
 
+  --guix-channels=GUIX_CHANNELS              guix channels file to build profiles on
   --guix-daemon-socket=GUIX_DAEMON_SOCKET    guix daemon to connect to
   --guix-manifest=GUIX_MANIFEST              guix manifest to run jobs with
 
@@ -142,7 +146,12 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
           (scm->json (run-workflow (file-name-stem workflow-file)
                                    (canonicalize-path
                                     (assq-ref args 'guix-manifest-file))
-                                   #f
+                                   (and (assq-ref args 'guix-channels-file)
+                                        (load-script
+                                         (canonicalize-path
+                                          (assq-ref args 'guix-channels-file))
+                                         #:modules '((guile)
+                                                     (guix channels))))
                                    (read-workflow workflow-file)
                                    (read-inputs inputs-file)
                                    (case (assq-ref args 'batch-system)
