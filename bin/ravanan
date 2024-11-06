@@ -123,7 +123,6 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                    '()))
                                      result))
                             `((batch-system . single-machine)
-                              (guix-manifest-file . "manifest.scm")
                               (slurm-api-endpoint . ,(build-uri 'http
                                                                 #:host "localhost"
                                                                 #:port 6820))))))
