@@ -18,6 +18,8 @@
 
 (define-module (ravanan command-line-tool)
   #:use-module ((rnrs base) #:select (assertion-violation error))
+  #:use-module (rnrs conditions)
+  #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
@@ -60,7 +62,16 @@
 
             %store-files-directory
             %store-data-directory
-            %store-logs-directory))
+            %store-logs-directory
+
+            manifest-file-error?
+            manifest-file-error-file))
+
+;; &manifest-file-error represents an error loading an user-provided manifest
+;; file.
+(define-condition-type &manifest-file-error &error
+  manifest-file-error manifest-file-error?
+  (file manifest-file-error-file))
 
 (define %store-files-directory
   "files")
@@ -556,11 +567,19 @@ maybe-monadic value."
 
 (define (load-manifest manifest-file)
   "Load Guix manifest from @var{manifest-file} and return it."
-  (load-script manifest-file
-               #:modules '((guile)
-                           (gnu packages)
-                           (guix gexp)
-                           (guix profiles))))
+  (if (and manifest-file
+           (file-exists? manifest-file))
+      ;; Capture conditions raised by load-script and bubble them up along with
+      ;; &manifest-file-error.
+      (guard (c (else
+                 (raise-exception (condition (manifest-file-error manifest-file)
+                                             c))))
+        (load-script manifest-file
+                     #:modules '((guile)
+                                 (gnu packages)
+                                 (guix gexp)
+                                 (guix profiles))))
+      (raise-exception (manifest-file-error manifest-file))))
 
 (define (call-with-inferior inferior proc)
   "Call @var{proc} with @var{inferior} and return the return value of @var{proc}.
