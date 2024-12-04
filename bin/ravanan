@@ -148,7 +148,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
        (case (assq-ref args 'batch-system)
          ((slurm-api)
           (unless (assq-ref args 'scratch)
-            (error "scratch not specified"))
+            (error "--scratch not specified"))
           (unless (assq-ref args 'slurm-jwt)
             (error "--slurm-jwt not specified"))))
        (match (reverse (assq-ref args 'args))
