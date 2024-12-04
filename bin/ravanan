@@ -150,7 +150,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
           (unless (assq-ref args 'scratch)
             (error "scratch not specified"))
           (unless (assq-ref args 'slurm-jwt)
-            (error "slurm JWT file not specified"))))
+            (error "--slurm-jwt not specified"))))
        (match (reverse (assq-ref args 'args))
          ((workflow-file inputs-file)
           ;; We must not try to compile guix manifest files.
