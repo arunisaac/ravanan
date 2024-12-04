@@ -17,7 +17,15 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan config)
-  #:export (%node))
+  #:export (%project
+            %version
+            %node))
+
+(define %project
+  "@PROJECT@")
+
+(define %version
+  "@VERSION@")
 
 (define %node
   "@NODE@")

@@ -30,6 +30,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (json)
              (ravanan batch-system)
              (ravanan command-line-tool)
+             (ravanan config)
              (ravanan reader)
              (ravanan utils)
              (ravanan workflow))
@@ -71,7 +72,10 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                          result)))
         (option (list "help") #f #t
                 (lambda (opt name arg result)
-                  (acons 'help #t result)))))
+                  (acons 'help #t result)))
+        (option (list "version") #f #f
+                (lambda (opt name arg result)
+                  (acons 'version #t result)))))
 
 (define (invalid-option opt name arg result)
   (error "Invalid option" name))
@@ -80,6 +84,8 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
   (format (current-error-port)
           "Usage: ~a [OPTIONS] CWL-WORKFLOW INPUTS
 Run CWL-WORKFLOW with INPUTS.
+
+  --version                      print version and exit
 
   --batch-system=BATCH-SYSTEM    batch system to run jobs on;
                                  Supported batch systems are single-machine (default) and slurm-api
@@ -130,6 +136,11 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                                 #:port 6820))))))
        (when (assq-ref args 'help)
          (print-usage program)
+         (exit #t))
+       (when (assq-ref args 'version)
+         (format (current-output-port)
+                 "~a ~a~%"
+                 %project %version)
          (exit #t))
        ;; Check for required arguments.
        (unless (assq-ref args 'store)

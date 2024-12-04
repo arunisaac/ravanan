@@ -17,6 +17,7 @@
 # along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 project = ravanan
+version = 0.1.0
 
 GUILD ?= guild
 GUILE ?= guile
@@ -47,7 +48,7 @@ godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
 all: $(objects) $(config_file)
 
 %.scm: %.scm.in
-	$(SED) 's|@NODE@|$(NODE)|' $< > $@
+	$(SED) -e 's|@PROJECT@|$(project)|' -e 's|@VERSION@|$(version)|' -e 's|@NODE@|$(NODE)|' $< > $@
 
 %.go: %.scm $(config_file)
 	GUILE_AUTO_COMPILE=0 $(GUILD) compile -L . -o $@ $<
