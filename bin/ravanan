@@ -144,7 +144,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
          (exit #t))
        ;; Check for required arguments.
        (unless (assq-ref args 'store)
-         (error "ravanan store not specified"))
+         (error "--store not specified"))
        (case (assq-ref args 'batch-system)
          ((slurm-api)
           (unless (assq-ref args 'scratch)
