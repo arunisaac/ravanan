@@ -261,6 +261,5 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                         (assq-ref args 'outdir)
                                                         outputs)
                            outputs)
-                       (current-output-port)
                        #:pretty #t))
-          (newline (current-output-port))))))))
+          (newline)))))))
