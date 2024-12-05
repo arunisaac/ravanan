@@ -33,7 +33,8 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ravanan config)
              (ravanan reader)
              (ravanan utils)
-             (ravanan workflow))
+             (ravanan workflow)
+             (ravanan work utils))
 
 (define %options
   (list (option (list "batch-system" "batchSystem") #t #f
@@ -70,6 +71,12 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                 (lambda (opt name arg result)
                   (acons 'slurm-nice (string->number arg)
                          result)))
+        ;; The shorter outdir form is to maintain compatibility with cwltool and
+        ;; cwltest.
+        (option (list "output-directory" "outdir") #t #f
+                (lambda (opt name arg result)
+                  (acons 'outdir arg
+                         result)))
         (option (list "help") #f #t
                 (lambda (opt name arg result)
                   (acons 'help #t result)))
@@ -85,6 +92,8 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
           "Usage: ~a [OPTIONS] CWL-WORKFLOW INPUTS
 Run CWL-WORKFLOW with INPUTS.
 
+  --output-directory=DIRECTORY
+  --outdir=DIRECTORY             output directory
   --version                      print version and exit
 
   --batch-system=BATCH-SYSTEM    batch system to run jobs on;
@@ -118,6 +127,46 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
     (compose (cut string-trim-prefix "SLURM_JWT=" <>)
              string-trim-both
              get-string-all)))
+
+(define (symlink-to-output-directory store output-directory tree)
+  "Symlink @code{File} or @code{Directory} type objects in JSON @var{tree} from the
+@var{store} into @var{output-directory}. Return @var{tree} with updated
+@code{path} properties."
+  (cond
+   ;; Array
+   ((vector? tree)
+    (vector-map (cut symlink-to-output-directory store output-directory <>)
+                tree))
+   ;; Object
+   ((list? tree)
+    ;; We cannot use object-type to determine the type since it would error out
+    ;; when it cannot determine the type.
+    (if (member (assoc-ref tree "class")
+                (list "File" "Directory"))
+        ;; If File or Directory, symlink it to output directory, and update
+        ;; path.
+        (let ((output-directory-path
+               (match (file-name-split
+                       (relative-file-name (assoc-ref tree "path")
+                                           (expand-file-name %store-files-directory
+                                                             store)))
+                 ((_ parts ...)
+                  (expand-file-name (file-name-join parts)
+                                    output-directory)))))
+          ;; Symlink file or directory to output directory.
+          (symlink (assoc-ref tree "path")
+                   output-directory-path)
+          ;; Update path.
+          (assoc-set tree
+            (cons "path" output-directory-path)))
+        ;; Else, recurse.
+        (map (match-lambda
+               ((key . value)
+                (cons key
+                      (symlink-to-output-directory store output-directory value))))
+             tree)))
+   ;; Atom
+   (else tree)))
 
 (define main
   (match-lambda
@@ -155,57 +204,63 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
          ((workflow-file inputs-file)
           ;; We must not try to compile guix manifest files.
           (set! %load-should-auto-compile #f)
-          (scm->json (guard (c ((manifest-file-error? c)
-                                ;; Steps may provide their own
-                                ;; SoftwareRequirement. So, at this point, we do
-                                ;; not know if a manifest file is required and
-                                ;; can't check for these manifest file errors
-                                ;; right away. Instead, we depend on exceptions
-                                ;; bubbled up from lower down the stack.
-                                (let ((file (manifest-file-error-file c)))
-                                  (cond
-                                   ((not file)
-                                    (error "--guix-manifest not specified"))
-                                   ((not (file-exists? file))
-                                    (error "Manifest file ~a does not exist"
-                                           file))
-                                   (else
-                                    (error "Error loading manifest file"
-                                           file)
-                                    (raise-exception c))))))
-                       (run-workflow (file-name-stem workflow-file)
-                                     (and (assq 'guix-manifest-file args)
-                                          (canonicalize-path
-                                           (assq-ref args 'guix-manifest-file)))
-                                     (and (assq-ref args 'guix-channels-file)
-                                          (load-script
-                                           (canonicalize-path
-                                            (assq-ref args 'guix-channels-file))
-                                           #:modules '((guile)
-                                                       (guix channels))))
-                                     (read-workflow workflow-file)
-                                     (read-inputs inputs-file)
-                                     (case (assq-ref args 'batch-system)
-                                       ((single-machine)
-                                        (or (assq-ref args 'scratch)
-                                            (getcwd)))
-                                       ((slurm-api)
-                                        (assq-ref args 'scratch)))
-                                     ;; FIXME: This is a bit of a hack to
-                                     ;; avoid canonizing remote paths.
-                                     (if (file-name-absolute? (assq-ref args 'store))
-                                         (assq-ref args 'store)
-                                         (canonicalize-path (assq-ref args 'store)))
-                                     (case (assq-ref args 'batch-system)
-                                       ((single-machine) 'single-machine)
-                                       ((slurm-api)
-                                        (slurm-api-batch-system
-                                         (assq-ref args 'slurm-api-endpoint)
-                                         (and (assq-ref args 'slurm-jwt)
-                                              (read-jwt (assq-ref args 'slurm-jwt)))
-                                         (assq-ref args 'slurm-partition)
-                                         (assq-ref args 'slurm-nice))))
-                                     #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)))
-                     (current-output-port)
-                     #:pretty #t)
+          (let* ( ;; FIXME: This is a bit of a hack to avoid canonizing remote
+                 ;; paths.
+                 (store (if (file-name-absolute? (assq-ref args 'store))
+                            (assq-ref args 'store)
+                            (canonicalize-path (assq-ref args 'store))))
+                 (outputs (guard (c ((manifest-file-error? c)
+                                     ;; Steps may provide their own
+                                     ;; SoftwareRequirement. So, at this point, we do
+                                     ;; not know if a manifest file is required and
+                                     ;; can't check for these manifest file errors
+                                     ;; right away. Instead, we depend on exceptions
+                                     ;; bubbled up from lower down the stack.
+                                     (let ((file (manifest-file-error-file c)))
+                                       (cond
+                                        ((not file)
+                                         (error "--guix-manifest not specified"))
+                                        ((not (file-exists? file))
+                                         (error "Manifest file ~a does not exist"
+                                                file))
+                                        (else
+                                         (error "Error loading manifest file"
+                                                file)
+                                         (raise-exception c))))))
+                            (run-workflow (file-name-stem workflow-file)
+                                          (and (assq 'guix-manifest-file args)
+                                               (canonicalize-path
+                                                (assq-ref args 'guix-manifest-file)))
+                                          (and (assq-ref args 'guix-channels-file)
+                                               (load-script
+                                                (canonicalize-path
+                                                 (assq-ref args 'guix-channels-file))
+                                                #:modules '((guile)
+                                                            (guix channels))))
+                                          (read-workflow workflow-file)
+                                          (read-inputs inputs-file)
+                                          (case (assq-ref args 'batch-system)
+                                            ((single-machine)
+                                             (or (assq-ref args 'scratch)
+                                                 (getcwd)))
+                                            ((slurm-api)
+                                             (assq-ref args 'scratch)))
+                                          store
+                                          (case (assq-ref args 'batch-system)
+                                            ((single-machine) 'single-machine)
+                                            ((slurm-api)
+                                             (slurm-api-batch-system
+                                              (assq-ref args 'slurm-api-endpoint)
+                                              (and (assq-ref args 'slurm-jwt)
+                                                   (read-jwt (assq-ref args 'slurm-jwt)))
+                                              (assq-ref args 'slurm-partition)
+                                              (assq-ref args 'slurm-nice))))
+                                          #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)))))
+            (scm->json (if (assq-ref args 'outdir)
+                           (symlink-to-output-directory store
+                                                        (assq-ref args 'outdir)
+                                                        outputs)
+                           outputs)
+                       (current-output-port)
+                       #:pretty #t))
           (newline (current-output-port))))))))
