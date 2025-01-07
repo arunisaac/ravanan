@@ -40,7 +40,9 @@
                         #:select? (or (git-predicate (dirname (current-source-directory)))
                                       (const #t))))
     (arguments
-     (list #:make-flags #~(list (string-append "prefix=" #$output))
+     (list #:make-flags
+           #~(list (string-append "prefix=" #$output)
+                   (string-append "NODE=" (search-input-file %build-inputs "bin/node")))
            #:modules `(((guix build guile-build-system)
                         #:select (target-guile-effective-version))
                        ,@%gnu-build-system-modules)
