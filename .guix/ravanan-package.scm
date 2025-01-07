@@ -45,10 +45,10 @@
                    (string-append "NODE=" (search-input-file %build-inputs "bin/node")))
            #:modules `(((guix build guile-build-system)
                         #:select (target-guile-effective-version))
-                       ,@%gnu-build-system-modules)
+                       ,@%default-gnu-imported-modules)
            #:phases
            (with-imported-modules `((guix build guile-build-system)
-                                    ,@%gnu-build-system-modules)
+                                    ,@%default-gnu-imported-modules)
              #~(modify-phases %standard-phases
                  (delete 'configure)
                  (add-after 'install 'wrap
