@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -19,7 +19,7 @@
 (define-module (ravanan-package)
   #:use-module ((gnu packages package-management) #:select (guix))
   #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
-  #:use-module ((gnu packages guile) #:select (guile-next))
+  #:use-module ((gnu packages guile) #:select (guile-json-4 guile-next))
   #:use-module ((gnu packages guile-xyz) #:select (guile-filesystem guile-libyaml))
   #:use-module ((gnu packages node) #:select (node))
   #:use-module (guix build-system gnu)
@@ -65,6 +65,7 @@
            guile-next
            guile-filesystem
            guile-gcrypt
+           guile-json-4
            guile-libyaml
            guix))
     (build-system gnu-build-system)
