@@ -33,7 +33,15 @@
             maybe-vector-find
             maybe-assoc-ref
             maybe-assoc-set
-            maybe-alist))
+            maybe-alist
+
+            state-bind
+            state-return
+            state-let*
+            state-begin
+            current-state
+            set-current-state
+            run-with-state))
 
 (define-immutable-record-type <monad>
   (monad bind return)
@@ -180,3 +188,56 @@ maybe-monadic."
 
 (define maybe-alist
   (cut maybe-assoc-set (list) <...>))
+
+(define-immutable-record-type <mstate>
+  (mstate state value)
+  mstate?
+  (state mstate-state)
+  (value mstate-value))
+
+(define %state-monad
+  (monad (lambda (mvalue mproc)
+           (lambda (state)
+             (match (mvalue state)
+               (($ <mstate> next-state value)
+                ((mproc value) next-state)))))
+         (lambda (value)
+           (cut mstate <> value))))
+
+(define state-bind
+  (monad-bind %state-monad))
+
+;; We expose only a macro interface to the return function of the state monad
+;; since we want its argument to be evaluated lazily. If we exposed a functional
+;; interface, then a state-return used in isolation (that is, without a
+;; state-bind) would have its argument evaluated eagerly and side-effects would
+;; occur before the monad is actually run. FIXME: Unfortunately, this means that
+;; we duplicate the definition of return in %state-monad.
+(define-syntax-rule (state-return value)
+  ((lambda (delayed-value)
+     (cut mstate <> (force delayed-value)))
+   (delay value)))
+
+(define-syntax-rule (state-let* bindings body ...)
+  (mlet* %state-monad bindings
+    body ...))
+
+(define-syntax-rule (state-begin body ...)
+  (mbegin %state-monad
+    body ...))
+
+(define (current-state)
+  "Return the current state as a state-monadic value."
+  (lambda (state)
+    (mstate state state)))
+
+(define (set-current-state new-state)
+  "Set @var{new-state} as the state."
+  (cut mstate new-state <>))
+
+(define* (run-with-state mvalue #:optional initial-state)
+  "Run state-monadic value @var{mvalue} starting with @var{initial-state}. Return
+two values---the value encapsulated in @var{mvalue} and the final state."
+  (match (mvalue initial-state)
+    (($ <mstate> state value)
+     (values value state))))

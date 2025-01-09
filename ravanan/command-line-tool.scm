@@ -34,7 +34,7 @@
   #:use-module (guix gexp)
   #:use-module (guix inferior)
   #:use-module (guix modules)
-  #:use-module (guix monads)
+  #:use-module ((guix monads) #:select (mlet mbegin return))
   #:use-module (guix profiles)
   #:use-module (guix search-paths)
   #:use-module (guix store)
