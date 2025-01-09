@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -22,8 +22,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-43)
   #:use-module (ice-9 match)
-  #:export (maybe-monad
-            maybe-bind
+  #:export (maybe-bind
             just
             %nothing
             nothing?
