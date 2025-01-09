@@ -53,6 +53,16 @@
         (mlet* monad-type (bindings ...)
             body ...))))))
 
+(define-syntax mbegin
+  (syntax-rules ()
+    ((_ monad-type expression)
+     expression)
+    ((_ monad-type first-expression body ...)
+     ((monad-bind monad-type)
+      first-expression
+      (lambda _
+        body ...)))))
+
 (define-immutable-record-type <maybe>
   (maybe value valid?)
   maybe?
