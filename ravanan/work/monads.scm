@@ -62,7 +62,7 @@
       mvalue
       (lambda (var)
         (mlet* monad-type (bindings ...)
-            body ...))))))
+          body ...))))))
 
 (define-syntax mbegin
   (syntax-rules ()
