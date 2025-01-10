@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -43,7 +43,8 @@
   #:use-module (ravanan javascript)
   #:use-module (ravanan job-state)
   #:use-module (ravanan reader)
-  #:use-module (ravanan slurm-api)
+  #:use-module ((ravanan single-machine) #:prefix single-machine:)
+  #:use-module ((ravanan slurm-api) #:prefix slurm:)
   #:use-module (ravanan utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
@@ -439,33 +440,32 @@ path."
           (mkdir store-files-directory)
           (cond
            ((eq? batch-system 'single-machine)
-            (setenv "WORKFLOW_OUTPUT_DIRECTORY" store-files-directory)
-            (setenv "WORKFLOW_OUTPUT_DATA_FILE" store-data-file)
-            (format (current-error-port)
-                    "Running ~a~%"
-                    script)
             (single-machine-job-state script
-                                      (zero? (with-output-to-file stdout-file
-                                               (lambda ()
-                                                 (with-error-to-file stderr-file
-                                                   (cut system* script)))))))
+                                      (single-machine:submit-job
+                                       `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                          ,store-files-directory)
+                                         ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                          ,store-data-file))
+                                       stdout-file
+                                       stderr-file
+                                       script)))
            ((slurm-api-batch-system? batch-system)
             (format (current-error-port)
                     "Submitting job ~a~%"
                     script)
-            (let ((job-id (submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                         ,store-files-directory)
-                                        ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                         ,store-data-file))
-                                      stdout-file
-                                      stderr-file
-                                      cpus
-                                      name
-                                      script
-                                      #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                                      #:jwt (slurm-api-batch-system-jwt batch-system)
-                                      #:partition (slurm-api-batch-system-partition batch-system)
-                                      #:nice (slurm-api-batch-system-nice batch-system))))
+            (let ((job-id (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                               ,store-files-directory)
+                                              ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                               ,store-data-file))
+                                            stdout-file
+                                            stderr-file
+                                            cpus
+                                            name
+                                            script
+                                            #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                            #:jwt (slurm-api-batch-system-jwt batch-system)
+                                            #:partition (slurm-api-batch-system-partition batch-system)
+                                            #:nice (slurm-api-batch-system-nice batch-system))))
               (format (current-error-port)
                       "~a submitted as job ID ~a~%"
                       script
