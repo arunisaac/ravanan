@@ -438,41 +438,41 @@ path."
             (delete-file-recursively store-files-directory))
           (mkdir store-files-directory)
           (cond
-            ((eq? batch-system 'single-machine)
-             (setenv "WORKFLOW_OUTPUT_DIRECTORY" store-files-directory)
-             (setenv "WORKFLOW_OUTPUT_DATA_FILE" store-data-file)
-             (format (current-error-port)
-                     "Running ~a~%"
-                     script)
-             (single-machine-job-state script
-                                       (zero? (with-output-to-file stdout-file
-                                                (lambda ()
-                                                  (with-error-to-file stderr-file
-                                                    (cut system* script)))))))
-            ((slurm-api-batch-system? batch-system)
-             (format (current-error-port)
-                     "Submitting job ~a~%"
-                     script)
-             (let ((job-id (submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                          ,store-files-directory)
-                                         ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                          ,store-data-file))
-                                       stdout-file
-                                       stderr-file
-                                       cpus
-                                       name
-                                       script
-                                       #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                                       #:jwt (slurm-api-batch-system-jwt batch-system)
-                                       #:partition (slurm-api-batch-system-partition batch-system)
-                                       #:nice (slurm-api-batch-system-nice batch-system))))
-               (format (current-error-port)
-                       "~a submitted as job ID ~a~%"
-                       script
-                       job-id)
-               (slurm-job-state script job-id)))
-            (else
-             (assertion-violation batch-system "Invalid batch system")))))))
+           ((eq? batch-system 'single-machine)
+            (setenv "WORKFLOW_OUTPUT_DIRECTORY" store-files-directory)
+            (setenv "WORKFLOW_OUTPUT_DATA_FILE" store-data-file)
+            (format (current-error-port)
+                    "Running ~a~%"
+                    script)
+            (single-machine-job-state script
+                                      (zero? (with-output-to-file stdout-file
+                                               (lambda ()
+                                                 (with-error-to-file stderr-file
+                                                   (cut system* script)))))))
+           ((slurm-api-batch-system? batch-system)
+            (format (current-error-port)
+                    "Submitting job ~a~%"
+                    script)
+            (let ((job-id (submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                         ,store-files-directory)
+                                        ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                         ,store-data-file))
+                                      stdout-file
+                                      stderr-file
+                                      cpus
+                                      name
+                                      script
+                                      #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                      #:jwt (slurm-api-batch-system-jwt batch-system)
+                                      #:partition (slurm-api-batch-system-partition batch-system)
+                                      #:nice (slurm-api-batch-system-nice batch-system))))
+              (format (current-error-port)
+                      "~a submitted as job ID ~a~%"
+                      script
+                      job-id)
+              (slurm-job-state script job-id)))
+           (else
+            (assertion-violation batch-system "Invalid batch system")))))))
 
 (define (capture-command-line-tool-output script store)
   "Capture and return output of @code{CommandLineTool} class workflow that ran
