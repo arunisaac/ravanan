@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -204,28 +204,6 @@ add to the inbox."
       ;; cell-values-inbox are serviced.
       (()
        (match propagators-inbox
-         ;; Schedule one propagator in inbox.
-         ((propagator other-propagators ...)
-          (loop cells
-                cell-values-inbox
-                other-propagators
-                ;; We don't need to cancel or forget about previous runs of the
-                ;; same propagator because cells only *accumulate* information;
-                ;; they never remove it. Any previous runs of the same
-                ;; propagator will only *add to* the information in the output
-                ;; cells. Previous runs may be closer to completion and taking
-                ;; advantage of their output may allow later stages to start
-                ;; running sooner, thus improving throughput. In our CWL
-                ;; application of propnets, this will never result in the same
-                ;; step being recomputed; so this approach does not come at a
-                ;; higher computational cost.
-                (append (maybe-alist
-                         (cons (propagator-name propagator)
-                               (activate-propagator
-                                scheduler
-                                propagator
-                                (propagator-input-values cells propagator))))
-                        propagators-in-flight)))
          ;; Poll propagators in flight and update cell values if any of them are
          ;; done.
          (()
@@ -275,7 +253,31 @@ add to the inbox."
                                (append-map propagator-state->cell-values
                                            finished-propagators))
                         propagators-inbox
-                        propagators-still-in-flight))))))))))))
+                        propagators-still-in-flight)))))))
+         ;; Schedule propagators in inbox.
+         (_
+          (loop cells
+                cell-values-inbox
+                (list)
+                ;; We don't need to cancel or forget about previous runs of the
+                ;; same propagator because cells only *accumulate* information;
+                ;; they never remove it. Any previous runs of the same
+                ;; propagator will only *add to* the information in the output
+                ;; cells. Previous runs may be closer to completion and taking
+                ;; advantage of their output may allow later stages to start
+                ;; running sooner, thus improving throughput. In our CWL
+                ;; application of propnets, this will never result in the same
+                ;; step being recomputed; so this approach does not come at a
+                ;; higher computational cost.
+                (append (append-map (lambda (propagator)
+                                      (maybe-alist
+                                       (cons (propagator-name propagator)
+                                             (activate-propagator
+                                              scheduler
+                                              propagator
+                                              (propagator-input-values cells propagator)))))
+                                    propagators-inbox)
+                        propagators-in-flight))))))))
 
 (define (capture-propnet-output state)
   "Return output of propagator network @var{state}."
