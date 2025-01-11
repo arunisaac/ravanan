@@ -57,11 +57,11 @@
     ((_ monad-type () body ...)
      (begin
        body ...))
-    ((_ monad-type ((var mvalue) bindings ...) body ...)
+    ((_ monad-type ((var mvalue) other-bindings ...) body ...)
      ((monad-bind monad-type)
       mvalue
       (lambda (var)
-        (mlet* monad-type (bindings ...)
+        (mlet* monad-type (other-bindings ...)
           body ...))))))
 
 (define-syntax mbegin
