@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -28,6 +28,7 @@
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ravanan batch-system)
   #:use-module (ravanan slurm-api)
+  #:use-module (ravanan work monads)
   #:use-module (ravanan work vectors)
   #:export (single-machine-job-state
             slurm-job-state
@@ -68,9 +69,10 @@
                 'failed))
            ;; Poll slurm for job state.
            ((slurm-job-state? state)
-            (job-state (slurm-job-state-job-id state)
-                       #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                       #:jwt (slurm-api-batch-system-jwt batch-system)))
+            (run-with-state
+             (job-state (slurm-job-state-job-id state)
+                        #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                        #:jwt (slurm-api-batch-system-jwt batch-system))))
            ;; For vector states, poll each state element and return 'completed
            ;; only if all state elements have completed.
            ((vector? state)

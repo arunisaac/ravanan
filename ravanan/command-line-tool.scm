@@ -453,19 +453,20 @@ path."
             (format (current-error-port)
                     "Submitting job ~a~%"
                     script)
-            (let ((job-id (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                               ,store-files-directory)
-                                              ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                               ,store-data-file))
-                                            stdout-file
-                                            stderr-file
-                                            cpus
-                                            name
-                                            script
-                                            #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                                            #:jwt (slurm-api-batch-system-jwt batch-system)
-                                            #:partition (slurm-api-batch-system-partition batch-system)
-                                            #:nice (slurm-api-batch-system-nice batch-system))))
+            (let ((job-id (run-with-state
+                           (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                                ,store-files-directory)
+                                               ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                                ,store-data-file))
+                                             stdout-file
+                                             stderr-file
+                                             cpus
+                                             name
+                                             script
+                                             #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                             #:jwt (slurm-api-batch-system-jwt batch-system)
+                                             #:partition (slurm-api-batch-system-partition batch-system)
+                                             #:nice (slurm-api-batch-system-nice batch-system)))))
               (format (current-error-port)
                       "~a submitted as job ID ~a~%"
                       script
