@@ -19,6 +19,7 @@
 (define-module (ravanan single-machine)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
+  #:use-module (ravanan work monads)
   #:export (submit-job))
 
 (define (submit-job environment stdout-file stderr-file script)
@@ -26,15 +27,17 @@
 @var{environment} is an association list of environment variables to set in the
 job. @var{stdout-file} and @var{stderr-file} are files in which to write the
 stdout and stderr of the job respectively. Return @code{#t} if job succeeded,
-else @code{#f}."
-  (for-each (match-lambda
-              ((name . value)
-               (setenv name value)))
-            environment)
-  (format (current-error-port)
-          "Running ~a~%"
-          script)
-  (zero? (with-output-to-file stdout-file
-           (lambda ()
-             (with-error-to-file stderr-file
-               (cut system* script))))))
+else @code{#f}. The return value is state-monadic."
+  (state-return
+   (begin
+     (for-each (match-lambda
+                 ((name . value)
+                  (setenv name value)))
+               environment)
+     (format (current-error-port)
+             "Running ~a~%"
+             script)
+     (zero? (with-output-to-file stdout-file
+              (lambda ()
+                (with-error-to-file stderr-file
+                  (cut system* script))))))))

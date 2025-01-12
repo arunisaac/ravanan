@@ -441,14 +441,15 @@ path."
           (cond
            ((eq? batch-system 'single-machine)
             (single-machine-job-state script
-                                      (single-machine:submit-job
-                                       `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                          ,store-files-directory)
-                                         ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                          ,store-data-file))
-                                       stdout-file
-                                       stderr-file
-                                       script)))
+                                      (run-with-state
+                                       (single-machine:submit-job
+                                        `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                           ,store-files-directory)
+                                          ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                           ,store-data-file))
+                                        stdout-file
+                                        stderr-file
+                                        script))))
            ((slurm-api-batch-system? batch-system)
             (format (current-error-port)
                     "Submitting job ~a~%"
