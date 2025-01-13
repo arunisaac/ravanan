@@ -39,6 +39,7 @@
             state-return
             state-let*
             state-begin
+            state-sequence
             current-state
             set-current-state
             run-with-state))
@@ -70,6 +71,19 @@
       first-expression
       (lambda _
         body ...)))))
+
+(define (sequence monad-type mvalues)
+  "Convert a list of monadic @var{mvalues} in @var{monad-type} into a monadic list
+of values."
+  (let ((return (monad-return monad-type)))
+    (mlet* monad-type ((reverse-list
+                        (fold (lambda (mvalue mresult)
+                                (mlet* monad-type ((value mvalue)
+                                                   (result mresult))
+                                  (return (cons value result))))
+                              (return (list))
+                              mvalues)))
+      (return (reverse reverse-list)))))
 
 (define-immutable-record-type <maybe>
   (maybe value valid?)
@@ -225,6 +239,9 @@ maybe-monadic."
 (define-syntax-rule (state-begin body ...)
   (mbegin %state-monad
     body ...))
+
+(define state-sequence
+  (cut sequence %state-monad <>))
 
 (define (current-state)
   "Return the current state as a state-monadic value."
