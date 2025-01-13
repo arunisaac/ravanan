@@ -389,7 +389,8 @@ path."
                                 scratch store batch-system
                                 #:key guix-daemon-socket)
   "Run @code{CommandLineTool} class workflow @var{cwl} named @var{name} with
-@var{inputs} using tools from Guix manifest in @var{manifest-file}.
+@var{inputs} using tools from Guix manifest in @var{manifest-file}. Return a
+state-monadic job state object.
 
 @var{channels}, @var{scratch}, @var{store}, @var{batch-system} and
 @var{guix-daemon-socket} are the same as in @code{run-workflow} from
@@ -422,11 +423,12 @@ path."
     (if (file-exists? store-data-file)
         ;; Return a dummy success state object if script has already
         ;; been run successfully.
-        (begin
-          (format (current-error-port)
-                  "~a previously run; retrieving result from store~%"
-                  script)
-          (single-machine-job-state script #t))
+        (state-return
+         (begin
+           (format (current-error-port)
+                   "~a previously run; retrieving result from store~%"
+                   script)
+           (single-machine-job-state script #t)))
         ;; Run script if it has not already been run.
         (begin
           ;; Delete output files directory if an incomplete one exists
@@ -440,39 +442,35 @@ path."
           (mkdir store-files-directory)
           (cond
            ((eq? batch-system 'single-machine)
-            (single-machine-job-state script
-                                      (run-with-state
-                                       (single-machine:submit-job
-                                        `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                           ,store-files-directory)
-                                          ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                           ,store-data-file))
-                                        stdout-file
-                                        stderr-file
-                                        script))))
+            (state-let* ((success? (single-machine:submit-job
+                                    `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                       ,store-files-directory)
+                                      ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                       ,store-data-file))
+                                    stdout-file
+                                    stderr-file
+                                    script)))
+              (state-return (single-machine-job-state script success?))))
            ((slurm-api-batch-system? batch-system)
-            (format (current-error-port)
-                    "Submitting job ~a~%"
-                    script)
-            (let ((job-id (run-with-state
-                           (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                                ,store-files-directory)
-                                               ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                                ,store-data-file))
-                                             stdout-file
-                                             stderr-file
-                                             cpus
-                                             name
-                                             script
-                                             #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                                             #:jwt (slurm-api-batch-system-jwt batch-system)
-                                             #:partition (slurm-api-batch-system-partition batch-system)
-                                             #:nice (slurm-api-batch-system-nice batch-system)))))
+            (state-let* ((job-id
+                          (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
+                                               ,store-files-directory)
+                                              ("WORKFLOW_OUTPUT_DATA_FILE" .
+                                               ,store-data-file))
+                                            stdout-file
+                                            stderr-file
+                                            cpus
+                                            name
+                                            script
+                                            #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                            #:jwt (slurm-api-batch-system-jwt batch-system)
+                                            #:partition (slurm-api-batch-system-partition batch-system)
+                                            #:nice (slurm-api-batch-system-nice batch-system))))
               (format (current-error-port)
                       "~a submitted as job ID ~a~%"
                       script
                       job-id)
-              (slurm-job-state script job-id)))
+              (state-return (slurm-job-state script job-id))))
            (else
             (assertion-violation batch-system "Invalid batch system")))))))
 

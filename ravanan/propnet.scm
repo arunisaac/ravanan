@@ -161,6 +161,21 @@ add to the inbox."
                          (maybe-assoc-ref (just cells) cell-name))))
                 (propagator-inputs propagator))))
 
+  (define (schedule-propagators propagators cells)
+    "Schedule all propagators among @var{propagators} whose inputs are present in
+@var{cells}. Return an association list mapping scheduled propagator names to
+their states."
+    (append-map (lambda (propagator)
+                  (maybe-alist
+                   (cons (propagator-name propagator)
+                         (maybe-let* ((propagator-state
+                                       (activate-propagator
+                                        scheduler
+                                        propagator
+                                        (propagator-input-values cells propagator))))
+                           (just (run-with-state propagator-state))))))
+                propagators))
+
   ;; We implement propagator networks as a state machine. The state consists of
   ;; the current values of all the cells and the list of all propagators
   ;; currently in flight. Each iteration of loop represents one state
@@ -269,14 +284,7 @@ add to the inbox."
                 ;; application of propnets, this will never result in the same
                 ;; step being recomputed; so this approach does not come at a
                 ;; higher computational cost.
-                (append (append-map (lambda (propagator)
-                                      (maybe-alist
-                                       (cons (propagator-name propagator)
-                                             (activate-propagator
-                                              scheduler
-                                              propagator
-                                              (propagator-input-values cells propagator)))))
-                                    propagators-inbox)
+                (append (schedule-propagators propagators-inbox cells)
                         propagators-in-flight))))))))
 
 (define (capture-propnet-output state)

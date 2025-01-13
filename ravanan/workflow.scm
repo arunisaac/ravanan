@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -288,26 +288,28 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
                                          store)))
             (cond
              ((string=? class "CommandLineTool")
-              (command-line-tool-state
-               (run-command-line-tool name
-                                      manifest-file
-                                      channels
-                                      cwl
-                                      inputs
-                                      scratch
-                                      store
-                                      batch-system
-                                      #:guix-daemon-socket guix-daemon-socket)
-               (assoc-ref* cwl "outputs")))
+              (state-let* ((job-state
+                            (run-command-line-tool name
+                                                   manifest-file
+                                                   channels
+                                                   cwl
+                                                   inputs
+                                                   scratch
+                                                   store
+                                                   batch-system
+                                                   #:guix-daemon-socket guix-daemon-socket)))
+                (state-return (command-line-tool-state job-state
+                                                       (assoc-ref* cwl "outputs")))))
              ((string=? class "ExpressionTool")
               (error "Workflow class not implemented yet" class))
              ((string=? class "Workflow")
-              (workflow-state (schedule-propnet (workflow-class->propnet name
-                                                                         cwl
-                                                                         scheduler
-                                                                         batch-system)
-                                                inputs)
-                              (assoc-ref* cwl "outputs"))))))))
+              (state-return
+               (workflow-state (schedule-propnet (workflow-class->propnet name
+                                                                          cwl
+                                                                          scheduler
+                                                                          batch-system)
+                                                 inputs)
+                               (assoc-ref* cwl "outputs")))))))))
 
   (define (poll state)
     "Return current status and updated state of job @var{state} object. The status is
@@ -610,10 +612,11 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
   (let ((scheduler (workflow-scheduler
                     manifest-file channels scratch store batch-system
                     #:guix-daemon-socket guix-daemon-socket)))
-    (let loop ((state ((scheduler-schedule scheduler)
-                       (scheduler-proc name cwl %nothing %nothing)
-                       inputs
-                       scheduler)))
+    (let loop ((state (run-with-state
+                       ((scheduler-schedule scheduler)
+                        (scheduler-proc name cwl %nothing %nothing)
+                        inputs
+                        scheduler))))
       ;; Poll.
       (let ((status state ((scheduler-poll scheduler) state)))
         (if (eq? status 'pending)
