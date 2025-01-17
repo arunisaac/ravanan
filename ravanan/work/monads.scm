@@ -40,6 +40,7 @@
             state-let*
             state-begin
             state-sequence
+            state-mmap
             current-state
             set-current-state
             run-with-state))
@@ -84,6 +85,11 @@ of values."
                               (return (list))
                               mvalues)))
       (return (reverse reverse-list)))))
+
+(define (mmap monad-type mproc . lists)
+  "Map monadic funcion @var{mproc} in @var{monad-type} over @var{lists} and return
+a monadic list."
+  (sequence monad-type (apply map mproc lists)))
 
 (define-immutable-record-type <maybe>
   (maybe value valid?)
@@ -242,6 +248,9 @@ maybe-monadic."
 
 (define state-sequence
   (cut sequence %state-monad <>))
+
+(define state-map
+  (cut mmap %state-monad <> <...>))
 
 (define (current-state)
   "Return the current state as a state-monadic value."
