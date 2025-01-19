@@ -60,26 +60,25 @@
   "Return current status and updated state of job with @var{state} on
 @var{batch-system}. The status is one of the symbols @code{completed},
 @code{failed} or @code{pending}."
-  (values (cond
-           ;; Single machine jobs are run synchronously. So, they return success
-           ;; or failure immediately.
-           ((single-machine-job-state? state)
-            (if (single-machine-job-state-success? state)
-                'completed
-                'failed))
-           ;; Poll slurm for job state.
-           ((slurm-job-state? state)
-            (run-with-state
-             (job-state (slurm-job-state-job-id state)
-                        #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                        #:jwt (slurm-api-batch-system-jwt batch-system))))
-           ;; For vector states, poll each state element and return 'completed
-           ;; only if all state elements have completed.
-           ((vector? state)
-            (or (vector-every (lambda (state-element)
-                                (case (job-state-status state-element batch-system)
-                                  ((completed) => identity)
-                                  (else #f)))
-                              state)
-                'pending)))
-          state))
+  (cond
+   ;; Single machine jobs are run synchronously. So, they return success or
+   ;; failure immediately.
+   ((single-machine-job-state? state)
+    (if (single-machine-job-state-success? state)
+        'completed
+        'failed))
+   ;; Poll slurm for job state.
+   ((slurm-job-state? state)
+    (run-with-state
+     (job-state (slurm-job-state-job-id state)
+                #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                #:jwt (slurm-api-batch-system-jwt batch-system))))
+   ;; For vector states, poll each state element and return 'completed only if
+   ;; all state elements have completed.
+   ((vector? state)
+    (or (vector-every (lambda (state-element)
+                        (case (job-state-status state-element batch-system)
+                          ((completed) => identity)
+                          (else #f)))
+                      state)
+        'pending))))

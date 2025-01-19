@@ -71,8 +71,7 @@
 (define-immutable-record-type <command-line-tool-state>
   (command-line-tool-state job-state formal-outputs)
   command-line-tool-state?
-  (job-state command-line-tool-state-job-state
-             set-command-line-tool-state-job-state)
+  (job-state command-line-tool-state-job-state)
   (formal-outputs command-line-tool-state-formal-outputs))
 
 (define-immutable-record-type <workflow-state>
@@ -334,16 +333,14 @@ exit if job has failed."
                   state)))
        ;; Poll job state. Raise an exception if the job has failed.
        ((command-line-tool-state? state)
-        (let ((status updated-job-state
-                      (job-state-status (command-line-tool-state-job-state state)
-                                        batch-system)))
-          (values (case status
-                    ((failed)
-                     (raise-exception (job-failure
-                                       (job-state-script
-                                        (command-line-tool-state-job-state state)))))
-                    (else => identity))
-                  (set-command-line-tool-state-job-state state updated-job-state))))
+        (values (case (job-state-status (command-line-tool-state-job-state state)
+                                        batch-system)
+                  ((failed)
+                   (raise-exception (job-failure
+                                     (job-state-script
+                                      (command-line-tool-state-job-state state)))))
+                  (else => identity))
+                state))
        ;; Poll sub-workflow state. We do not need to check the status here since
        ;; job failures only occur at the level of a CommandLineTool.
        ((workflow-state? state)
