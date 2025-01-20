@@ -249,8 +249,8 @@ propagator."
                              #:key guix-daemon-socket)
   (define (schedule proc inputs scheduler)
     "Schedule @var{proc} with inputs from the @var{inputs} association list. Return a
-job state object. @var{proc} may either be a @code{<propnet>} object or a
-@code{<scheduler-proc>} object."
+state-monadic job state object. @var{proc} may either be a @code{<propnet>}
+object or a @code{<scheduler-proc>} object."
     (let* ((name (scheduler-proc-name proc))
            (cwl (scheduler-proc-cwl proc))
            (scatter (from-maybe (scheduler-proc-scatter proc)
@@ -261,7 +261,7 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
       (if scatter
           (case scatter-method
             ((dot-product)
-             (apply map
+             (apply state-map
                     (lambda input-elements
                       ;; Recurse with scattered inputs spliced in.
                       (schedule (scheduler-proc name cwl %nothing %nothing)
@@ -303,18 +303,21 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
              ((string=? class "ExpressionTool")
               (error "Workflow class not implemented yet" class))
              ((string=? class "Workflow")
-              (state-return
-               (workflow-state (schedule-propnet (workflow-class->propnet name
-                                                                          cwl
-                                                                          scheduler
-                                                                          batch-system)
-                                                 inputs)
-                               (assoc-ref* cwl "outputs")))))))))
+              (state-let* ((propnet-state
+                            (schedule-propnet (workflow-class->propnet name
+                                                                       cwl
+                                                                       scheduler
+                                                                       batch-system)
+                                              inputs)))
+                (state-return
+                 (workflow-state propnet-state
+                                 (assoc-ref* cwl "outputs"))))))))))
 
   (define (poll state)
     "Return updated state and current status of job @var{state} object as a
-@code{<state+status>} object. The status is one of the symbols @code{pending} or
-@code{completed}."
+state-monadic @code{<state+status>} object. The status is one of the symbols
+@code{pending} or @code{completed}. Within the monadic value, raise an exception
+and exit if job has failed."
     (guard (c ((job-failure? c)
                (let ((script (job-failure-script c)))
                  (user-error
@@ -326,31 +329,34 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
        ;; Return list states as completed only if all state elements in it are
        ;; completed.
        ((list? state)
-        (if (every (lambda (state+status)
-                     (eq? (state+status-status state+status)
-                          'completed))
-                   polled-states)
-            (state+status state 'completed)
-            (state+status state 'pending)))
+        (state-let* ((polled-states (state-map poll state)))
+          (state-return
+           (if (every (lambda (state+status)
+                        (eq? (state+status-status state+status)
+                             'completed))
+                      polled-states)
+               (state+status state 'completed)
+               (state+status state 'pending)))))
        ;; Poll job state. Raise an exception if the job has failed.
        ((command-line-tool-state? state)
-        (state+status state
-                      (case (job-state-status (command-line-tool-state-job-state state)
-                                              batch-system)
-                        ((failed)
-                         (raise-exception (job-failure
-                                           (job-state-script
-                                            (command-line-tool-state-job-state state)))))
-                        (else => identity))))
+        (let ((job-state (command-line-tool-state-job-state state)))
+          (state-let* ((status (job-state-status job-state batch-system)))
+            (state-return
+             (state+status state
+                           (case status
+                             ((failed)
+                              (raise-exception (job-failure
+                                                (job-state-script job-state))))
+                             (else => identity)))))))
        ;; Poll sub-workflow state. We do not need to check the status here since
        ;; job failures only occur at the level of a CommandLineTool.
        ((workflow-state? state)
-        (let ((updated-state+status
-               (poll-propnet (workflow-state-propnet-state state))))
-          (state+status
-           (set-workflow-state-propnet-state state
-                                             (state+status-state updated-state+status))
-           (state+status-status updated-state+status))))
+        (state-let* ((updated-state+status
+                      (poll-propnet (workflow-state-propnet-state state))))
+          (state-return
+           (state+status (set-workflow-state-propnet-state
+                          state (state+status-state updated-state+status))
+                         (state+status-status updated-state+status)))))
        (else
         (assertion-violation state "Invalid state")))))
 
@@ -388,36 +394,42 @@ is the class of the workflow."
     "Return output of completed job @var{state}."
     (cond
      ((workflow-state? state)
-      (filter-outputs "Workflow"
-                      (capture-propnet-output
-                       (workflow-state-propnet-state state))
-                      (workflow-state-formal-outputs state)))
+      (state-let* ((outputs (capture-propnet-output
+                             (workflow-state-propnet-state state))))
+        (state-return
+         (filter-outputs "Workflow"
+                         outputs
+                         (workflow-state-formal-outputs state)))))
      ((list? state)
       ;; Combine outputs from individual state elements.
-      (match (map capture-output state)
-        ((and (head-output _ ...)
-              outputs)
-         (map (match-lambda
-                ((id . value)
-                 (cons id
-                       (map->vector (lambda (output)
-                                      ;; FIXME: Is this the correct way to
-                                      ;; handle missing outputs?
-                                      (or (assoc-ref output id)
-                                          'null))
-                                    outputs))))
-              head-output))))
+      (state-let* ((captured-outputs (state-map capture-output state)))
+        (match captured-outputs
+          ((and (head-output _ ...)
+                outputs)
+           (state-return
+            (map (match-lambda
+                   ((id . value)
+                    (cons id
+                          (map->vector (lambda (output)
+                                         ;; FIXME: Is this the correct way to
+                                         ;; handle missing outputs?
+                                         (or (assoc-ref output id)
+                                             'null))
+                                       outputs))))
+                 head-output))))))
      (else
       ;; Log progress and return captured output.
       (let ((script (job-state-script (command-line-tool-state-job-state state))))
-        (format (current-error-port)
-                "~a completed; logs at ~a and ~a~%"
-                script
-                (script->store-stdout-file script store)
-                (script->store-stderr-file script store))
-        (filter-outputs "CommandLineTool"
-                        (capture-command-line-tool-output script store)
-                        (command-line-tool-state-formal-outputs state))))))
+        (state-return
+         (begin
+           (format (current-error-port)
+                   "~a completed; logs at ~a and ~a~%"
+                   script
+                   (script->store-stdout-file script store)
+                   (script->store-stderr-file script store))
+           (filter-outputs "CommandLineTool"
+                           (capture-command-line-tool-output script store)
+                           (command-line-tool-state-formal-outputs state))))))))
 
   (scheduler schedule poll capture-output))
 
@@ -612,25 +624,27 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
   (let ((scheduler (workflow-scheduler
                     manifest-file channels scratch store batch-system
                     #:guix-daemon-socket guix-daemon-socket)))
-    (let loop ((state (run-with-state
-                       ((scheduler-schedule scheduler)
-                        (scheduler-proc name cwl %nothing %nothing)
-                        inputs
-                        scheduler))))
-      ;; Poll.
-      (let ((state+status ((scheduler-poll scheduler) state)))
-        (if (eq? (state+status-status state+status) 'pending)
-            (begin
-              ;; Pause before looping and polling again so we don't bother the
-              ;; job server too often.
-              (sleep (cond
+    (run-with-state
+     (let loop ((mstate ((scheduler-schedule scheduler)
+                         (scheduler-proc name cwl %nothing %nothing)
+                         inputs
+                         scheduler)))
+       ;; Poll.
+       (state-let* ((state mstate)
+                    (state+status ((scheduler-poll scheduler) state)))
+         (if (eq? (state+status-status state+status)
+                  'pending)
+             (begin
+               ;; Pause before looping and polling again so we don't bother the
+               ;; job server too often.
+               (sleep (cond
                        ;; Single machine jobs are run synchronously. So, there
                        ;; is no need to wait to poll them.
                        ((eq? batch-system 'single-machine)
                         0)
                        ((slurm-api-batch-system? batch-system)
                         %job-poll-interval)))
-              (loop (state+status-state state+status)))
-            ;; Capture outputs.
-            ((scheduler-capture-output scheduler)
-             (state+status-state state+status)))))))
+               (loop (state-return (state+status-state state+status))))
+             ;; Capture outputs.
+             ((scheduler-capture-output scheduler)
+              (state+status-state state+status))))))))

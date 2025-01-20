@@ -57,28 +57,29 @@
    state))
 
 (define* (job-state-status state batch-system)
-  "Return current status and updated state of job with @var{state} on
-@var{batch-system}. The status is one of the symbols @code{completed},
-@code{failed} or @code{pending}."
+  "Return current status of job with @var{state} on @var{batch-system}. The status
+is one of the symbols @code{completed}, @code{failed} or @code{pending}
+encapsulated in the state monad."
   (cond
    ;; Single machine jobs are run synchronously. So, they return success or
    ;; failure immediately.
    ((single-machine-job-state? state)
-    (if (single-machine-job-state-success? state)
-        'completed
-        'failed))
+    (state-return
+     (if (single-machine-job-state-success? state)
+         'completed
+         'failed)))
    ;; Poll slurm for job state.
    ((slurm-job-state? state)
-    (run-with-state
-     (job-state (slurm-job-state-job-id state)
-                #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                #:jwt (slurm-api-batch-system-jwt batch-system))))
+    (job-state (slurm-job-state-job-id state)
+               #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+               #:jwt (slurm-api-batch-system-jwt batch-system)))
    ;; For list states, poll each state element and return 'completed only if all
    ;; state elements have completed.
    ((list? state)
-    (or (every (lambda (state-element)
-                 (case (job-state-status state-element batch-system)
-                   ((completed) => identity)
-                   (else #f)))
-               state)
-        'pending))))
+    (state-return
+     (or (every (lambda (state-element)
+                  (case (job-state-status state-element batch-system)
+                    ((completed) => identity)
+                    (else #f)))
+                state)
+         'pending)))))
