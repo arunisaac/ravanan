@@ -40,7 +40,8 @@
             state-let*
             state-begin
             state-sequence
-            state-mmap
+            state-map
+            state-append-map
             current-state
             set-current-state
             run-with-state))
@@ -90,6 +91,12 @@ of values."
   "Map monadic funcion @var{mproc} in @var{monad-type} over @var{lists} and return
 a monadic list."
   (sequence monad-type (apply map mproc lists)))
+
+(define (mappend-map monad-type mproc . lists)
+  "Map monadic funcion @var{mproc} in @var{monad-type} over @var{lists} like
+@code{mmap}, but return a monadic list of the results appended together."
+  (mlet* monad-type ((mapped (apply mmap monad-type mproc lists)))
+    ((monad-return monad-type) (apply append mapped))))
 
 (define-immutable-record-type <maybe>
   (maybe value valid?)
@@ -251,6 +258,9 @@ maybe-monadic."
 
 (define state-map
   (cut mmap %state-monad <> <...>))
+
+(define state-append-map
+  (cut mappend-map %state-monad <> <...>))
 
 (define (current-state)
   "Return the current state as a state-monadic value."
