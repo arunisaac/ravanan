@@ -25,11 +25,11 @@
 ;;; Code:
 
 (define-module (ravanan job-state)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
   #:use-module (ravanan batch-system)
   #:use-module (ravanan slurm-api)
   #:use-module (ravanan work monads)
-  #:use-module (ravanan work vectors)
   #:export (single-machine-job-state
             slurm-job-state
 
@@ -73,12 +73,12 @@
      (job-state (slurm-job-state-job-id state)
                 #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
                 #:jwt (slurm-api-batch-system-jwt batch-system))))
-   ;; For vector states, poll each state element and return 'completed only if
-   ;; all state elements have completed.
-   ((vector? state)
-    (or (vector-every (lambda (state-element)
-                        (case (job-state-status state-element batch-system)
-                          ((completed) => identity)
-                          (else #f)))
-                      state)
+   ;; For list states, poll each state element and return 'completed only if all
+   ;; state elements have completed.
+   ((list? state)
+    (or (every (lambda (state-element)
+                 (case (job-state-status state-element batch-system)
+                   ((completed) => identity)
+                   (else #f)))
+               state)
         'pending))))

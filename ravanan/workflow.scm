@@ -92,11 +92,11 @@
                     (just (equal? val1 val2)))
                   #f)))
 
-(define (maybe-vector? maybe-value)
-  "Return @code{#t} if maybe-monadic @var{maybe-value} contains a vector. Else,
-return @code{#f}."
+(define (maybe-list? maybe-value)
+  "Return @code{#t} if maybe-monadic @var{maybe-list} is a vector. Else, return
+@code{#f}."
   (from-maybe (maybe-let* ((value maybe-value))
-                (just (vector? value)))
+                (just (list? value)))
               #f))
 
 (define (merge-values maybe-old-value maybe-new-value)
@@ -111,12 +111,12 @@ single value."
    ((and (not (nothing? maybe-old-value))
          (nothing? maybe-new-value))
     maybe-old-value)
-   ;; If the values are vectors, merge them element-wise.
-   ((and (maybe-vector? maybe-old-value)
-         (maybe-vector? maybe-new-value))
+   ;; If the values are lists, merge them element-wise.
+   ((and (maybe-list? maybe-old-value)
+         (maybe-list? maybe-new-value))
     (maybe-let* ((old-value maybe-old-value)
                  (new-value maybe-new-value))
-      (just (vector-map merge-values old-value new-value))))
+      (just (map merge-values old-value new-value))))
    (else
     (if (value=? maybe-old-value maybe-new-value)
         ;; If the values are equal, pick one arbitrarily.
@@ -261,7 +261,7 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
       (if scatter
           (case scatter-method
             ((dot-product)
-             (apply vector-map
+             (apply map
                     (lambda input-elements
                       ;; Recurse with scattered inputs spliced in.
                       (schedule (scheduler-proc name cwl %nothing %nothing)
@@ -274,7 +274,8 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
                                             input-elements))
                                 scheduler))
                     ;; Extract values of scattered inputs.
-                    (vector-map->list (cut assoc-ref inputs <>)
+                    (vector-map->list (lambda (scatter-input)
+                                        (vector->list (assoc-ref inputs scatter-input)))
                                       scatter)))
             ((nested-cross-product flat-cross-product)
              (error scatter-method
@@ -322,15 +323,15 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
                   (script->store-stdout-file script store)
                   (script->store-stderr-file script store)))))
       (cond
-       ;; Return vector states as completed only if all state elements in it are
+       ;; Return list states as completed only if all state elements in it are
        ;; completed.
-       ((vector? state)
-        (let ((status state (vector-mapn poll state)))
-          (state+status state
-                        (if (vector-every (cut eq? <> 'completed)
-                                          status)
-                            'completed
-                            'pending))))
+       ((list? state)
+        (if (every (lambda (state+status)
+                     (eq? (state+status-status state+status)
+                          'completed))
+                   polled-states)
+            (state+status state 'completed)
+            (state+status state 'pending)))
        ;; Poll job state. Raise an exception if the job has failed.
        ((command-line-tool-state? state)
         (state+status state
@@ -391,20 +392,20 @@ is the class of the workflow."
                       (capture-propnet-output
                        (workflow-state-propnet-state state))
                       (workflow-state-formal-outputs state)))
-     ((vector? state)
+     ((list? state)
       ;; Combine outputs from individual state elements.
-      (match (vector-map capture-output state)
-        ((and #(head-output _ ...)
+      (match (map capture-output state)
+        ((and (head-output _ ...)
               outputs)
          (map (match-lambda
                 ((id . value)
                  (cons id
-                       (vector-map (lambda (output)
-                                     ;; FIXME: Is this the correct way to
-                                     ;; handle missing outputs?
-                                     (or (assoc-ref output id)
-                                         'null))
-                                   outputs))))
+                       (map->vector (lambda (output)
+                                      ;; FIXME: Is this the correct way to
+                                      ;; handle missing outputs?
+                                      (or (assoc-ref output id)
+                                          'null))
+                                    outputs))))
               head-output))))
      (else
       ;; Log progress and return captured output.
