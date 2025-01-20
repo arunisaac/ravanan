@@ -40,6 +40,9 @@
             scheduler-poll
             scheduler-capture-output
             schedule-propnet
+            state+status
+            state+status-state
+            state+status-status
             poll-propnet
             capture-propnet-output))
 
@@ -66,6 +69,12 @@
   (schedule scheduler-schedule)
   (poll scheduler-poll)
   (capture-output scheduler-capture-output))
+
+(define-immutable-record-type <state+status>
+  (state+status state status)
+  state+status?
+  (state state+status-state)
+  (status state+status-status))
 
 (define-immutable-record-type <propnet-state>
   (propnet-state propnet cells cells-inbox propagators-in-flight propagators-inbox)
@@ -127,9 +136,9 @@ exists, return @code{#f}. @var{val} is compared using @code{equal?}."
                  (propnet-propagators propnet)))
 
 (define (poll-propnet state)
-  "Poll propagator network @var{state}. Return two values---a status symbol (either
-@code{completed} or @code{pending}) and the current state of the propagator
-network."
+  "Poll propagator network @var{state}. Return a @code{<state+status>} object
+containing two values---the updated state of the propagator network and a status
+symbol (either @code{completed} or @code{pending})."
   (define propnet
     (propnet-state-propnet state))
 
@@ -226,12 +235,12 @@ their states."
             ;; All propagators are finished. The propnet has stabilized. We are
             ;; done. Return all cell values.
             (()
-             (values 'completed
-                     (propnet-state propnet
-                                    cells
-                                    cell-values-inbox
-                                    propagators-in-flight
-                                    propagators-inbox)))
+             (state+status (propnet-state propnet
+                                          cells
+                                          cell-values-inbox
+                                          propagators-in-flight
+                                          propagators-inbox)
+                           'completed))
             ;; Propagators are still in flight. Check if any of them have
             ;; completed.
             (_
@@ -253,12 +262,12 @@ their states."
                  ;; None of the propagators we checked have completed. Return a
                  ;; pending state.
                  (()
-                  (values 'pending
-                          (propnet-state propnet
-                                         cells
-                                         cell-values-inbox
-                                         propagators-still-in-flight
-                                         propagators-inbox)))
+                  (state+status (propnet-state propnet
+                                               cells
+                                               cell-values-inbox
+                                               propagators-still-in-flight
+                                               propagators-inbox)
+                                'pending))
                  ;; Some of the propagators we checked have completed. Enqueue
                  ;; their outputs in the cells inbox and loop.
                  (_

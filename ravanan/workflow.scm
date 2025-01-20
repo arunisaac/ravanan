@@ -311,9 +311,9 @@ job state object. @var{proc} may either be a @code{<propnet>} object or a
                                (assoc-ref* cwl "outputs")))))))))
 
   (define (poll state)
-    "Return current status and updated state of job @var{state} object. The status is
-one of the symbols @code{pending} or @code{completed}. Raise an exception and
-exit if job has failed."
+    "Return updated state and current status of job @var{state} object as a
+@code{<state+status>} object. The status is one of the symbols @code{pending} or
+@code{completed}."
     (guard (c ((job-failure? c)
                (let ((script (job-failure-script c)))
                  (user-error
@@ -326,28 +326,30 @@ exit if job has failed."
        ;; completed.
        ((vector? state)
         (let ((status state (vector-mapn poll state)))
-          (values (if (vector-every (cut eq? <> 'completed)
-                                    status)
-                      'completed
-                      'pending)
-                  state)))
+          (state+status state
+                        (if (vector-every (cut eq? <> 'completed)
+                                          status)
+                            'completed
+                            'pending))))
        ;; Poll job state. Raise an exception if the job has failed.
        ((command-line-tool-state? state)
-        (values (case (job-state-status (command-line-tool-state-job-state state)
-                                        batch-system)
-                  ((failed)
-                   (raise-exception (job-failure
-                                     (job-state-script
-                                      (command-line-tool-state-job-state state)))))
-                  (else => identity))
-                state))
+        (state+status state
+                      (case (job-state-status (command-line-tool-state-job-state state)
+                                              batch-system)
+                        ((failed)
+                         (raise-exception (job-failure
+                                           (job-state-script
+                                            (command-line-tool-state-job-state state)))))
+                        (else => identity))))
        ;; Poll sub-workflow state. We do not need to check the status here since
        ;; job failures only occur at the level of a CommandLineTool.
        ((workflow-state? state)
-        (let ((status updated-propnet-state
-                      (poll-propnet (workflow-state-propnet-state state))))
-          (values status
-                  (set-workflow-state-propnet-state state updated-propnet-state))))
+        (let ((updated-state+status
+               (poll-propnet (workflow-state-propnet-state state))))
+          (state+status
+           (set-workflow-state-propnet-state state
+                                             (state+status-state updated-state+status))
+           (state+status-status updated-state+status))))
        (else
         (assertion-violation state "Invalid state")))))
 
@@ -615,8 +617,8 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
                         inputs
                         scheduler))))
       ;; Poll.
-      (let ((status state ((scheduler-poll scheduler) state)))
-        (if (eq? status 'pending)
+      (let ((state+status ((scheduler-poll scheduler) state)))
+        (if (eq? (state+status-status state+status) 'pending)
             (begin
               ;; Pause before looping and polling again so we don't bother the
               ;; job server too often.
@@ -627,6 +629,7 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
                         0)
                        ((slurm-api-batch-system? batch-system)
                         %job-poll-interval)))
-              (loop state))
+              (loop (state+status-state state+status)))
             ;; Capture outputs.
-            ((scheduler-capture-output scheduler) state))))))
+            ((scheduler-capture-output scheduler)
+             (state+status-state state+status)))))))
