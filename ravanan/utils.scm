@@ -22,7 +22,6 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:export (string-trim-prefix
-            call-with-temporary-file
             load-script))
 
 (define (string-trim-prefix prefix str)
@@ -30,16 +29,6 @@
   (if (string-prefix? prefix str)
       (substring str (string-length prefix))
       str))
-
-(define* (call-with-temporary-file proc #:optional (parent-directory (getcwd)))
-  "Call @var{proc} with an output port to a new temporary file in
-@var{parent-directory}, and delete it when @var{proc} returns or exits
-non-locally."
-  (let ((temporary-file-port (mkstemp (string-append parent-directory "/XXXXXX"))))
-    (dynamic-wind (const #t)
-                  (cut proc temporary-file-port)
-                  (lambda ()
-                    (delete-file (port-filename temporary-file-port))))))
 
 (define* (load-script script-file #:key (modules '()))
   "Load script from @var{script-file} and return its value. Import @var{modules}
