@@ -395,7 +395,6 @@ state-monadic job state object.
 @var{channels}, @var{scratch}, @var{store}, @var{batch-system} and
 @var{guix-daemon-socket} are the same as in @code{run-workflow} from
 @code{(ravanan workflow)}."
-  ;; TODO: Write to the store atomically.
   (let* ((script
           (build-command-line-tool-script name manifest-file channels cwl inputs
                                           scratch store batch-system
@@ -481,7 +480,7 @@ state-monadic job state object.
          (output-json (call-with-input-file store-data-file
                         json->scm)))
     ;; Recursively rewrite file paths in output JSON.
-    (call-with-output-file store-data-file
+    (call-with-atomic-output-file store-data-file
       (lambda (port)
         (scm->json (let rewrite ((tree output-json))
                      (cond
@@ -767,7 +766,7 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
 
   (define capture-outputs-gexp
     #~(let ((workflow-output-directory (getenv "WORKFLOW_OUTPUT_DIRECTORY")))
-        (call-with-output-file (getenv "WORKFLOW_OUTPUT_DATA_FILE")
+        (call-with-atomic-output-file (getenv "WORKFLOW_OUTPUT_DATA_FILE")
           (lambda (out)
             (scm->json
              (if (file-exists? "cwl.output.json")
