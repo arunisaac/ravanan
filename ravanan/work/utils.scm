@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -20,9 +20,12 @@
   #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-71)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (ice-9 popen)
+  #:use-module (system foreign)
+  #:use-module (system foreign-library)
   #:use-module (ravanan work vectors)
   #:export (list->dotted-list
             alist=?
@@ -31,7 +34,8 @@
             json-ref
             canonicalize-json
             call-with-temporary-directory
-            call-with-input-pipe))
+            call-with-input-pipe
+            call-with-atomic-output-file))
 
 (define (list->dotted-list lst)
   "Convert @var{lst} of 2-element lists into a true association list of
@@ -121,3 +125,31 @@ list of program arguments."
          (lambda ()
            (unless (zero? (close-pipe port))
              (error "Command invocation failed" command))))))))
+
+(define (fsync fd)
+  "Synchronize file descriptor @var{fd} with storage device using the @code{fsync}
+system call."
+  (let ((return errno ((pointer->procedure int
+                                           (foreign-library-pointer (dynamic-link)
+                                                                    "fsync")
+                                           (list int)
+                                           #:return-errno? #t)
+                       fd)))
+    (unless (zero? return)
+      (error "fsync failed" (strerror errno)))))
+
+(define (call-with-atomic-output-file file proc)
+  "Call @var{proc} with an output port, data written to which will be atomically
+written to @var{file}."
+  (let ((temporary-file-port #f)
+        (temporary-filename #f))
+    (dynamic-wind (lambda ()
+                    (set! temporary-file-port
+                          (mkstemp (string-append file ".XXXXXX")))
+                    (set! temporary-filename
+                          (port-filename temporary-file-port)))
+                  (cut proc temporary-file-port)
+                  (lambda ()
+                    (fsync (port->fdes temporary-file-port))
+                    (close-port temporary-file-port)
+                    (rename-file temporary-filename file)))))
