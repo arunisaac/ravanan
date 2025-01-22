@@ -329,14 +329,16 @@ and exit if job has failed."
        ;; Return list states as completed only if all state elements in it are
        ;; completed.
        ((list? state)
-        (state-let* ((polled-states (state-map poll state)))
+        (state-let* ((polled-state+status (state-map poll state)))
           (state-return
-           (if (every (lambda (state+status)
-                        (eq? (state+status-status state+status)
-                             'completed))
-                      polled-states)
-               (state+status state 'completed)
-               (state+status state 'pending)))))
+           (state+status (map state+status-state
+                              polled-state+status)
+                         (if (every (lambda (state+status)
+                                      (eq? (state+status-status state+status)
+                                           'completed))
+                                    polled-state+status)
+                             'completed
+                             'pending)))))
        ;; Poll job state. Raise an exception if the job has failed.
        ((command-line-tool-state? state)
         (let ((job-state (command-line-tool-state-job-state state)))
