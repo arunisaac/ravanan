@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -114,90 +114,97 @@ each association list of the returned vector of association lists. If
                             requirement))
                       (coerce-alist->vector requirements "class")))))
 
+(define (normalize-secondary-files secondary-files default-required)
+  "Normalize @var{secondary-files}. @var{default-required} is the default value of
+the @code{required} field when it is not specified."
+  (cond
+   ;; array of SecondaryFileSchema objects
+   ((vector? secondary-files)
+    (vector-append-map (cut normalize-secondary-files <> default-required)
+                       secondary-files))
+   ;; SecondaryFileSchema object
+   ((not (string? secondary-files))
+    (vector secondary-files))
+   ;; string form optional SecondaryFileSchema object
+   ((string-suffix? "?" secondary-files)
+    (vector `(("pattern" . ,(string-drop-right secondary-files
+                                               (string-length "?")))
+              ("required" . #f))))
+   ;; string form SecondaryFileSchema object with an unspecified required
+   (else
+    (vector `(("pattern" . ,secondary-files)
+              ("required" . ,default-required))))))
+
+(define (normalize-formal-input input)
+  "Normalize formal @var{input}."
+  (if (eq? (formal-parameter-type (assoc-ref input "type"))
+           'File)
+      (maybe-assoc-set input
+        (cons (list "default" "location")
+              (maybe-let* ((location (maybe-assoc-ref (just input)
+                                                      "default" "location")))
+                (just (canonicalize-path location))))
+        (cons "secondaryFiles"
+              (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
+                          (compose just
+                                   (cut normalize-secondary-files <> #t)))))
+      input))
+
+(define (normalize-formal-output output)
+  "Normalize formal @var{output}."
+  (if (eq? (formal-parameter-type (assoc-ref output "type"))
+           'File)
+      (maybe-assoc-set output
+        (cons "secondaryFiles"
+              (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")
+                          (compose just
+                                   (cut normalize-secondary-files <> #f)))))
+      output))
+
+(define (normalize-base-command maybe-base-command)
+  "Normalize @var{base-command} of @code{CommandLineTool} class workflow."
+  (maybe-let* ((base-command maybe-base-command))
+    (cond
+     ((string? base-command) (just (vector base-command)))
+     ((vector? base-command) (just base-command)))))
+
+(define (normalize-arguments maybe-arguments)
+  "Normalize @var{maybe-arguments} of @code{CommandLineTool} class workflow."
+  (maybe-let* ((arguments maybe-arguments))
+    (just (vector-map (lambda (argument)
+                        (cond
+                         ((string? argument)
+                          `(("valueFrom" . ,argument)))
+                         ((list? argument)
+                          argument)
+                         (else
+                          (error "Invalid argument" argument))))
+                      arguments))))
+
+(define (normalize-steps maybe-steps)
+  "Normalize @var{maybe-steps} of @code{Workflow} class workflow."
+  (maybe-let* ((steps maybe-steps))
+    (just (vector-map (lambda (step)
+                        (maybe-assoc-set step
+                          ;; Read steps recursively.
+                          (cons "run"
+                                (let ((run (assoc-ref step "run")))
+                                  (just (if (string? run)
+                                            (read-workflow run)
+                                            (normalize-workflow run)))))
+                          ;; Normalize step requirements and hints.
+                          (cons "requirements"
+                                (normalize-requirements
+                                 (maybe-assoc-ref (just step)
+                                                  "requirements")))
+                          (cons "hints"
+                                (normalize-requirements
+                                 (maybe-assoc-ref (just step)
+                                                  "hints")))))
+                      (coerce-alist->vector steps "id")))))
+
 (define (normalize-workflow cwl)
   "Normalize CWL workflow @var{cwl} (of any class)."
-  (define (normalize-secondary-files secondary-files default-required)
-    (cond
-     ;; array of SecondaryFileSchema objects
-     ((vector? secondary-files)
-      (vector-append-map (cut normalize-secondary-files <> default-required)
-                         secondary-files))
-     ;; SecondaryFileSchema object
-     ((not (string? secondary-files))
-      (vector secondary-files))
-     ;; string form optional SecondaryFileSchema object
-     ((string-suffix? "?" secondary-files)
-      (vector `(("pattern" . ,(string-drop-right secondary-files
-                                                 (string-length "?")))
-                ("required" . #f))))
-     ;; string form SecondaryFileSchema object with an unspecified required
-     (else
-      (vector `(("pattern" . ,secondary-files)
-                ("required" . ,default-required))))))
-
-  (define (normalize-formal-input input)
-    (if (eq? (formal-parameter-type (assoc-ref input "type"))
-             'File)
-        (maybe-assoc-set input
-          (cons (list "default" "location")
-                (maybe-let* ((location (maybe-assoc-ref (just input)
-                                                        "default" "location")))
-                  (just (canonicalize-path location))))
-          (cons "secondaryFiles"
-                (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
-                            (compose just
-                                     (cut normalize-secondary-files <> #t)))))
-        input))
-
-  (define (normalize-formal-output output)
-    (if (eq? (formal-parameter-type (assoc-ref output "type"))
-             'File)
-        (maybe-assoc-set output
-          (cons "secondaryFiles"
-                (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")
-                            (compose just
-                                     (cut normalize-secondary-files <> #f)))))
-        output))
-
-  (define (normalize-base-command maybe-base-command)
-    (maybe-let* ((base-command maybe-base-command))
-      (cond
-       ((string? base-command) (just (vector base-command)))
-       ((vector? base-command) (just base-command)))))
-
-  (define (normalize-arguments maybe-arguments)
-    (maybe-let* ((arguments maybe-arguments))
-      (just (vector-map (lambda (argument)
-                          (cond
-                           ((string? argument)
-                            `(("valueFrom" . ,argument)))
-                           ((list? argument)
-                            argument)
-                           (else
-                            (error "Invalid argument" argument))))
-                        arguments))))
-
-  (define (normalize-steps maybe-steps)
-    (maybe-let* ((steps maybe-steps))
-      (just (vector-map (lambda (step)
-                          (maybe-assoc-set step
-                            ;; Read steps recursively.
-                            (cons "run"
-                                  (let ((run (assoc-ref step "run")))
-                                    (just (if (string? run)
-                                              (read-workflow run)
-                                              (normalize-workflow run)))))
-                            ;; Normalize step requirements and hints.
-                            (cons "requirements"
-                                  (normalize-requirements
-                                   (maybe-assoc-ref (just step)
-                                                    "requirements")))
-                            (cons "hints"
-                                  (normalize-requirements
-                                   (maybe-assoc-ref (just step)
-                                                    "hints")))))
-                        (coerce-alist->vector steps "id")))))
-  
   (apply maybe-assoc-set
          cwl
          ;; Normalize requirements and hints to a vector.
