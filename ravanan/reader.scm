@@ -25,6 +25,7 @@
   #:use-module (yaml)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
+  #:use-module (ravanan work types)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (read-workflow
@@ -135,10 +136,16 @@ the @code{required} field when it is not specified."
     (vector `(("pattern" . ,secondary-files)
               ("required" . ,default-required))))))
 
+(define (some-file-type? type)
+  "Return @code{#t} if @var{type} is a @code{File}, an array of @code{File}s, an
+array of array of @code{File}s, etc. Else, return @code{#f}"
+  (or (eq? type 'File)
+      (and (array-type? type)
+           (some-file-type? (array-type-subtype type)))))
+
 (define (normalize-formal-input input)
   "Normalize formal @var{input}."
-  (if (eq? (formal-parameter-type (assoc-ref input "type"))
-           'File)
+  (if (some-file-type? (formal-parameter-type (assoc-ref input "type")))
       (maybe-assoc-set input
         (cons (list "default" "location")
               (maybe-let* ((location (maybe-assoc-ref (just input)
@@ -152,8 +159,7 @@ the @code{required} field when it is not specified."
 
 (define (normalize-formal-output output)
   "Normalize formal @var{output}."
-  (if (eq? (formal-parameter-type (assoc-ref output "type"))
-           'File)
+  (if (some-file-type? (formal-parameter-type (assoc-ref output "type")))
       (maybe-assoc-set output
         (cons "secondaryFiles"
               (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")

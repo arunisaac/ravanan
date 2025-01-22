@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -16,13 +16,120 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
-(use-modules (srfi srfi-64)
+(use-modules (srfi srfi-1)
+             (srfi srfi-64)
+             (ice-9 match)
              (ravanan reader))
+
+(define normalize-formal-input
+  (@@ (ravanan reader) normalize-formal-input))
+
+(define normalize-formal-output
+  (@@ (ravanan reader) normalize-formal-output))
+
+(define (json=? tree1 tree2)
+  (cond
+   ;; Arrays
+   ((vector? tree1)
+    (lset= json=?
+           (vector->list tree1)
+           (vector->list tree2)))
+   ;; Dictionaries
+   ((list? tree1)
+    (lset= (match-lambda*
+             (((key1 . value1) (key2 . value2))
+              (and (string=? key1 key2)
+                   (json=? value1 value2))))
+           tree1
+           tree2))
+   ;; Atoms
+   (else
+    (equal? tree1 tree2))))
 
 (test-begin "reader")
 
 (test-equal "Coerce number to number"
   37
   (coerce-type 37 'number))
+
+(test-assert "Normalize File type formal input"
+  (json=? '(("type" . "File")
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #t)))))
+          (normalize-formal-input
+           '(("type" . "File")
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize File array type formal input"
+  (json=? '(("type"
+             ("type" . "array")
+             ("items" . "File"))
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #t)))))
+          (normalize-formal-input
+           '(("type"
+              ("type" . "array")
+              ("items" . "File"))
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize array of File arrays type formal input"
+  (json=? '(("type"
+             ("type" . "array")
+             ("items" . (("type" . "array")
+                         ("items" . "File"))))
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #t)))))
+          (normalize-formal-input
+           '(("type"
+              ("type" . "array")
+              ("items" . (("type" . "array")
+                          ("items" . "File"))))
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize File type formal output"
+  (json=? '(("type" . "File")
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #f)))))
+          (normalize-formal-output
+           '(("type" . "File")
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize File array type formal output"
+  (json=? '(("type"
+             ("type" . "array")
+             ("items" . "File"))
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #f)))))
+          (normalize-formal-output
+           '(("type"
+              ("type" . "array")
+              ("items" . "File"))
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize array of File arrays type formal output"
+  (json=? '(("type"
+             ("type" . "array")
+             ("items" . (("type" . "array")
+                         ("items" . "File"))))
+            ("id" . "foo")
+            ("secondaryFiles" . #((("pattern" . ".bai")
+                                   ("required" . #t)))))
+          (normalize-formal-input
+           '(("type"
+              ("type" . "array")
+              ("items" . (("type" . "array")
+                          ("items" . "File"))))
+             ("id" . "foo")
+             ("secondaryFiles" . #(".bai"))))))
 
 (test-end "reader")
