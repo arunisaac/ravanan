@@ -331,7 +331,8 @@ in which the G-expressions are inserted."
            (append (maybe->list prefix)
                    (from-maybe
                     (maybe-let* ((item-separator (command-line-binding-item-separator binding)))
-                      (just (list (string-join args item-separator))))
+                      (just (list #~(string-join (list #$@args)
+                                                 #$item-separator))))
                     args))))))
      (else
       (append (maybe->list prefix)
