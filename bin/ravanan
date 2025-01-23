@@ -3,7 +3,7 @@
 exec guile --no-auto-compile -e main -s "$0" "$@"
 !#
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -33,6 +33,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ravanan config)
              (ravanan reader)
              (ravanan utils)
+             (ravanan verbosity)
              (ravanan workflow)
              (ravanan work utils))
 
@@ -77,6 +78,15 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                 (lambda (opt name arg result)
                   (acons 'outdir arg
                          result)))
+        (option (list "trace") #t #f
+                (lambda (opt name arg result)
+                  (let ((accepted-values (list)))
+                    (if (member arg accepted-values)
+                        (assoc-set result
+                          (cons 'traces
+                                (cons (string->symbol arg)
+                                      (assq-ref result 'traces))))
+                        (error "Unknown trace subsystem" arg)))))
         (option (list "help") #f #t
                 (lambda (opt name arg result)
                   (acons 'help #t result)))
@@ -115,7 +125,11 @@ Slurm API batch system options:
   --slurm-jwt=SLURM-JWT                      slurm JWT to authenticate with
   --slurm-partition=SLURM-PARTITION          slurm partition to request
   --slurm-nice=SLURM-NICE                    slurm job priority adjustment
-"
+
+Debugging options:
+
+  --trace=SUBSYSTEM              enable tracing on subsystem;
+                                 repeat to trace multiple subsystems"
           program))
 
 (define (read-jwt file)
@@ -182,7 +196,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                             `((batch-system . single-machine)
                               (slurm-api-endpoint . ,(build-uri 'http
                                                                 #:host "localhost"
-                                                                #:port 6820))))))
+                                                                #:port 6820))
+                              (traces . ())))))
        (when (assq-ref args 'help)
          (print-usage program)
          (exit #t))
@@ -227,35 +242,36 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                          (error "Error loading manifest file"
                                                 file)
                                          (raise-exception c))))))
-                            (run-workflow (file-name-stem workflow-file)
-                                          (and (assq 'guix-manifest-file args)
-                                               (canonicalize-path
-                                                (assq-ref args 'guix-manifest-file)))
-                                          (and (assq-ref args 'guix-channels-file)
-                                               (load-script
-                                                (canonicalize-path
-                                                 (assq-ref args 'guix-channels-file))
-                                                #:modules '((guile)
-                                                            (guix channels))))
-                                          (read-workflow workflow-file)
-                                          (read-inputs inputs-file)
-                                          (case (assq-ref args 'batch-system)
-                                            ((single-machine)
-                                             (or (assq-ref args 'scratch)
-                                                 (getcwd)))
-                                            ((slurm-api)
-                                             (assq-ref args 'scratch)))
-                                          store
-                                          (case (assq-ref args 'batch-system)
-                                            ((single-machine) 'single-machine)
-                                            ((slurm-api)
-                                             (slurm-api-batch-system
-                                              (assq-ref args 'slurm-api-endpoint)
-                                              (and (assq-ref args 'slurm-jwt)
-                                                   (read-jwt (assq-ref args 'slurm-jwt)))
-                                              (assq-ref args 'slurm-partition)
-                                              (assq-ref args 'slurm-nice))))
-                                          #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)))))
+                            (parameterize ((%traces (assq-ref args 'traces)))
+                              (run-workflow (file-name-stem workflow-file)
+                                            (and (assq 'guix-manifest-file args)
+                                                 (canonicalize-path
+                                                  (assq-ref args 'guix-manifest-file)))
+                                            (and (assq-ref args 'guix-channels-file)
+                                                 (load-script
+                                                  (canonicalize-path
+                                                   (assq-ref args 'guix-channels-file))
+                                                  #:modules '((guile)
+                                                              (guix channels))))
+                                            (read-workflow workflow-file)
+                                            (read-inputs inputs-file)
+                                            (case (assq-ref args 'batch-system)
+                                              ((single-machine)
+                                               (or (assq-ref args 'scratch)
+                                                   (getcwd)))
+                                              ((slurm-api)
+                                               (assq-ref args 'scratch)))
+                                            store
+                                            (case (assq-ref args 'batch-system)
+                                              ((single-machine) 'single-machine)
+                                              ((slurm-api)
+                                               (slurm-api-batch-system
+                                                (assq-ref args 'slurm-api-endpoint)
+                                                (and (assq-ref args 'slurm-jwt)
+                                                     (read-jwt (assq-ref args 'slurm-jwt)))
+                                                (assq-ref args 'slurm-partition)
+                                                (assq-ref args 'slurm-nice))))
+                                            #:guix-daemon-socket (assq-ref args 'guix-daemon-socket))))))
             (scm->json (if (assq-ref args 'outdir)
                            (symlink-to-output-directory store
                                                         (assq-ref args 'outdir)
