@@ -118,35 +118,36 @@ monad."
                                          jwt
                                          (string-append "/slurm/v0.0.41/job/"
                                                         (number->string job-id)))))
-    (state-return
-     (match (json-ref response "errors")
-       (#()
+    (match (json-ref response "errors")
+      (#()
+       (state-return
         (match (json-ref (find (lambda (job)
                                  (= (json-ref job "job_id")
                                     job-id))
                                (vector->list (json-ref response "jobs")))
                          "job_state")
           (#(job-state)
-           (string->symbol (string-downcase job-state)))))
-       (#(errors ...)
-        ;; Check in slurmdbd if job has been completed and purged from
-        ;; slurmctld's active memory.
-        (match (find (lambda (error)
-                       (= (json-ref error "error_number")
-                          ;; Error number 2017 (Invalid job id specified) may
-                          ;; have occurred because the job has completed, has
-                          ;; exceeded MinJobAge (as set in slurm.conf) and has
-                          ;; therefore been purged from slurmctld's active
-                          ;; memory.
-                          2017))
-                     errors)
-          (error-2017
-           (let ((response
-                  (check-api-error
-                   (slurm-http-get api-endpoint
-                                   jwt
-                                   (string-append "/slurmdb/v0.0.41/job/"
-                                                  (number->string job-id))))))
+           (string->symbol (string-downcase job-state))))))
+      (#(errors ...)
+       ;; Check in slurmdbd if job has been completed and purged from
+       ;; slurmctld's active memory.
+       (match (find (lambda (error)
+                      (= (json-ref error "error_number")
+                         ;; Error number 2017 (Invalid job id specified) may
+                         ;; have occurred because the job has completed, has
+                         ;; exceeded MinJobAge (as set in slurm.conf) and has
+                         ;; therefore been purged from slurmctld's active
+                         ;; memory.
+                         2017))
+                    errors)
+         (error-2017
+          (state-let* ((response
+                        (slurm-http-get api-endpoint
+                                        jwt
+                                        (string-append "/slurmdb/v0.0.41/job/"
+                                                       (number->string job-id)))))
+            (check-api-error response)
+            (state-return
              (match (json-ref (find (lambda (job)
                                       (= (json-ref job "job_id")
                                          job-id))
@@ -157,6 +158,6 @@ monad."
                 (if (eq? (string->symbol (string-downcase job-state))
                          'success)
                     'success
-                    'failed)))))
-          (#f
-           (check-api-error response))))))))
+                    'failed))))))
+         (#f
+          (state-return (check-api-error response))))))))
