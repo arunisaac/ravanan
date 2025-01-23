@@ -316,51 +316,43 @@ object or a @code{<scheduler-proc>} object."
   (define (poll state)
     "Return updated state and current status of job @var{state} object as a
 state-monadic @code{<state+status>} object. The status is one of the symbols
-@code{pending} or @code{completed}. Within the monadic value, raise an exception
-and exit if job has failed."
-    (guard (c ((job-failure? c)
-               (let ((script (job-failure-script c)))
-                 (user-error
-                  "~a failed; logs at ~a and ~a~%"
-                  script
-                  (script->store-stdout-file script store)
-                  (script->store-stderr-file script store)))))
-      (cond
-       ;; Return list states as completed only if all state elements in it are
-       ;; completed.
-       ((list? state)
-        (state-let* ((polled-state+status (state-map poll state)))
+@code{pending} or @code{completed}."
+    (cond
+     ;; Return list states as completed only if all state elements in it are
+     ;; completed.
+     ((list? state)
+      (state-let* ((polled-state+status (state-map poll state)))
+        (state-return
+         (state+status (map state+status-state
+                            polled-state+status)
+                       (if (every (lambda (state+status)
+                                    (eq? (state+status-status state+status)
+                                         'completed))
+                                  polled-state+status)
+                           'completed
+                           'pending)))))
+     ;; Poll job state. Raise an exception if the job has failed.
+     ((command-line-tool-state? state)
+      (let ((job-state (command-line-tool-state-job-state state)))
+        (state-let* ((status (job-state-status job-state batch-system)))
           (state-return
-           (state+status (map state+status-state
-                              polled-state+status)
-                         (if (every (lambda (state+status)
-                                      (eq? (state+status-status state+status)
-                                           'completed))
-                                    polled-state+status)
-                             'completed
-                             'pending)))))
-       ;; Poll job state. Raise an exception if the job has failed.
-       ((command-line-tool-state? state)
-        (let ((job-state (command-line-tool-state-job-state state)))
-          (state-let* ((status (job-state-status job-state batch-system)))
-            (state-return
-             (state+status state
-                           (case status
-                             ((failed)
-                              (raise-exception (job-failure
-                                                (job-state-script job-state))))
-                             (else => identity)))))))
-       ;; Poll sub-workflow state. We do not need to check the status here since
-       ;; job failures only occur at the level of a CommandLineTool.
-       ((workflow-state? state)
-        (state-let* ((updated-state+status
-                      (poll-propnet (workflow-state-propnet-state state))))
-          (state-return
-           (state+status (set-workflow-state-propnet-state
-                          state (state+status-state updated-state+status))
-                         (state+status-status updated-state+status)))))
-       (else
-        (assertion-violation state "Invalid state")))))
+           (state+status state
+                         (case status
+                           ((failed)
+                            (raise-exception (job-failure
+                                              (job-state-script job-state))))
+                           (else => identity)))))))
+     ;; Poll sub-workflow state. We do not need to check the status here since
+     ;; job failures only occur at the level of a CommandLineTool.
+     ((workflow-state? state)
+      (state-let* ((updated-state+status
+                    (poll-propnet (workflow-state-propnet-state state))))
+        (state-return
+         (state+status (set-workflow-state-propnet-state
+                        state (state+status-state updated-state+status))
+                       (state+status-status updated-state+status)))))
+     (else
+      (assertion-violation state "Invalid state"))))
 
   (define (find-output class outputs formal-output)
     "Find @var{formal-output} among @var{outputs}. @var{class} is the class of the
@@ -623,30 +615,37 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
 @var{batch-system} is an object representing one of the supported batch systems.
 
 @var{guix-daemon-socket} is the Guix daemon socket to connect to."
-  (let ((scheduler (workflow-scheduler
-                    manifest-file channels scratch store batch-system
-                    #:guix-daemon-socket guix-daemon-socket)))
-    (run-with-state
-     (let loop ((mstate ((scheduler-schedule scheduler)
-                         (scheduler-proc name cwl %nothing %nothing)
-                         inputs
-                         scheduler)))
-       ;; Poll.
-       (state-let* ((state mstate)
-                    (state+status ((scheduler-poll scheduler) state)))
-         (if (eq? (state+status-status state+status)
-                  'pending)
-             (begin
-               ;; Pause before looping and polling again so we don't bother the
-               ;; job server too often.
-               (sleep (cond
-                       ;; Single machine jobs are run synchronously. So, there
-                       ;; is no need to wait to poll them.
-                       ((eq? batch-system 'single-machine)
-                        0)
-                       ((slurm-api-batch-system? batch-system)
-                        %job-poll-interval)))
-               (loop (state-return (state+status-state state+status))))
-             ;; Capture outputs.
-             ((scheduler-capture-output scheduler)
-              (state+status-state state+status))))))))
+  (guard (c ((job-failure? c)
+             (let ((script (job-failure-script c)))
+               (user-error
+                "~a failed; logs at ~a and ~a~%"
+                script
+                (script->store-stdout-file script store)
+                (script->store-stderr-file script store)))))
+    (let ((scheduler (workflow-scheduler
+                      manifest-file channels scratch store batch-system
+                      #:guix-daemon-socket guix-daemon-socket)))
+      (run-with-state
+       (let loop ((mstate ((scheduler-schedule scheduler)
+                           (scheduler-proc name cwl %nothing %nothing)
+                           inputs
+                           scheduler)))
+         ;; Poll.
+         (state-let* ((state mstate)
+                      (state+status ((scheduler-poll scheduler) state)))
+           (if (eq? (state+status-status state+status)
+                    'pending)
+               (begin
+                 ;; Pause before looping and polling again so we don't bother the
+                 ;; job server too often.
+                 (sleep (cond
+                         ;; Single machine jobs are run synchronously. So, there
+                         ;; is no need to wait to poll them.
+                         ((eq? batch-system 'single-machine)
+                          0)
+                         ((slurm-api-batch-system? batch-system)
+                          %job-poll-interval)))
+                 (loop (state-return (state+status-state state+status))))
+               ;; Capture outputs.
+               ((scheduler-capture-output scheduler)
+                (state+status-state state+status)))))))))
