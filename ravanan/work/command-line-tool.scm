@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -52,13 +52,17 @@ directory after THUNK returns."
                   thunk
                   (cut chdir original-current-directory))))
 
-;; TODO: Support float types.
 (define (object-type obj)
   "Return the type of @var{obj}."
   (cond
    ((eq? obj 'null) 'null)
    ((boolean? obj) 'boolean)
-   ((integer? obj) 'int)
+   ((and (number? obj)
+         (inexact? obj))
+    'float)
+   ((and (number? obj)
+         (integer? obj))
+    'int)
    ((string? obj) 'string)
    ;; For vector objects, we use the first element to guess at the
    ;; subtype.
@@ -86,6 +90,10 @@ example, when @var{type} is a union type."
     (match obj
       ((or 'null #()) 'null)
       (_ #f)))
+   ;; Treat floats and doubles as the same thing. It is unclear to me why the
+   ;; CWL specification needs separate types for these.
+   ((eq? type 'double)
+    (match-type obj 'float))
    ;; Recursively match type of every element of array.
    ((array-type? type)
     (and (vector? obj)

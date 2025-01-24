@@ -339,7 +339,7 @@ in which the G-expressions are inserted."
               (list (case type
                       ((string)
                        value)
-                      ((int)
+                      ((int float)
                        #~(number->string #$value))
                       ((File)
                        #~(assoc-ref* #$value "path"))
