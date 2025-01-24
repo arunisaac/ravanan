@@ -139,7 +139,14 @@ monad."
            (#(job-state)
             (trace 'slurm-api
                    "slurmctld reports ~a state for job ~a" job-state job-id)
-            (let ((job-state (string->symbol (string-downcase job-state))))
+            (let ((job-state
+                   (case (string->symbol (string-downcase job-state))
+                     ;; slurm returns a PENDING state when the job has not yet
+                     ;; been scheduled on a compute node, and RUNNING once it
+                     ;; has been scheduled and is running.
+                     ((pending running) 'pending)
+                     ((completed) 'completed)
+                     (else (error "Unknown slurm job state" job-state)))))
               (trace 'slurm-api
                      "return ~a state for job ~a" job-state job-id)
               job-state)))))
@@ -179,10 +186,11 @@ monad."
                         "slurmdbd reports ~a state for job ~a"
                         job-state job-id)
                  ;; job-state is either "SUCCESS" or "ERROR".
-                 (let ((job-state (if (eq? (string->symbol (string-downcase job-state))
-                                           'success)
-                                      'success
-                                      'failed)))
+                 (let ((job-state
+                        (case (string->symbol (string-downcase job-state))
+                          ((success) 'completed)
+                          ((error) 'failed)
+                          (else (error "Unknown slurm job state" job-state)))))
                    (trace 'slurm-api
                           "return ~a state for job ~a" job-state job-id)
                    job-state))))))
