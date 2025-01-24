@@ -885,6 +885,7 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
           #~(begin
               (use-modules (ravanan work command-line-tool)
                            (ravanan work monads)
+                           (ravanan work types)
                            (ravanan work ui)
                            (ravanan work utils)
                            (ravanan work vectors)
