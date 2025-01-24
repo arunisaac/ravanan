@@ -80,7 +80,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                          result)))
         (option (list "trace") #t #f
                 (lambda (opt name arg result)
-                  (let ((accepted-values (list)))
+                  (let ((accepted-values (list "slurm-api")))
                     (if (member arg accepted-values)
                         (assoc-set result
                           (cons 'traces
@@ -129,7 +129,8 @@ Slurm API batch system options:
 Debugging options:
 
   --trace=SUBSYSTEM              enable tracing on subsystem;
-                                 repeat to trace multiple subsystems"
+                                 repeat to trace multiple subsystems
+                                 (accepted values: slurm-api)"
           program))
 
 (define (read-jwt file)

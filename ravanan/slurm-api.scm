@@ -25,6 +25,7 @@
   #:use-module (web client)
   #:use-module (web uri)
   #:use-module (json)
+  #:use-module (ravanan verbosity)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work utils)
   #:export (submit-job
@@ -102,62 +103,92 @@ state-monadic value."
                 `(("nice" . ,nice))
                 '())))
 
-  (state-let* ((json (slurm-http-post api-endpoint
-                                      jwt
-                                      "/slurm/v0.0.41/job/submit"
-                                      `(("jobs" . #(,job-spec))))))
-    (check-api-error json)
-    (state-return (json-ref json "job_id"))))
+  (state-begin
+   (state-return (trace 'slurm-api
+                        "submitting script ~a as job ~a" script name))
+   (state-let* ((json (slurm-http-post api-endpoint
+                                       jwt
+                                       "/slurm/v0.0.41/job/submit"
+                                       `(("jobs" . #(,job-spec))))))
+     (check-api-error json)
+     (let ((job-id (json-ref json "job_id")))
+       (trace 'slurm-api
+              "job ~a assigned id ~a" name job-id)
+       (state-return job-id)))))
 
 (define* (job-state job-id #:key api-endpoint jwt)
   "Query the state of slurm @var{job-id} via @var{api-endpoint}
 authenticating using @var{jwt}. Return value is one of the symbols
 @code{pending}, @code{failed} and @code{completed} encapsulated in the state
 monad."
-  (state-let* ((response (slurm-http-get api-endpoint
+  (state-begin
+   (state-return (trace 'slurm-api
+                        "polling job id ~a" job-id))
+   (state-let* ((response (slurm-http-get api-endpoint
+                                          jwt
+                                          (string-append "/slurm/v0.0.41/job/"
+                                                         (number->string job-id)))))
+     (match (json-ref response "errors")
+       (#()
+        (state-return
+         (match (json-ref (find (lambda (job)
+                                  (= (json-ref job "job_id")
+                                     job-id))
+                                (vector->list (json-ref response "jobs")))
+                          "job_state")
+           (#(job-state)
+            (trace 'slurm-api
+                   "slurmctld reports ~a state for job ~a" job-state job-id)
+            (let ((job-state (string->symbol (string-downcase job-state))))
+              (trace 'slurm-api
+                     "return ~a state for job ~a" job-state job-id)
+              job-state)))))
+       (#(errors ...)
+        ;; Check in slurmdbd if job has been completed and purged from
+        ;; slurmctld's active memory.
+        (match (find (lambda (error)
+                       (= (json-ref error "error_number")
+                          ;; Error number 2017 (Invalid job id specified) may
+                          ;; have occurred because the job has completed, has
+                          ;; exceeded MinJobAge (as set in slurm.conf) and has
+                          ;; therefore been purged from slurmctld's active
+                          ;; memory.
+                          2017))
+                     errors)
+          (error-2017
+           (trace 'slurm-api
+                  (string-append
+                   "error number 2017 (invalid job id specified) received"
+                   " for job ~a; it is not in slurmctld's active memory;"
+                   " checking in slurmdbd")
+                  job-id)
+           (state-let* ((response
+                         (slurm-http-get api-endpoint
                                          jwt
-                                         (string-append "/slurm/v0.0.41/job/"
+                                         (string-append "/slurmdb/v0.0.41/job/"
                                                         (number->string job-id)))))
-    (match (json-ref response "errors")
-      (#()
-       (state-return
-        (match (json-ref (find (lambda (job)
-                                 (= (json-ref job "job_id")
-                                    job-id))
-                               (vector->list (json-ref response "jobs")))
-                         "job_state")
-          (#(job-state)
-           (string->symbol (string-downcase job-state))))))
-      (#(errors ...)
-       ;; Check in slurmdbd if job has been completed and purged from
-       ;; slurmctld's active memory.
-       (match (find (lambda (error)
-                      (= (json-ref error "error_number")
-                         ;; Error number 2017 (Invalid job id specified) may
-                         ;; have occurred because the job has completed, has
-                         ;; exceeded MinJobAge (as set in slurm.conf) and has
-                         ;; therefore been purged from slurmctld's active
-                         ;; memory.
-                         2017))
-                    errors)
-         (error-2017
-          (state-let* ((response
-                        (slurm-http-get api-endpoint
-                                        jwt
-                                        (string-append "/slurmdb/v0.0.41/job/"
-                                                       (number->string job-id)))))
-            (check-api-error response)
-            (state-return
-             (match (json-ref (find (lambda (job)
-                                      (= (json-ref job "job_id")
-                                         job-id))
-                                    (vector->list (json-ref response "jobs")))
-                              "exit_code" "status")
-               (#(job-state)
-                ;; job-state is either "SUCCESS" or "ERROR".
-                (if (eq? (string->symbol (string-downcase job-state))
-                         'success)
-                    'success
-                    'failed))))))
-         (#f
-          (state-return (check-api-error response))))))))
+             (check-api-error response)
+             (state-return
+              (match (json-ref (find (lambda (job)
+                                       (= (json-ref job "job_id")
+                                          job-id))
+                                     (vector->list (json-ref response "jobs")))
+                               "exit_code" "status")
+                (#(job-state)
+                 (trace 'slurm-api
+                        "slurmdbd reports ~a state for job ~a"
+                        job-state job-id)
+                 ;; job-state is either "SUCCESS" or "ERROR".
+                 (let ((job-state (if (eq? (string->symbol (string-downcase job-state))
+                                           'success)
+                                      'success
+                                      'failed)))
+                   (trace 'slurm-api
+                          "return ~a state for job ~a" job-state job-id)
+                   job-state))))))
+          (#f
+           (trace 'slurm-api
+                  (string-append
+                   "slurmdbd does not report error number 2017 for job ~a;"
+                   " don't know what to do"))
+           (state-return (check-api-error response)))))))))
