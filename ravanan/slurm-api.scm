@@ -191,4 +191,5 @@ monad."
                   (string-append
                    "slurmdbd does not report error number 2017 for job ~a;"
                    " don't know what to do"))
-           (state-return (check-api-error response)))))))))
+           (check-api-error response)
+           (error "Unknown slurm API error"))))))))
