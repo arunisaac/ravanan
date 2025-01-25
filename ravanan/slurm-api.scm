@@ -146,6 +146,7 @@ monad."
                      ;; has been scheduled and is running.
                      ((pending running) 'pending)
                      ((completed) 'completed)
+                     ((failed) 'failed)
                      (else (error "Unknown slurm job state" job-state)))))
               (trace 'slurm-api
                      "return ~a state for job ~a" job-state job-id)
