@@ -455,6 +455,12 @@ is the class of the workflow."
       ;; If location is an URI, parse the URI and return the path part.
       (uri-path (string->uri location))))
 
+(define (same-filesystem? path1 path2)
+  "Return @code{#t} if @var{path1} and @var{path2} are on the same filesystem.
+Else, return @code{#f}."
+  (= (stat:dev (stat path1))
+     (stat:dev (stat path2))))
+
 (define (intern-file file store)
   "Intern @code{File} type object @var{file} into the ravanan @var{store} unless it
 is already a store path. Return an updated @code{File} type object with the
@@ -487,7 +493,13 @@ interned path and location."
                       (format (current-error-port)
                               "Interning ~a into store as ~a~%"
                               path interned-path)
-                      (copy-file path interned-path)))
+                      ;; Hard link if on the same filesystem. Else, copy.
+                      ((if (same-filesystem? path
+                                             (expand-file-name %store-files-directory
+                                                               store))
+                           link
+                           copy-file)
+                       path interned-path)))
                 interned-path))))
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
