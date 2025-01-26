@@ -17,6 +17,7 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan slurm-api)
+  #:use-module ((rnrs base) #:select (assertion-violation))
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-71)
@@ -116,6 +117,34 @@ state-monadic value."
               "job ~a assigned id ~a" name job-id)
        (state-return job-id)))))
 
+(define (slurm-state-codes->job-state state-codes)
+  "Convert vector of @var{state-codes} from slurm into a @code{pending},
+@code{failed} or @code{completed} symbol."
+  ;; Slurm job state codes are documented at
+  ;; https://slurm.schedmd.com/job_state_codes.html
+  (let* ((base-state-codes (list 'boot_fail 'cancelled 'completed 'deadline
+                                 'failed 'node_fail 'out_of_memory 'pending
+                                 'preempted 'running 'suspended 'timeout))
+         (base-states state-flags (partition (cut memq <> base-state-codes)
+                                             (map (compose string->symbol string-downcase)
+                                                  (vector->list state-codes)))))
+    ;; TODO: Capture and report fine-grained job states, not merely 'failed,
+    ;; 'pending and 'completed.
+    (match base-states
+      (((or 'pending 'preempted 'running 'suspended))
+       'pending)
+      (((or 'boot_fail 'cancelled 'deadline 'failed 'node_fail 'out_of_memory))
+       'failed)
+      (('completed)
+       ;; If job has an additional COMPLETING flag, wait for it to fully
+       ;; complete. Mark it as pending until then.
+       (if (memq 'completing state-flags)
+           'pending
+           'completed))
+      (_
+       (assertion-violation base-states
+                            "Multiple base states reported by slurm")))))
+
 (define* (job-state job-id #:key api-endpoint jwt)
   "Query the state of slurm @var{job-id} via @var{api-endpoint}
 authenticating using @var{jwt}. Return value is one of the symbols
@@ -131,26 +160,17 @@ monad."
      (match (json-ref response "errors")
        (#()
         (state-return
-         (match (json-ref (find (lambda (job)
-                                  (= (json-ref job "job_id")
-                                     job-id))
-                                (vector->list (json-ref response "jobs")))
-                          "job_state")
-           (#(job-state)
-            (trace 'slurm-api
-                   "slurmctld reports ~a state for job ~a" job-state job-id)
-            (let ((job-state
-                   (case (string->symbol (string-downcase job-state))
-                     ;; slurm returns a PENDING state when the job has not yet
-                     ;; been scheduled on a compute node, and RUNNING once it
-                     ;; has been scheduled and is running.
-                     ((pending running) 'pending)
-                     ((completed) 'completed)
-                     ((failed) 'failed)
-                     (else (error "Unknown slurm job state" job-state)))))
-              (trace 'slurm-api
-                     "return ~a state for job ~a" job-state job-id)
-              job-state)))))
+         (let ((state-codes (json-ref (find (lambda (job)
+                                              (= (json-ref job "job_id")
+                                                 job-id))
+                                            (vector->list (json-ref response "jobs")))
+                                      "job_state")))
+           (trace 'slurm-api
+                  "slurmctld reports ~a state for job ~a" state-codes job-id)
+           (let ((job-state (slurm-state-codes->job-state state-codes)))
+             (trace 'slurm-api
+                    "return ~a state for job ~a" job-state job-id)
+             job-state))))
        (#(errors ...)
         ;; Check in slurmdbd if job has been completed and purged from
         ;; slurmctld's active memory.
