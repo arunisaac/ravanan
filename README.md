@@ -4,6 +4,32 @@ ravanan (pronounced rah-vun-un, IPA: rɑːvʌnʌn, Shavian: 𐑮𐑭𐑝𐑳𐑯
 
 ravanan currently runs on single machines and on slurm via its [API](https://slurm.schedmd.com/rest_api.html). Other HPC backends will be implemented in the future based on demand.
 
+# Building from source
+
+ravanan depends on
+- [GNU Guile](https://www.gnu.org/software/guile/)
+- [GNU Guix](https://guix.gnu.org/)
+- [guile-filesystem](https://gitlab.com/lilyp/guile-filesystem)
+- [guile-gcrypt](https://notabug.org/cwebber/guile-gcrypt) (for SHA1 hash computation)
+- [guile-json](https://github.com/aconchillo/guile-json)
+- [guile-libyaml](https://github.com/mwette/guile-libyaml)
+- [node](https://nodejs.org/) (for javascript execution)
+The easiest way to get these dependencies is using Guix. You can do by running
+```
+guix shell -Df guix.scm
+```
+Build using
+```
+make NODE=/usr/bin/node prefix=/usr/local
+make install
+```
+`NODE` is the path to the node executable. `prefix` is the installation prefix to install ravanan to.
+
+Optionally, run tests using
+```
+make check
+```
+
 # How to use
 ## Getting started
 
