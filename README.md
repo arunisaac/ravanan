@@ -1,6 +1,13 @@
 [![Laminar](https://ci.systemreboot.net/badge/ravanan.svg)](https://ci.systemreboot.net/jobs/ravanan)
 
-ravanan (pronounced rah-vun-un, IPA: rɑːvʌnʌn, Shavian: 𐑮𐑭𐑝𐑳𐑯𐑳𐑯) is a [Common Workflow Language (CWL)](https://www.commonwl.org/) implementation that is powered by [GNU Guix](https://guix.gnu.org/) and provides strong reproducibility guarantees. ravanan provides strong foolproof caching ([work reuse](https://www.commonwl.org/v1.2/CommandLineTool.html#WorkReuse)) so you never run the same steps of your workflow twice, nor do you have to keep track of which steps were run and with what parameters: ravanan remembers everything for you. ravanan captures logs from every step of your workflow so you can always trace back in case of job failures.
+ravanan (pronounced rah-vun-un, IPA: rɑːvʌnʌn, Shavian: 𐑮𐑭𐑝𐑳𐑯𐑳𐑯) is a [Common Workflow Language (CWL)](https://www.commonwl.org/) implementation that is powered by [GNU Guix](https://guix.gnu.org/) and provides strong reproducibility guarantees. ravanan provides strong bullet-proof caching ([work reuse](https://www.commonwl.org/v1.2/CommandLineTool.html#WorkReuse)) so you never run the same step of your workflow twice, nor do you have to keep track of which steps were run and with what parameters: ravanan remembers everything for you. ravanan captures logs from every step of your workflow so you can always trace back in case of job failures.
+
+Salient features of ravanan include:
+- Bullet-proof caching; never run the same computation again and never fear that the cache is stale (no kidding, we're serious!)
+- Each step in your CWL corresponds to exactly one job on the batch system.
+- Clear logging; you never have to hunt for log files in obscure directories or binary databases.
+- Jobs do not directly write to the shared network filesystem; keeps performance good and your fellow HPC users happy
+- Jobs never write to `/tmp`; keeps your HPC admin happy
 
 ravanan currently runs on single machines and on slurm via its [API](https://slurm.schedmd.com/rest_api.html). Other HPC backends will be implemented in the future based on demand.
 
