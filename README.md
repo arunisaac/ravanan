@@ -13,6 +13,15 @@ ravanan currently runs on single machines and on slurm via its [API](https://slu
 
 ![Ravanan, king of Lanka](images/ravanan-king-of-lanka.jpg)
 
+- [Building from source](#building-from-source)
+- [How to use](#how-to-use)
+  - [Getting started](#getting-started)
+  - [On HPC using slurm](#on-hpc-using-slurm)
+  - [Using a specific version of Guix](#using-a-specific-version-of-guix)
+  - [Referencing local scripts](#referencing-local-scripts)
+- [License](#license)
+- [The Name](#the-name)
+
 # Building from source
 
 ravanan depends on
