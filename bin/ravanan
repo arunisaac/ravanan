@@ -31,6 +31,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ravanan batch-system)
              (ravanan config)
              (ravanan reader)
+             (ravanan store)
              (ravanan utils)
              (ravanan verbosity)
              (ravanan workflow)
@@ -219,6 +220,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
          ((workflow-file inputs-file)
           ;; We must not try to compile guix manifest files.
           (set! %load-should-auto-compile #f)
+          (make-store (assq-ref args 'store))
           (let* ( ;; FIXME: This is a bit of a hack to avoid canonizing remote
                  ;; paths.
                  (store (if (file-name-absolute? (assq-ref args 'store))

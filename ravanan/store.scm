@@ -24,6 +24,7 @@
             %store-data-directory
             %store-logs-directory
 
+            make-store
             script->store-files-directory
             script->store-data-file
             script->store-stdout-file
@@ -38,6 +39,20 @@
 
 (define %store-logs-directory
   "logs")
+
+(define (make-store store)
+  "Make @var{store} directory and initialize with subdirectories. If @var{store}
+already exists, do nothing."
+  (unless (file-exists? store)
+    (format (current-error-port)
+            "store ~a does not exist; creating it~%"
+            store)
+    (make-directories store)
+    (for-each (lambda (directory)
+                (mkdir (expand-file-name directory store)))
+              (list %store-files-directory
+                    %store-data-directory
+                    %store-logs-directory))))
 
 (define (script->store-files-directory script store)
   "Return the store files directory in @var{store} corresponding to @var{script}
