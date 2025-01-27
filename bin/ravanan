@@ -29,7 +29,6 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (web uri)
              (json)
              (ravanan batch-system)
-             (ravanan command-line-tool)
              (ravanan config)
              (ravanan reader)
              (ravanan utils)
