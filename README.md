@@ -21,7 +21,7 @@ ravanan depends on
 - [guile-json](https://github.com/aconchillo/guile-json)
 - [guile-libyaml](https://github.com/mwette/guile-libyaml)
 - [node](https://nodejs.org/) (for javascript execution)
-The easiest way to get these dependencies is using Guix. You can do by running
+The easiest way to get these dependencies is using Guix. You can do so by running
 ```
 guix shell -Df guix.scm
 ```
