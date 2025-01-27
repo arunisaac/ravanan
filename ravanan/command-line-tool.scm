@@ -45,6 +45,7 @@
   #:use-module (ravanan reader)
   #:use-module ((ravanan single-machine) #:prefix single-machine:)
   #:use-module ((ravanan slurm-api) #:prefix slurm:)
+  #:use-module (ravanan store)
   #:use-module (ravanan utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
@@ -57,13 +58,7 @@
             inherit-requirements
             %command-line-tool-supported-requirements
             command-line-tool-supported-requirements
-            script->store-stdout-file
-            script->store-stderr-file
             capture-command-line-tool-output
-
-            %store-files-directory
-            %store-data-directory
-            %store-logs-directory
 
             manifest-file-error?
             manifest-file-error-file))
@@ -73,15 +68,6 @@
 (define-condition-type &manifest-file-error &error
   manifest-file-error manifest-file-error?
   (file manifest-file-error-file))
-
-(define %store-files-directory
-  "files")
-
-(define %store-data-directory
-  "data")
-
-(define %store-logs-directory
-  "logs")
 
 (define %command-line-tool-supported-requirements
   (list "EnvVarRequirement"
@@ -360,31 +346,6 @@ When @var{guix-daemon-socket} is provided, connect to that Guix daemon."
             (mbegin %store-monad
               (built-derivations (list drv))
               (return (derivation->output-path drv))))))))
-
-(define (script->store-files-directory script store)
-  "Return the store files directory in @var{store} corresponding to @var{script}
-path."
-  (expand-file-name (file-name-join* %store-files-directory
-                                     (basename script))
-                    store))
-
-(define (script->store-data-file script store)
-  "Return the store data file in @var{store} corresponding to @var{script} path."
-  (expand-file-name (file-name-join* %store-data-directory
-                                     (string-append (basename script) ".json"))
-                    store))
-
-(define (script->store-stdout-file script store)
-  "Return the store stdout file in @var{store} corresponding to @var{script} path."
-  (expand-file-name (file-name-join* %store-logs-directory
-                                     (string-append (basename script) ".stdout"))
-                    store))
-
-(define (script->store-stderr-file script store)
-  "Return the store stderr file in @var{store} corresponding to @var{script} path."
-  (expand-file-name (file-name-join* %store-logs-directory
-                                     (string-append (basename script) ".stderr"))
-                    store))
 
 (define* (run-command-line-tool name manifest-file channels cwl inputs
                                 scratch store batch-system
