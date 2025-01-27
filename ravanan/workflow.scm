@@ -456,56 +456,6 @@ is the class of the workflow."
       ;; If location is an URI, parse the URI and return the path part.
       (uri-path (string->uri location))))
 
-(define (same-filesystem? path1 path2)
-  "Return @code{#t} if @var{path1} and @var{path2} are on the same filesystem.
-Else, return @code{#f}."
-  (= (stat:dev (stat path1))
-     (stat:dev (stat path2))))
-
-(define (intern-file file store)
-  "Intern @code{File} type object @var{file} into the ravanan @var{store} unless it
-is already a store path. Return an updated @code{File} type object with the
-interned path and location."
-  (let* ((path (assoc-ref file "path"))
-         (checksum (assoc-ref file "checksum"))
-         (sha1 (if (and checksum
-                        (string-prefix? "sha1$" checksum))
-                   (string-drop checksum (string-length "sha1$"))
-                   (sha1-hash path)))
-         (interned-path
-          (if (string-prefix? store path)
-              ;; If file is already a store path, return it as is.
-              path
-              ;; Else, intern it if it isn't already and return the interned
-              ;; path. Not re-interning already interned files saves us a lot of
-              ;; time especially with large files.
-              (let ((interned-path
-                     (expand-file-name
-                      (file-name-join* %store-files-directory
-                                       (string-append sha1
-                                                      "-"
-                                                      (basename path)))
-                      store)))
-                (if (file-exists? interned-path)
-                    (format (current-error-port)
-                            "~a previously interned into store as ~a~%"
-                            path interned-path)
-                    (begin
-                      (format (current-error-port)
-                              "Interning ~a into store as ~a~%"
-                              path interned-path)
-                      ;; Hard link if on the same filesystem. Else, copy.
-                      ((if (same-filesystem? path
-                                             (expand-file-name %store-files-directory
-                                                               store))
-                           link
-                           copy-file)
-                       path interned-path)))
-                interned-path))))
-    (maybe-assoc-set file
-      (cons "location" (just (string-append "file://" interned-path)))
-      (cons "path" (just interned-path)))))
-
 (define (resolve-inputs inputs formal-inputs store)
   "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
 files found into the @var{store} and return a tree of the fully resolved inputs.
