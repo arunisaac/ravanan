@@ -11,6 +11,8 @@ Salient features of ravanan include:
 
 ravanan currently runs on single machines and on slurm via its [API](https://slurm.schedmd.com/rest_api.html). Other HPC backends will be implemented in the future based on demand.
 
+![Ravanan, king of Lanka](images/ravanan-king-of-lanka.jpg)
+
 # Building from source
 
 ravanan depends on
@@ -143,3 +145,5 @@ ravanan is free software released under the terms of the [GNU General Public Lic
 # The Name
 
 ravanan is named after the [mythic learned ten-headed king of the island of Lanka](https://en.wikipedia.org/wiki/Ravana).
+
+The image of Ravanan on this page is licensed under the [Creative Commons Attribution 2.0 Generic license](https://creativecommons.org/licenses/by/2.0/deed.en) by [Gane Kumaraswamy](https://www.flickr.com/photos/19396720@N00/4336566764). See [license details](images/LICENSE.md).
