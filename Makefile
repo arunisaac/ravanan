@@ -19,8 +19,11 @@
 project = ravanan
 version = 0.1.0
 
+GIT ?= git
+GPG ?= gpg
 GUILD ?= guild
 GUILE ?= guile
+LZIP ?= lzip
 NODE ?= node
 SED ?= sed
 
@@ -33,12 +36,17 @@ guile_effective_version = 3.0
 
 top_level_module_dir = $(project)
 config_file = $(top_level_module_dir)/config.scm
+config_file_template = $(config_file).in
 sources = $(filter-out $(config_file), \
                        $(wildcard $(top_level_module_dir)/*.scm) \
                        $(wildcard $(top_level_module_dir)/work/*.scm))
 objects = $(sources:.scm=.go) $(config_file:.scm=.go)
 scripts = $(wildcard bin/*)
 tests = $(wildcard tests/*.scm) $(wildcard tests/work/*.scm)
+distribute_files = $(sources) $(config_file_template) $(scripts) \
+                   $(tests) pre-inst-env guix.scm \
+                   .guix/ravanan-package.scm Makefile \
+                   COPYING README.md
 
 scmdir = $(datarootdir)/guile/site/$(guile_effective_version)
 godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
@@ -66,6 +74,20 @@ install: $(sources) $(config_file) $(objects) $(scripts)
 	for object in $(objects); do \
 		install -D $$object $(godir)/$$object; \
 	done
+
+# Build distribution tarball
+
+dist_archive = $(project)-$(version).tar.lz
+
+dist: $(dist_archive)
+distsign: $(dist_archive).asc
+
+$(dist_archive): .git/refs/heads/main
+	$(GIT) archive --prefix $(basename $(basename $@))/ --format=tar main $(distribute_files) \
+		| $(LZIP) --force --output $@
+
+%.asc: %
+	$(GPG) --detach-sign --armor $<
 
 clean:
 	rm -f $(objects) $(config_file)
