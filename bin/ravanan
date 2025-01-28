@@ -130,7 +130,8 @@ Debugging options:
 
   --trace=SUBSYSTEM              enable tracing on subsystem;
                                  repeat to trace multiple subsystems
-                                 (accepted values: slurm-api)"
+                                 (accepted values: slurm-api)
+"
           program))
 
 (define (read-jwt file)
