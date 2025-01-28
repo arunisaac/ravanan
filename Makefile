@@ -1,5 +1,5 @@
 # ravanan --- High-reproducibility CWL runner powered by Guix
-# Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+# Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 #
 # This file is part of ravanan.
 #
@@ -33,10 +33,10 @@ guile_effective_version = 3.0
 
 top_level_module_dir = $(project)
 config_file = $(top_level_module_dir)/config.scm
-sources = $(wildcard $(top_level_module_dir)/*.scm) \
-          $(wildcard $(top_level_module_dir)/work/*.scm) \
-          $(config_file)
-objects = $(sources:.scm=.go)
+sources = $(filter-out $(config_file), \
+                       $(wildcard $(top_level_module_dir)/*.scm) \
+                       $(wildcard $(top_level_module_dir)/work/*.scm))
+objects = $(sources:.scm=.go) $(config_file:.scm=.go)
 scripts = $(wildcard bin/*)
 tests = $(wildcard tests/*.scm) $(wildcard tests/work/*.scm)
 
@@ -58,9 +58,9 @@ check:
 		$(GUILE) --no-auto-compile -L . $$test; \
 	done
 
-install: $(sources) $(objects) $(scripts)
+install: $(sources) $(config_file) $(objects) $(scripts)
 	install -D $(scripts) --target-directory $(bindir)
-	for source in $(sources); do \
+	for source in $(sources) $(config_file); do \
 		install -D $$source $(scmdir)/$$source; \
 	done
 	for object in $(objects); do \
