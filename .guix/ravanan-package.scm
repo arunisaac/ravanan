@@ -17,63 +17,19 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan-package)
-  #:use-module ((gnu packages package-management) #:select (guix))
-  #:use-module ((gnu packages gnupg) #:select (guile-gcrypt))
-  #:use-module ((gnu packages guile) #:select (guile-json-4 guile-next))
-  #:use-module ((gnu packages guile-xyz) #:select (guile-filesystem guile-libyaml))
-  #:use-module ((gnu packages node) #:select (node))
-  #:use-module (guix build-system gnu)
+  #:use-module ((gnu packages bioinformatics) #:select (ravanan) #:prefix guix:)
   #:use-module (guix gexp)
   #:use-module (guix git-download)
-  #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
-  #:use-module (guix profiles)
   #:use-module (guix utils))
 
 (define-public ravanan
   (package
-    (name "ravanan")
-    (version "0.1.0")
+    (inherit guix:ravanan)
     (source (local-file ".."
                         "ravanan-checkout"
                         #:recursive? #t
                         #:select? (or (git-predicate (dirname (current-source-directory)))
-                                      (const #t))))
-    (arguments
-     (list #:make-flags
-           #~(list (string-append "prefix=" #$output)
-                   (string-append "NODE=" (search-input-file %build-inputs "bin/node")))
-           #:modules `(((guix build guile-build-system)
-                        #:select (target-guile-effective-version))
-                       ,@%default-gnu-imported-modules)
-           #:phases
-           (with-imported-modules `((guix build guile-build-system)
-                                    ,@%default-gnu-imported-modules)
-             #~(modify-phases %standard-phases
-                 (delete 'configure)
-                 (add-after 'install 'wrap
-                   (lambda* (#:key inputs outputs #:allow-other-keys)
-                     (let ((out (assoc-ref outputs "out"))
-                           (effective-version (target-guile-effective-version)))
-                       (wrap-program (string-append out "/bin/ravanan")
-                         `("GUILE_LOAD_PATH" prefix
-                           (,(string-append out "/share/guile/site/" effective-version)
-                            ,(getenv "GUILE_LOAD_PATH")))
-                         `("GUILE_LOAD_COMPILED_PATH" prefix
-                           (,(string-append out "/lib/guile/" effective-version "/site-ccache")
-                            ,(getenv "GUILE_LOAD_COMPILED_PATH")))))))))))
-    (inputs
-     (list node
-           guile-next
-           guile-filesystem
-           guile-gcrypt
-           guile-json-4
-           guile-libyaml
-           guix))
-    (build-system gnu-build-system)
-    (home-page #f)
-    (synopsis #f)
-    (description #f)
-    (license license:gpl3+)))
+                                      (const #t))))))
 
 ravanan
