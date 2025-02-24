@@ -593,14 +593,28 @@ in a Guix inferior with @var{channels}."
       (manifest->environment (load-manifest manifest-file)
                              guix-daemon-socket)))
 
-(define (specifications->environment specifications channels guix-daemon-socket)
-  "Build a profile with package @var{specifications} and return an association list
-of environment variables to set to use the built profile. Connect to the Guix
-daemon specified by @var{guix-daemon-socket}. If @var{channels} is not
-@code{#f}, look up packages in a Guix inferior with @var{channels}."
+(define (software-packages->environment packages channels guix-daemon-socket)
+  "Build a profile with @var{packages} and return an association list
+of environment variables to set to use the built profile. @var{packages} is a
+vector of @code{SoftwarePackage} assocation lists as defined in the CWL
+standard. Connect to the Guix daemon specified by @var{guix-daemon-socket}. If
+@var{channels} is not @code{#f}, look up packages in a Guix inferior with
+@var{channels}."
+  (define (software-package->package-specification package)
+    (string-append (assoc-ref* package "package")
+                   (from-maybe
+                    (maybe-bind (maybe-assoc-ref (just package) "version")
+                                (compose just
+                                         (cut string-append "@" <>)))
+                    "")))
+
   (define packages->environment
     (compose (cut manifest->environment <> guix-daemon-socket)
              packages->manifest))
+
+  (define specifications
+    (vector-map->list softare-package->package-specification
+                      packages))
 
   (if channels
       (call-with-inferior (inferior-for-channels channels)
@@ -657,14 +671,6 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                                          (assoc-ref* environment-definition
                                                      "envValue"))))
                             (assoc-ref* env-var-requirement "envDef"))))
-
-  (define (software-package->package-specification package)
-    (string-append (assoc-ref* package "package")
-                   (from-maybe
-                    (maybe-bind (maybe-assoc-ref (just package) "version")
-                                (compose just
-                                         (cut string-append "@" <>)))
-                    "")))
 
   (define (files-to-stage initial-work-dir-requirement)
     (vector-map->list (lambda (listing-entry)
@@ -823,14 +829,11 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                          (find-requirement requirements "SoftwareRequirement")
                          "manifest")
                         manifest-file))
-           (package-specifications
-            (from-maybe
-             (maybe-let* ((packages (maybe-assoc-ref
-                                     (find-requirement requirements "SoftwareRequirement")
-                                     "packages")))
-               (just (vector-map->list software-package->package-specification
-                                       packages)))
-             '())))
+           (packages
+            (from-maybe (maybe-assoc-ref
+                         (find-requirement requirements "SoftwareRequirement")
+                         "packages")
+                        #())))
       (with-imported-modules (source-module-closure '((ravanan work command-line-tool)
                                                       (ravanan work monads)
                                                       (ravanan work ui)
@@ -1033,19 +1036,19 @@ directory of the workflow."
               (for-each (match-lambda
                           ((name . value)
                            (setenv name value)))
-                        '#$(match package-specifications
+                        '#$(match packages
                              ;; No package specifications; try the manifest
                              ;; file.
-                             (()
+                             (#()
                               (manifest-file->environment manifest-file
                                                           channels
                                                           guix-daemon-socket))
                              ;; Use package specifications to build an
                              ;; environment.
                              (_
-                              (specifications->environment package-specifications
-                                                           channels
-                                                           guix-daemon-socket))))
+                              (software-packages->environment packages
+                                                              channels
+                                                              guix-daemon-socket))))
 
               (call-with-temporary-directory
                (lambda (inputs-directory)
