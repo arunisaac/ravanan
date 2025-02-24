@@ -612,21 +612,23 @@ standard. Connect to the Guix daemon specified by @var{guix-daemon-socket}. If
     (compose (cut manifest->environment <> guix-daemon-socket)
              packages->manifest))
 
-  (define specifications
-    (vector-map->list softare-package->package-specification
-                      packages))
-
   (if channels
       (call-with-inferior (inferior-for-channels channels)
         (lambda (inferior)
           (packages->environment
-           (map (lambda (specification)
-                  (match (lookup-inferior-packages inferior specification)
-                    ((inferior-package _ ...)
-                     inferior-package)))
-                specifications))))
+           (vector-map->list (lambda (package)
+                               (let ((name (assoc-ref package "package"))
+                                     (version (assoc-ref package "version")))
+                                 (match (lookup-inferior-packages inferior
+                                                                  name
+                                                                  version)
+                                   ((inferior-package _ ...)
+                                    inferior-package))))
+                             packages))))
       (packages->environment
-       (map specification->package specifications))))
+       (vector-map->list (compose specification->package
+                                  software-package->package-specification)
+                         packages))))
 
 (define (manifest->environment manifest guix-daemon-socket)
   "Build @var{manifest} and return an association list of environment
