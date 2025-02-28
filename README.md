@@ -147,6 +147,10 @@ Thanks to Guix, a better way is possible. Guix, in its magnificent elegance, doe
  (list my-script))
 ```
 
+# Contributing
+
+Please send questions, feedback, bug reports and patches to [ravanan@systemreboot.net](mailto:ravanan@systemreboot.net). You may also browse the [archives](https://lists.systemreboot.net/ravanan) of previous conversations. We do not accept issues or pull requests on GitHub. Thank you!
+
 # License
 
 ravanan is free software released under the terms of the [GNU General Public License](https://www.gnu.org/licenses/gpl.html), either version 3 of the License, or (at your option) any later version.
