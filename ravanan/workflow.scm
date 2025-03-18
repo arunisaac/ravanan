@@ -283,7 +283,7 @@ object or a @code{<scheduler-proc>} object."
                     "Scatter method not implemented yet")))
           (let* ((formal-inputs (assoc-ref* cwl "inputs"))
                  ;; We need to resolve inputs after adding defaults since the
-                 ;; default values may contain partially specified File objects.
+                 ;; default values may contain uninterned File objects.
                  (inputs (resolve-inputs (add-defaults inputs formal-inputs)
                                          formal-inputs
                                          store)))
@@ -448,49 +448,9 @@ is the class of the workflow."
                                     (cons id value))))
                            formal-inputs))
 
-(define (location->path location)
-  "Convert file @var{location} URI to path."
-  (if (string-prefix? "/" location)
-      ;; Sometimes location is actually a path. In that case, return as is.
-      location
-      ;; If location is an URI, parse the URI and return the path part.
-      (uri-path (string->uri location))))
-
 (define (resolve-inputs inputs formal-inputs store)
   "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
-files found into the @var{store} and return a tree of the fully resolved inputs.
-
-The returned @code{File} type objects are updated with @code{basename},
-@code{nameroot}, @code{nameext}, @code{checksum} and @code{size} fields, and
-store-interned paths in the @code{location} and @code{path} fields. The
-@code{basename} field contains the basename of the original path, and not the
-store-interned path."
-  (define (canonicalize-file-input input)
-    "Canonicalize @code{File} type @var{input} and its secondary files."
-    (let* ((path (or (and (assoc-ref input "location")
-                          (location->path (assoc-ref input "location")))
-                     (assoc-ref input "path")))
-           (interned-input
-            ;; Compute the checksum, but only if it is not provided. If it is
-            ;; provided, trust that it is correct. This avoids costly (think
-            ;; hashing terabytes of data) hash computations causing a long delay
-            ;; before the workflow actually starts running.
-            (intern-file (maybe-assoc-set input
-                           (cons "path" (just path))
-                           (cons "checksum" (just (or (assoc-ref input "checksum")
-                                                      (checksum path)))))
-                         store)))
-      (maybe-assoc-set interned-input
-        (cons "basename" (just (basename path)))
-        (cons "nameroot" (just (file-name-stem path)))
-        (cons "nameext" (just (file-name-extension path)))
-        (cons "size" (just (stat:size (stat path))))
-        (cons "secondaryFiles"
-              (maybe-let* ((secondary-files (maybe-assoc-ref (just interned-input)
-                                                             "secondaryFiles")))
-                (just (vector-map canonicalize-file-input
-                                  secondary-files)))))))
-
+files found into the @var{store} and return a tree of the fully resolved inputs."
   (define (match-secondary-file-pattern input pattern)
     "Return @code{#t} if secondary file @var{pattern} matches at least one secondary
 file in @var{input}."
@@ -533,7 +493,7 @@ error out."
                                             maybe-secondary-files)))
                      ;; Intern File type inputs and fully resolve them.
                      ((eq? matched-type 'File)
-                      (let ((resolved-input (canonicalize-file-input input)))
+                      (let ((resolved-input (intern-file input store)))
                         ;; Ensure secondary files are provided with File type
                         ;; inputs.
                         (maybe-bind maybe-secondary-files

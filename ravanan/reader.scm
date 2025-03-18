@@ -21,6 +21,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
+  #:use-module (web uri)
   #:use-module (json)
   #:use-module (yaml)
   #:use-module (ravanan work command-line-tool)
@@ -147,10 +148,9 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
   "Normalize formal @var{input}."
   (if (some-file-type? (formal-parameter-type (assoc-ref input "type")))
       (maybe-assoc-set input
-        (cons (list "default" "location")
-              (maybe-let* ((location (maybe-assoc-ref (just input)
-                                                      "default" "location")))
-                (just (canonicalize-path location))))
+        (cons "default"
+              (maybe-bind (maybe-assoc-ref (just input) "default")
+                          normalize-input))
         (cons "secondaryFiles"
               (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
                           (compose just
@@ -256,6 +256,15 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
     (cut normalize-workflow
          (preprocess-include (read-yaml-file (basename workflow-file))))))
 
+(define (location->path location)
+  "Convert file @var{location} URI to path. Tolerate invalid locations that are
+actually paths."
+  (cond
+   ;; If location is an URI, parse the URI and return the path part.
+   ((string->uri location) => uri-path)
+   ;; location is actually a path; return as is.
+   (else location)))
+
 (define (normalize-input input)
   "Normalize actual @var{input}."
   (cond
@@ -264,9 +273,26 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                 input))
    ((eq? (object-type input)
          'File)
-    (assoc-set input
-      (cons "location"
-            (canonicalize-path (assoc-ref input "location")))))
+    (let ((path (canonicalize-path (cond
+                                    ((assoc-ref input "location") => location->path)
+                                    (else (assoc-ref input "path"))))))
+      (maybe-assoc-set input
+        (cons "basename" (just (basename path)))
+        (cons "nameroot" (just (file-name-stem path)))
+        (cons "nameext" (just (file-name-extension path)))
+        (cons "size" (just (stat:size (stat path))))
+        (cons "location" (just (uri->string (build-uri 'file #:path path))))
+        (cons "path" (just path))
+        ;; Compute the checksum, but only if it is not provided. If it is
+        ;; provided, trust that it is correct. This avoids costly (think hashing
+        ;; terabytes of data) hash computations causing a long delay before the
+        ;; workflow actually starts running.
+        (cons "checksum" (just (or (assoc-ref input "checksum")
+                                   (checksum path))))
+        (cons "secondaryFiles"
+              (maybe-let* ((secondary-files (maybe-assoc-ref (just input)
+                                                             "secondaryFiles")))
+                (just (vector-map normalize-input secondary-files)))))))
    (else input)))
 
 (define (read-inputs inputs-file)
