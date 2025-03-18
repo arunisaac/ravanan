@@ -18,14 +18,21 @@
 
 (use-modules (srfi srfi-1)
              (srfi srfi-64)
+             (ice-9 filesystem)
              (ice-9 match)
-             (ravanan reader))
+             (web uri)
+             (ravanan reader)
+             (ravanan work command-line-tool)
+             (ravanan work utils))
 
 (define normalize-formal-input
   (@@ (ravanan reader) normalize-formal-input))
 
 (define normalize-formal-output
   (@@ (ravanan reader) normalize-formal-output))
+
+(define normalize-input
+  (@@ (ravanan reader) normalize-input))
 
 (define (json=? tree1 tree2)
   (cond
@@ -131,5 +138,47 @@
                           ("items" . "File"))))
              ("id" . "foo")
              ("secondaryFiles" . #(".bai"))))))
+
+(test-assert "Normalize inputs with only location"
+  (call-with-temporary-directory
+   (lambda (dir)
+     (json=? (let ((path (expand-file-name "foo" dir)))
+               `(("class" . "File")
+                 ("location" . ,(uri->string (build-uri 'file #:path path)))
+                 ("path" . ,path)
+                 ("basename" . "foo")
+                 ("nameroot" . "foo")
+                 ("nameext" . "")
+                 ("size" . 0)
+                 ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709")))
+             (call-with-current-directory dir
+               (lambda ()
+                 ;; Create an actual file called "foo" so that canonicalize-path
+                 ;; works.
+                 (call-with-output-file "foo"
+                   (const #t))
+                 (normalize-input '(("class" . "File")
+                                    ("location" . "foo")))))))))
+
+(test-assert "Normalize inputs with only path"
+  (call-with-temporary-directory
+   (lambda (dir)
+     (json=? (let ((path (expand-file-name "foo" dir)))
+               `(("class" . "File")
+                 ("location" . ,(uri->string (build-uri 'file #:path path)))
+                 ("path" . ,path)
+                 ("basename" . "foo")
+                 ("nameroot" . "foo")
+                 ("nameext" . "")
+                 ("size" . 0)
+                 ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709")))
+             (call-with-current-directory dir
+               (lambda ()
+                 ;; Create an actual file called "foo" so that canonicalize-path
+                 ;; works.
+                 (call-with-output-file "foo"
+                   (const #t))
+                 (normalize-input '(("class" . "File")
+                                    ("path" . "foo")))))))))
 
 (test-end "reader")
