@@ -130,8 +130,8 @@
                          ("items" . "File"))))
             ("id" . "foo")
             ("secondaryFiles" . #((("pattern" . ".bai")
-                                   ("required" . #t)))))
-          (normalize-formal-input
+                                   ("required" . #f)))))
+          (normalize-formal-output
            '(("type"
               ("type" . "array")
               ("items" . (("type" . "array")
