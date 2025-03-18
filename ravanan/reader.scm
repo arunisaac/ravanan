@@ -256,6 +256,19 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
     (cut normalize-workflow
          (preprocess-include (read-yaml-file (basename workflow-file))))))
 
+(define (normalize-input input)
+  "Normalize actual @var{input}."
+  (cond
+   ((vector? input)
+    (vector-map normalize-input
+                input))
+   ((eq? (object-type input)
+         'File)
+    (assoc-set input
+      (cons "location"
+            (canonicalize-path (assoc-ref input "location")))))
+   (else input)))
+
 (define (read-inputs inputs-file)
   "Read @var{inputs-file} resolving file paths if any."
   (call-with-current-directory (dirname inputs-file)
@@ -263,18 +276,7 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
       (map (match-lambda
              ((input-id . input)
               (cons input-id
-                    (let resolve-location ((input input))
-                      (cond
-                       ((vector? input)
-                        (vector-map resolve-location
-                                    input))
-                       ((eq? (object-type input)
-                             'File)
-                        (assoc-set input
-                                   (cons "location"
-                                         (canonicalize-path
-                                          (assoc-ref input "location")))))
-                       (else input))))))
+                    (normalize-input input))))
            ;; Even though YAML is a superset of JSON, use the JSON
            ;; reader if possible; it is simpler and less prone to type
            ;; ambiguities.
