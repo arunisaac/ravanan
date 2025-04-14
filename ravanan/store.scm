@@ -17,9 +17,11 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan store)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
+  #:use-module (ravanan work vectors)
   #:export (%store-files-directory
             %store-data-directory
             %store-logs-directory
@@ -29,7 +31,8 @@
             script->store-data-file
             script->store-stdout-file
             script->store-stderr-file
-            intern-file))
+            intern-file
+            store-item-name))
 
 (define %store-files-directory
   "files")
@@ -127,4 +130,18 @@ interned path and location."
                 interned-path))))
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
-      (cons "path" (just interned-path)))))
+      (cons "path" (just interned-path))
+      (cons "secondaryFiles"
+            (maybe-let* ((secondary-files (maybe-assoc-ref (just file)
+                                                           "secondaryFiles")))
+              (just (vector-map (cut intern-file <> store)
+                                secondary-files)))))))
+
+;; Length of a base-16 encoded SHA1 hash
+(define %store-hash-length 40)
+
+(define (store-item-name path)
+  "Return the basename of store item @var{path} with the store hash stripped out."
+  (string-drop (basename path)
+               ;; the hash and the dash after the hash
+               (1+ %store-hash-length)))

@@ -456,8 +456,8 @@ files found into the @var{store} and return a tree of the fully resolved inputs.
 file in @var{input}."
     ;; TODO: Implement caret characters in SecondaryFileSchema DSL.
     (vector-any (lambda (secondary-file)
-                  (string=? (assoc-ref* secondary-file "path")
-                            (string-append (assoc-ref* input "path")
+                  (string=? (store-item-name (assoc-ref* secondary-file "path"))
+                            (string-append (store-item-name (assoc-ref* input "path"))
                                            pattern)))
                 (or (assoc-ref input "secondaryFiles")
                     (user-error "Missing secondaryFiles in input ~a"
