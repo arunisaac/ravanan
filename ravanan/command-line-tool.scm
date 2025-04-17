@@ -988,6 +988,13 @@ directory of the workflow."
                            ((eq? matched-type 'null)
                             'null))))))
 
+              (define (stage-file file entry-name)
+                ;; Stage file as entry-name and return the staged File value.
+                (rename-file (assoc-ref* file "path")
+                             entry-name)
+                (canonicalize-file-value `(("class" . "File")
+                                           ("path" . ,entry-name))))
+
               ;; Stage files.
               ;; We currently support File and Dirent only. TODO: Support others.
               (define (stage-files entries outputs-directory)
@@ -1005,12 +1012,8 @@ directory of the workflow."
                                 ((eq? (object-type entry)
                                       'File)
                                  ;; TODO: Stage secondary files too?
-                                 (rename-file (assoc-ref* entry "path")
-                                              entry-name)
                                  (cons entry
-                                       (canonicalize-file-value
-                                        `(("class" . "File")
-                                          ("path" . ,entry-name))))))))
+                                       (stage-file entry entry-name))))))
                             entries))
 
               (define (set-staged-path input staging-mapping)
