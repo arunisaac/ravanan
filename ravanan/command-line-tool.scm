@@ -890,16 +890,20 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                     ("checksum" . ,(or (assoc-ref value "checksum")
                                        (checksum path))))))
 
+              (define (secondary-path path secondary-file)
+                "Derive path to @var{secondary-file} from primary @var{path}."
+                (let ((pattern (assoc-ref* secondary-file "pattern")))
+                  ;; TODO: Implement ? and ^ characters in SecondaryFileSchema
+                  ;; DSL.
+                  (string-append path pattern)))
+
               (define (capture-secondary-file path secondary-file
                                               workflow-output-directory)
                 "Capture @var{secondary-file} for primary @var{path} and return its
 canonicalized value. If @var{required} is @code{#t} and no such secondary file
 is found, error out. @var{workflow-output-directory} is path to the output
 directory of the workflow."
-                (let* ((pattern (assoc-ref* secondary-file "pattern"))
-                       ;; TODO: Implement caret characters in
-                       ;; SecondaryFileSchema DSL.
-                       (secondary-file-path (string-append path pattern))
+                (let* ((secondary-file-path (secondary-path path pattern))
                        (secondary-file-value
                         (and (file-exists? secondary-file-path)
                              (copy-file-value (canonicalize-file-value
