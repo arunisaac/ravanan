@@ -27,8 +27,10 @@
   #:use-module (gcrypt base16)
   #:use-module (gcrypt hash)
   #:use-module (json)
+  #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
   #:use-module (ravanan work utils)
+  #:use-module (ravanan work vectors)
   #:export (value->string
             call-with-current-directory
             object-type
@@ -225,15 +227,20 @@ actually paths."
         (location (or (assoc-ref value "location")
                       (string-append "file://" (assoc-ref value "path")))))
     ;; Populate all fields of the File type value.
-    `(("class" . "File")
-      ("location" . ,location)
-      ("path" . ,path)
-      ("basename" . ,(basename path))
-      ("nameroot" . ,(file-name-stem path))
-      ("nameext" . ,(file-name-extension path))
-      ("size" . ,(stat:size (stat path)))
-      ("checksum" . ,(or (assoc-ref value "checksum")
-                         (checksum path))))))
+    (maybe-assoc-set `(("class" . "File")
+                       ("location" . ,location)
+                       ("path" . ,path)
+                       ("basename" . ,(basename path))
+                       ("nameroot" . ,(file-name-stem path))
+                       ("nameext" . ,(file-name-extension path))
+                       ("size" . ,(stat:size (stat path)))
+                       ("checksum" . ,(or (assoc-ref value "checksum")
+                                          (checksum path))))
+      (cons "secondaryFiles"
+            (maybe-let* ((secondary-files
+                          (maybe-assoc-ref (just value) "secondaryFiles")))
+              (just (vector-map canonicalize-file-value
+                                secondary-files)))))))
 
 (define* (evaluate-javascript node expression #:optional (preamble ""))
   "Evaluate javascript @var{expression} using @var{node}. Evaluate
