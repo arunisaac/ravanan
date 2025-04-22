@@ -234,6 +234,11 @@ actually paths."
                        ("nameroot" . ,(file-name-stem path))
                        ("nameext" . ,(file-name-extension path))
                        ("size" . ,(stat:size (stat path)))
+                       ;; Compute the checksum, but only if it is not provided.
+                       ;; If it is provided, trust that it is correct. This
+                       ;; avoids costly (think hashing terabytes of data) hash
+                       ;; computations causing a long delay before the workflow
+                       ;; actually starts running.
                        ("checksum" . ,(or (assoc-ref value "checksum")
                                           (checksum path))))
       (cons "secondaryFiles"
