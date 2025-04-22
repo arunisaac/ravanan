@@ -21,7 +21,6 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
-  #:use-module (web uri)
   #:use-module (json)
   #:use-module (yaml)
   #:use-module (ravanan work command-line-tool)
@@ -255,15 +254,6 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
     ;; TODO: Implement $import directive.
     (cut normalize-workflow
          (preprocess-include (read-yaml-file (basename workflow-file))))))
-
-(define (location->path location)
-  "Convert file @var{location} URI to path. Tolerate invalid locations that are
-actually paths."
-  (cond
-   ;; If location is an URI, parse the URI and return the path part.
-   ((string->uri location) => uri-path)
-   ;; location is actually a path; return as is.
-   (else location)))
 
 (define (normalize-input input)
   "Normalize actual @var{input}."

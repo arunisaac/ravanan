@@ -23,6 +23,7 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
+  #:use-module (web uri)
   #:use-module (gcrypt base16)
   #:use-module (gcrypt hash)
   #:use-module (json)
@@ -37,6 +38,7 @@
             run-command
             sha1-hash
             checksum
+            location->path
             canonicalize-file-value
             evaluate-javascript))
 
@@ -206,6 +208,15 @@ status in @var{success-codes} as success. Error out otherwise."
 (define (checksum file)
   "Return the checksum of @var{file} as defined in the CWL specification."
   (string-append "sha1$" (sha1-hash file)))
+
+(define (location->path location)
+  "Convert file @var{location} URI to path. Tolerate invalid locations that are
+actually paths."
+  (cond
+   ;; If location is an URI, parse the URI and return the path part.
+   ((string->uri location) => uri-path)
+   ;; location is actually a path; return as is.
+   (else location)))
 
 (define (canonicalize-file-value value)
   "Canonicalize @code{File} type @var{value} adding missing fields."
