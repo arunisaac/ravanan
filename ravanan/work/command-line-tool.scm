@@ -220,11 +220,13 @@ actually paths."
 
 (define (canonicalize-file-value value)
   "Canonicalize @code{File} type @var{value} adding missing fields."
-  (let ((path (or (assoc-ref value "location")
-                  (assoc-ref value "path"))))
+  (let ((path (or (assoc-ref value "path")
+                  (location->path (assoc-ref value "location"))))
+        (location (or (assoc-ref value "location")
+                      (string-append "file://" (assoc-ref value "path")))))
     ;; Populate all fields of the File type value.
     `(("class" . "File")
-      ("location" . ,(string-append "file://" path))
+      ("location" . ,location)
       ("path" . ,path)
       ("basename" . ,(basename path))
       ("nameroot" . ,(file-name-stem path))
