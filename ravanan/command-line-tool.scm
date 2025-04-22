@@ -982,8 +982,15 @@ directory of the workflow."
                 ;; Stage file as entry-name and return the staged File value.
                 (rename-file (assoc-ref* file "path")
                              entry-name)
-                (canonicalize-file-value `(("class" . "File")
-                                           ("path" . ,entry-name))))
+                (canonicalize-file-value
+                 (maybe-assoc-set `(("class" . "File")
+                                    ("path" . ,entry-name))
+                   (cons "secondaryFiles"
+                         (maybe-let* ((secondary-files
+                                       (maybe-assoc-ref (just file) "secondaryFiles")))
+                           (just (vector-map (lambda (file)
+                                               (stage-file file (assoc-ref* file "basename")))
+                                             secondary-files)))))))
 
               ;; Stage files.
               ;; We currently support File and Dirent only. TODO: Support others.
@@ -1001,7 +1008,6 @@ directory of the workflow."
                                 ;; Symlink to the file.
                                 ((eq? (object-type entry)
                                       'File)
-                                 ;; TODO: Stage secondary files too?
                                  (cons entry
                                        (stage-file entry entry-name))))))
                             entries))
