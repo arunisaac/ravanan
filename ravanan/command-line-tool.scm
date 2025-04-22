@@ -889,7 +889,7 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
 canonicalized value. If @var{required} is @code{#t} and no such secondary file
 is found, error out. @var{workflow-output-directory} is path to the output
 directory of the workflow."
-                (let* ((secondary-file-path (secondary-path path pattern))
+                (let* ((secondary-file-path (secondary-path path secondary-file))
                        (secondary-file-value
                         (and (file-exists? secondary-file-path)
                              (copy-file-value (canonicalize-file-value
