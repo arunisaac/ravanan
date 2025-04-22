@@ -20,6 +20,7 @@
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
+  #:use-module (ice-9 filesystem)
   #:use-module (ice-9 format)
   #:use-module (ice-9 match)
   #:use-module (gcrypt base16)
@@ -36,6 +37,7 @@
             run-command
             sha1-hash
             checksum
+            canonicalize-file-value
             evaluate-javascript))
 
 (define (value->string x)
@@ -204,6 +206,21 @@ status in @var{success-codes} as success. Error out otherwise."
 (define (checksum file)
   "Return the checksum of @var{file} as defined in the CWL specification."
   (string-append "sha1$" (sha1-hash file)))
+
+(define (canonicalize-file-value value)
+  "Canonicalize @code{File} type @var{value} adding missing fields."
+  (let ((path (or (assoc-ref value "location")
+                  (assoc-ref value "path"))))
+    ;; Populate all fields of the File type value.
+    `(("class" . "File")
+      ("location" . ,(string-append "file://" path))
+      ("path" . ,path)
+      ("basename" . ,(basename path))
+      ("nameroot" . ,(file-name-stem path))
+      ("nameext" . ,(file-name-extension path))
+      ("size" . ,(stat:size (stat path)))
+      ("checksum" . ,(or (assoc-ref value "checksum")
+                         (checksum path))))))
 
 (define* (evaluate-javascript node expression #:optional (preamble ""))
   "Evaluate javascript @var{expression} using @var{node}. Evaluate

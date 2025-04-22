@@ -876,20 +876,6 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                     (cons "location" (string-append "file://" destination-path))
                     (cons "path" destination-path))))
 
-              (define (canonicalize-file-value value)
-                (let ((path (or (assoc-ref value "location")
-                                (assoc-ref value "path"))))
-                  ;; Populate all fields of the File type value.
-                  `(("class" . "File")
-                    ("location" . ,(string-append "file://" path))
-                    ("path" . ,path)
-                    ("basename" . ,(basename path))
-                    ("nameroot" . ,(file-name-stem path))
-                    ("nameext" . ,(file-name-extension path))
-                    ("size" . ,(stat:size (stat path)))
-                    ("checksum" . ,(or (assoc-ref value "checksum")
-                                       (checksum path))))))
-
               (define (secondary-path path secondary-file)
                 "Derive path to @var{secondary-file} from primary @var{path}."
                 (let ((pattern (assoc-ref* secondary-file "pattern")))
