@@ -263,26 +263,7 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                 input))
    ((eq? (object-type input)
          'File)
-    (let ((path (canonicalize-path (cond
-                                    ((assoc-ref input "location") => location->path)
-                                    (else (assoc-ref input "path"))))))
-      (maybe-assoc-set input
-        (cons "basename" (just (basename path)))
-        (cons "nameroot" (just (file-name-stem path)))
-        (cons "nameext" (just (file-name-extension path)))
-        (cons "size" (just (stat:size (stat path))))
-        (cons "location" (just (uri->string (build-uri 'file #:path path))))
-        (cons "path" (just path))
-        ;; Compute the checksum, but only if it is not provided. If it is
-        ;; provided, trust that it is correct. This avoids costly (think hashing
-        ;; terabytes of data) hash computations causing a long delay before the
-        ;; workflow actually starts running.
-        (cons "checksum" (just (or (assoc-ref input "checksum")
-                                   (checksum path))))
-        (cons "secondaryFiles"
-              (maybe-let* ((secondary-files (maybe-assoc-ref (just input)
-                                                             "secondaryFiles")))
-                (just (vector-map normalize-input secondary-files)))))))
+    (canonicalize-file-value input))
    (else input)))
 
 (define (read-inputs inputs-file)
