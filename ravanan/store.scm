@@ -131,6 +131,9 @@ interned path and location."
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
       (cons "path" (just interned-path))
+      (cons "basename" (just (basename interned-path)))
+      (cons "nameroot" (just (file-name-stem interned-path)))
+      (cons "nameext" (just (file-name-extension interned-path)))
       (cons "secondaryFiles"
             (maybe-let* ((secondary-files (maybe-assoc-ref (just file)
                                                            "secondaryFiles")))
