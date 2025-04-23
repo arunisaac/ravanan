@@ -451,14 +451,13 @@ is the class of the workflow."
 (define (resolve-inputs inputs formal-inputs store)
   "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
 files found into the @var{store} and return a tree of the fully resolved inputs."
-  (define (match-secondary-file-pattern input pattern)
-    "Return @code{#t} if secondary file @var{pattern} matches at least one secondary
-file in @var{input}."
-    ;; TODO: Implement caret characters in SecondaryFileSchema DSL.
-    (vector-any (lambda (secondary-file)
-                  (string=? (store-item-name (assoc-ref* secondary-file "path"))
-                            (string-append (store-item-name (assoc-ref* input "path"))
-                                           pattern)))
+  (define (match-secondary-file-pattern input secondary-file)
+    "Return @code{#t} if @var{secondary-file} matches at least one secondary file in
+@var{input}."
+    (vector-any (lambda (candidate)
+                  (string=? (store-item-name (assoc-ref* candidate "path"))
+                            (secondary-path (store-item-name (assoc-ref* input "path"))
+                                            secondary-file)))
                 (or (assoc-ref input "secondaryFiles")
                     (user-error "Missing secondaryFiles in input ~a"
                                 input))))
@@ -467,12 +466,11 @@ file in @var{input}."
     "Check if all required @var{secondary-files} are present in @var{input}. If not,
 error out."
     (vector-for-each (lambda (secondary-file)
-                       (let ((pattern (assoc-ref* secondary-file "pattern")))
-                         (when (and (assoc-ref* secondary-file "required")
-                                    (not (match-secondary-file-pattern input pattern)))
-                           (user-error "Secondary file ~a missing in input ~a"
-                                       pattern
-                                       input))))
+                       (when (and (assoc-ref* secondary-file "required")
+                                  (not (match-secondary-file-pattern input secondary-file)))
+                         (user-error "Secondary file ~a missing in input ~a"
+                                     (assoc-ref* secondary-file "pattern")
+                                     input)))
                      secondary-files))
 
   (define (resolve inputs types maybe-secondary-files)
