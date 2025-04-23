@@ -876,13 +876,6 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                     (cons "location" (string-append "file://" destination-path))
                     (cons "path" destination-path))))
 
-              (define (secondary-path path secondary-file)
-                "Derive path to @var{secondary-file} from primary @var{path}."
-                (let ((pattern (assoc-ref* secondary-file "pattern")))
-                  ;; TODO: Implement ? and ^ characters in SecondaryFileSchema
-                  ;; DSL.
-                  (string-append path pattern)))
-
               (define (capture-secondary-file path secondary-file
                                               workflow-output-directory)
                 "Capture @var{secondary-file} for primary @var{path} and return its

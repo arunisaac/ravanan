@@ -42,6 +42,7 @@
             checksum
             location->path
             canonicalize-file-value
+            secondary-path
             evaluate-javascript))
 
 (define (value->string x)
@@ -246,6 +247,12 @@ actually paths."
                           (maybe-assoc-ref (just value) "secondaryFiles")))
               (just (vector-map canonicalize-file-value
                                 secondary-files)))))))
+
+(define (secondary-path path secondary-file)
+  "Derive path to @var{secondary-file} from primary @var{path}."
+  (let ((pattern (assoc-ref* secondary-file "pattern")))
+    ;; TODO: Implement ? and ^ characters in SecondaryFileSchema DSL.
+    (string-append path pattern)))
 
 (define* (evaluate-javascript node expression #:optional (preamble ""))
   "Evaluate javascript @var{expression} using @var{node}. Evaluate
