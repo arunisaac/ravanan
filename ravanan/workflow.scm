@@ -455,8 +455,8 @@ files found into the @var{store} and return a tree of the fully resolved inputs.
     "Return @code{#t} if @var{secondary-file} matches at least one secondary file in
 @var{input}."
     (vector-any (lambda (candidate)
-                  (string=? (store-item-name (assoc-ref* candidate "path"))
-                            (secondary-path (store-item-name (assoc-ref* input "path"))
+                  (string=? (basename (assoc-ref* candidate "path"))
+                            (secondary-path (basename (assoc-ref* input "path"))
                                             secondary-file)))
                 (or (assoc-ref input "secondaryFiles")
                     (user-error "Missing secondaryFiles in input ~a"

@@ -31,8 +31,7 @@
             script->store-data-file
             script->store-stdout-file
             script->store-stderr-file
-            intern-file
-            store-item-name))
+            intern-file))
 
 (define %store-files-directory
   "files")
@@ -110,7 +109,8 @@ interned path and location."
                       (file-name-join* %store-files-directory
                                        (string-append sha1
                                                       "-"
-                                                      (basename path)))
+                                                      (basename path))
+                                       (basename path))
                       store)))
                 (if (file-exists? interned-path)
                     (format (current-error-port)
@@ -120,6 +120,7 @@ interned path and location."
                       (format (current-error-port)
                               "Interning ~a into store as ~a~%"
                               path interned-path)
+                      (mkdir (dirname interned-path))
                       ;; Hard link if on the same filesystem. Else, copy.
                       ((if (same-filesystem? path
                                              (expand-file-name %store-files-directory
@@ -140,11 +141,4 @@ interned path and location."
               (just (vector-map (cut intern-file <> store)
                                 secondary-files)))))))
 
-;; Length of a base-16 encoded SHA1 hash
-(define %store-hash-length 40)
 
-(define (store-item-name path)
-  "Return the basename of store item @var{path} with the store hash stripped out."
-  (string-drop (basename path)
-               ;; the hash and the dash after the hash
-               (1+ %store-hash-length)))

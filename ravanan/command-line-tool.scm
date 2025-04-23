@@ -493,7 +493,7 @@ The returned G-expression will reference an @code{inputs-directory} variable."
      ((eq? (object-type input)
            'File)
       #~,(let ((path-in-inputs-directory
-                (expand-file-name #$(store-item-name (assoc-ref input "path"))
+                (expand-file-name #$(basename (assoc-ref input "path"))
                                   inputs-directory)))
            (copy-file #$(assoc-ref input "path")
                       path-in-inputs-directory)
