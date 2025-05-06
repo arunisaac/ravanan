@@ -36,7 +36,8 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ravanan utils)
              (ravanan verbosity)
              (ravanan workflow)
-             (ravanan work utils))
+             (ravanan work utils)
+             (ravanan work vectors))
 
 (define %options
   (list (option (list "batch-system" "batchSystem") #t #f
