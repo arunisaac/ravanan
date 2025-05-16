@@ -493,8 +493,16 @@ The returned G-expression will reference an @code{inputs-directory} variable."
      ((eq? (object-type input)
            'File)
       #~,(let ((path-in-inputs-directory
-                (expand-file-name #$(basename (assoc-ref input "path"))
+                ;; Input files may have the same filename. So, we take the
+                ;; additional precaution of copying input files into their own
+                ;; hash-prefixed subdirectories, just like they are in the
+                ;; ravanan store.
+                (expand-file-name #$(file-name-join
+                                     (take-right (file-name-split
+                                                  (assoc-ref input "path"))
+                                                 2))
                                   inputs-directory)))
+           (mkdir (file-dirname path-in-inputs-directory))
            (copy-file #$(assoc-ref input "path")
                       path-in-inputs-directory)
            (maybe-assoc-set '#$input
