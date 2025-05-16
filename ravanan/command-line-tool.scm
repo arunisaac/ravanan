@@ -502,7 +502,7 @@ The returned G-expression will reference an @code{inputs-directory} variable."
                                                   (assoc-ref input "path"))
                                                  2))
                                   inputs-directory)))
-           (mkdir (file-dirname path-in-inputs-directory))
+           (make-directories (file-dirname path-in-inputs-directory))
            (copy-file #$(assoc-ref input "path")
                       path-in-inputs-directory)
            (maybe-assoc-set '#$input
