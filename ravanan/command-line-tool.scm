@@ -705,12 +705,12 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
 
   (define (cores batch-system)
     (cond
-      ((slurm-api-batch-system? batch-system)
-       #~(string->number (getenv "SLURM_CPUS_ON_NODE")))
-      ((eq? batch-system 'single-machine)
-       #~(total-processor-count))
-      (else
-       (assertion-violation batch-system "Unknown batch system"))))
+     ((slurm-api-batch-system? batch-system)
+      #~(string->number (getenv "SLURM_CPUS_ON_NODE")))
+     ((eq? batch-system 'single-machine)
+      #~(total-processor-count))
+     (else
+      (assertion-violation batch-system "Unknown batch system"))))
 
   (define stdout-filename
     (cond
