@@ -39,6 +39,7 @@
             formal-parameter-type
             run-command
             sha1-hash
+            sha1-hash-bytes
             checksum
             location->path
             canonicalize-file-value
@@ -202,11 +203,14 @@ status in @var{success-codes} as success. Error out otherwise."
       (with-output-to-port (current-error-port)
         (cut invoke command))))))
 
+(define (sha1-hash-bytes file)
+  "Return the SHA1 hash of @var{file} as a bytevector."
+  (file-hash (lookup-hash-algorithm 'sha1)
+             file))
+
 (define (sha1-hash file)
   "Return the SHA1 hash of @var{file} as a hexadecimal string."
-  (bytevector->base16-string
-   (file-hash (lookup-hash-algorithm 'sha1)
-              file)))
+  (bytevector->base16-string (sha1-hash-bytes file)))
 
 (define (checksum file)
   "Return the checksum of @var{file} as defined in the CWL specification."
