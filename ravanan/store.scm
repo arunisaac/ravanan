@@ -19,6 +19,8 @@
 (define-module (ravanan store)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
+  #:use-module (guix base16)
+  #:use-module (guix base32)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work vectors)
@@ -95,8 +97,9 @@ interned path and location."
          (checksum (assoc-ref file "checksum"))
          (sha1 (if (and checksum
                         (string-prefix? "sha1$" checksum))
-                   (string-drop checksum (string-length "sha1$"))
-                   (sha1-hash path)))
+                   (base16-string->bytevector
+                    (string-drop checksum (string-length "sha1$")))
+                   (sha1-hash-bytes path)))
          (interned-path
           (if (string-prefix? store path)
               ;; If file is already a store path, return it as is.
@@ -107,7 +110,7 @@ interned path and location."
               (let ((interned-path
                      (expand-file-name
                       (file-name-join* %store-files-directory
-                                       (string-append sha1
+                                       (string-append (bytevector->base32-string sha1)
                                                       "-"
                                                       (basename path))
                                        (basename path))
