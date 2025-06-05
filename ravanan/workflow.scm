@@ -59,7 +59,8 @@
 
 (define-condition-type &job-failure &error
   job-failure job-failure?
-  (script job-failure-script))
+  (script job-failure-script)
+  (inputs job-failure-inputs))
 
 (define-immutable-record-type <scheduler-proc>
   (scheduler-proc name cwl scatter scatter-method)
@@ -341,7 +342,8 @@ state-monadic @code{<state+status>} object. The status is one of the symbols
                          (case status
                            ((failed)
                             (raise-exception (job-failure
-                                              (job-state-script job-state))))
+                                              (job-state-script job-state)
+                                              (job-state-inputs job-state))))
                            (else => identity)))))))
      ;; Poll sub-workflow state. We do not need to check the status here since
      ;; job failures only occur at the level of a CommandLineTool.
@@ -414,16 +416,17 @@ is the class of the workflow."
                  head-output))))))
      (else
       ;; Log progress and return captured output.
-      (let ((script (job-state-script (command-line-tool-state-job-state state))))
+      (let ((script (job-state-script (command-line-tool-state-job-state state)))
+            (inputs (job-state-inputs (command-line-tool-state-job-state state))))
         (state-return
          (begin
            (format (current-error-port)
                    "~a completed; logs at ~a and ~a~%"
                    script
-                   (script->store-stdout-file script store)
-                   (script->store-stderr-file script store))
+                   (step-store-stdout-file script inputs store)
+                   (step-store-stderr-file script inputs store))
            (filter-outputs "CommandLineTool"
-                           (capture-command-line-tool-output script store)
+                           (capture-command-line-tool-output script inputs store)
                            (command-line-tool-state-formal-outputs state))))))))
 
   (scheduler schedule poll capture-output))
@@ -537,12 +540,13 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
 
 @var{guix-daemon-socket} is the Guix daemon socket to connect to."
   (guard (c ((job-failure? c)
-             (let ((script (job-failure-script c)))
+             (let ((script (job-failure-script c))
+                   (inputs (job-failure-inputs c)))
                (user-error
                 "~a failed; logs at ~a and ~a~%"
                 script
-                (script->store-stdout-file script store)
-                (script->store-stderr-file script store)))))
+                (step-store-stdout-file script inputs store)
+                (step-store-stderr-file script inputs store)))))
     (let ((scheduler (workflow-scheduler
                       manifest-file channels scratch store batch-system
                       #:guix-daemon-socket guix-daemon-socket)))

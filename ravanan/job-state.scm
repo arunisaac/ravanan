@@ -34,18 +34,21 @@
             slurm-job-state
 
             job-state-script
+            job-state-inputs
             job-state-status))
 
 (define-immutable-record-type <single-machine-job-state>
-  (single-machine-job-state script success?)
+  (single-machine-job-state script inputs success?)
   single-machine-job-state?
   (script single-machine-job-state-script)
+  (inputs single-machine-job-state-inputs)
   (success? single-machine-job-state-success?))
 
 (define-immutable-record-type <slurm-job-state>
-  (slurm-job-state script job-id)
+  (slurm-job-state script inputs job-id)
   slurm-job-state?
   (script slurm-job-state-script)
+  (inputs slurm-job-state-inputs)
   (job-id slurm-job-state-job-id))
 
 (define (job-state-script state)
@@ -54,6 +57,14 @@
      single-machine-job-state-script)
     ((slurm-job-state? state)
      slurm-job-state-script))
+   state))
+
+(define (job-state-inputs state)
+  ((cond
+    ((single-machine-job-state? state)
+     single-machine-job-state-inputs)
+    ((slurm-job-state? state)
+     slurm-job-state-inputs))
    state))
 
 (define* (job-state-status state batch-system)

@@ -95,15 +95,6 @@
   (secondary-files formal-output-secondary-files)
   (binding formal-output-binding))
 
-(define-immutable-record-type <command-line-binding>
-  (command-line-binding position prefix type value item-separator)
-  command-line-binding?
-  (position command-line-binding-position)
-  (prefix command-line-binding-prefix)
-  (type command-line-binding-type)
-  (value command-line-binding-value)
-  (item-separator command-line-binding-item-separator))
-
 (define-immutable-record-type <output-binding>
   (output-binding glob load-contents? load-listing? output-eval)
   output-binding?
@@ -292,47 +283,6 @@ G-expressions are inserted."
       (< (command-line-binding-position binding1)
          (command-line-binding-position binding2))))))
 
-(define (command-line-binding->args binding)
-  "Return a list of arguments for @var{binding}. The returned list may
-contain strings or G-expressions. The G-expressions may reference an
-@code{inputs-directory} variable that must be defined in the context
-in which the G-expressions are inserted."
-  (let ((prefix (command-line-binding-prefix binding))
-        (type (command-line-binding-type binding))
-        (value (command-line-binding-value binding)))
-    (cond
-     ((eq? type 'boolean)
-      (if value
-          ;; TODO: Error out if boolean input has no prefix?
-          (maybe->list prefix)
-          (list)))
-     ((eq? type 'null) (list))
-     ((array-type? type)
-      (match value
-        ;; Empty arrays should be noops.
-        (() (list))
-        (_
-         (let ((args (append-map command-line-binding->args
-                                 value)))
-           (append (maybe->list prefix)
-                   (from-maybe
-                    (maybe-let* ((item-separator (command-line-binding-item-separator binding)))
-                      (just (list #~(string-join (list #$@args)
-                                                 #$item-separator))))
-                    args))))))
-     (else
-      (append (maybe->list prefix)
-              (list (case type
-                      ((string)
-                       value)
-                      ((int float)
-                       #~(number->string #$value))
-                      ((File)
-                       #~(assoc-ref* #$value "path"))
-                      (else
-                       (user-error "Invalid formal input type ~a"
-                                   type)))))))))
-
 (define* (build-gexp-script name exp #:optional guix-daemon-socket)
   "Build script named @var{name} using G-expression @var{exp}.
 
@@ -358,7 +308,7 @@ state-monadic job state object.
 @var{guix-daemon-socket} are the same as in @code{run-workflow} from
 @code{(ravanan workflow)}."
   (let* ((script
-          (build-command-line-tool-script name manifest-file channels cwl inputs
+          (build-command-line-tool-script name manifest-file channels cwl
                                           scratch store batch-system
                                           guix-daemon-socket))
          (requirements (inherit-requirements (or (assoc-ref cwl "requirements")
@@ -377,10 +327,10 @@ state-monadic job state object.
                                           <>
                                           `(("inputs" . ,inputs)))))
                 1))
-         (store-files-directory (script->store-files-directory script store))
-         (store-data-file (script->store-data-file script store))
-         (stdout-file (script->store-stdout-file script store))
-         (stderr-file (script->store-stderr-file script store)))
+         (store-files-directory (step-store-files-directory script inputs store))
+         (store-data-file (step-store-data-file script inputs store))
+         (stdout-file (step-store-stdout-file script inputs store))
+         (stderr-file (step-store-stderr-file script inputs store)))
     (if (file-exists? store-data-file)
         ;; Return a dummy success state object if script has already
         ;; been run successfully.
@@ -389,7 +339,7 @@ state-monadic job state object.
            (format (current-error-port)
                    "~a previously run; retrieving result from store~%"
                    script)
-           (single-machine-job-state script #t)))
+           (single-machine-job-state script inputs #t)))
         ;; Run script if it has not already been run.
         (begin
           ;; Delete output files directory if an incomplete one exists
@@ -402,7 +352,8 @@ state-monadic job state object.
             (delete-file-recursively store-files-directory))
           (mkdir store-files-directory)
           (let ((environment
-                 `(("WORKFLOW_OUTPUT_DIRECTORY" . ,store-files-directory)
+                 `(("WORKFLOW_INPUTS" . ,(scm->json-string inputs))
+                   ("WORKFLOW_OUTPUT_DIRECTORY" . ,store-files-directory)
                    ("WORKFLOW_OUTPUT_DATA_FILE" . ,store-data-file))))
             (cond
              ((eq? batch-system 'single-machine)
@@ -410,7 +361,7 @@ state-monadic job state object.
                                                                 stdout-file
                                                                 stderr-file
                                                                 script)))
-                (state-return (single-machine-job-state script success?))))
+                (state-return (single-machine-job-state script inputs success?))))
              ((slurm-api-batch-system? batch-system)
               (state-let* ((job-id
                             (slurm:submit-job environment
@@ -427,14 +378,14 @@ state-monadic job state object.
                         "~a submitted as job ID ~a~%"
                         script
                         job-id)
-                (state-return (slurm-job-state script job-id))))
+                (state-return (slurm-job-state script inputs job-id))))
              (else
               (assertion-violation batch-system "Invalid batch system"))))))))
 
-(define (capture-command-line-tool-output script store)
+(define (capture-command-line-tool-output script inputs store)
   "Capture and return output of @code{CommandLineTool} class workflow that ran
-@var{script}. @var{store} is the path to the ravanan store."
-  (let* ((store-data-file (script->store-data-file script store))
+@var{script} with @var{inputs}. @var{store} is the path to the ravanan store."
+  (let* ((store-data-file (step-store-data-file script inputs store))
          (output-json (call-with-input-file store-data-file
                         json->scm)))
     ;; Recursively rewrite file paths in output JSON.
@@ -451,7 +402,7 @@ state-monadic job state object.
                             (string=? (assoc-ref tree "class")
                                       "File"))
                        (let* ((store-files-directory
-                               (script->store-files-directory script store))
+                               (step-store-files-directory script inputs store))
                               (path (expand-file-name
                                      (relative-file-name (assoc-ref tree "path")
                                                          store-files-directory)
@@ -473,60 +424,6 @@ state-monadic job state object.
     ;; Return output values.
     (call-with-input-file store-data-file
       json->scm)))
-
-(define (copy-input-files-gexp inputs)
-  "Return a G-expression that copies @code{File} type inputs (along with secondary
-files) from @var{inputs} into @code{inputs-directory} and return a new
-association list with updated @code{location} and @code{path} fields.
-
-The returned G-expression will reference an @code{inputs-directory} variable."
-  (define (copy-input-files input)
-    (cond
-     ((vector? input)
-      #~,(list->vector
-          `#$(map copy-input-files
-                  (vector->list input))))
-     ((eq? (object-type input)
-           'File)
-      #~,(let ((path-in-inputs-directory
-                ;; Input files may have the same filename. So, we take the
-                ;; additional precaution of copying input files into their own
-                ;; hash-prefixed subdirectories, just like they are in the
-                ;; ravanan store.
-                (expand-file-name #$(file-name-join
-                                     (take-right (file-name-split
-                                                  (assoc-ref input "path"))
-                                                 2))
-                                  inputs-directory)))
-           (make-directories (file-dirname path-in-inputs-directory))
-           (copy-file #$(assoc-ref input "path")
-                      path-in-inputs-directory)
-           (maybe-assoc-set '#$input
-             (cons "location"
-                   (just path-in-inputs-directory))
-             (cons "path"
-                   (just path-in-inputs-directory))
-             (cons "basename"
-                   (just (basename path-in-inputs-directory)))
-             (cons "nameroot"
-                   (just (file-name-stem path-in-inputs-directory)))
-             (cons "nameext"
-                   (just (file-name-extension path-in-inputs-directory)))
-             (cons "secondaryFiles"
-                   #$(from-maybe
-                      (maybe-let* ((secondary-files
-                                    (maybe-assoc-ref (just input) "secondaryFiles")))
-                        (just #~(just (list->vector
-                                       `#$(vector-map->list copy-input-files
-                                                            secondary-files)))))
-                      #~%nothing)))))
-     (else input)))
-
-  #~(list->dotted-list
-     `#$(map (match-lambda
-               ((id . input)
-                (list id (copy-input-files input))))
-             inputs)))
 
 (define (find-requirement requirements class)
   "Find requirement of @var{class} among @var{requirements} and return a
@@ -666,12 +563,12 @@ by @var{guix-daemon-socket}."
                                    #:allow-collisions? #t)
                guix-daemon-socket)))))
 
-(define (build-command-line-tool-script name manifest-file channels cwl inputs
+(define (build-command-line-tool-script name manifest-file channels cwl
                                         scratch store batch-system
                                         guix-daemon-socket)
   "Build and return script to run @code{CommandLineTool} class workflow @var{cwl}
-named @var{name} with @var{inputs} using tools from Guix manifest in
-@var{manifest-file} and on @var{batch-system}.
+named @var{name} using tools from Guix manifest in @var{manifest-file} and on
+@var{batch-system}.
 
 @var{channels}, @var{scratch}, @var{store} and @var{guix-daemon-socket} are the
 same as in @code{run-workflow} from @code{(ravanan workflow)}."
@@ -729,12 +626,21 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                 (list 'File 'Directory))
           (error #f "glob output binding not specified"))))
 
+  (define (coerce-argument argument)
+    (assoc-set argument
+      (cons "valueFrom"
+            (coerce-expression (assoc-ref* argument "valueFrom")))))
+
   (define run-command-gexp
-    #~(run-command (list #$@(append-map (lambda (arg)
-                                          (if (command-line-binding? arg)
-                                              (command-line-binding->args arg)
-                                              (list arg)))
-                                        (build-command cwl inputs)))
+    #~(run-command (append-map (lambda (arg)
+                                 (if (command-line-binding? arg)
+                                     (command-line-binding->args arg)
+                                     (list arg)))
+                               (build-command #$(assoc-ref cwl "baseCommand")
+                                              #$(vector-map coerce-argument
+                                                            (assoc-ref cwl "arguments"))
+                                              #$(assoc-ref cwl "inputs")
+                                              inputs))
                    #$(coerce-expression (assoc-ref cwl "stdin"))
                    #$stdout-filename
                    '#$(from-maybe
@@ -828,7 +734,6 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
       (and (not (coerce-type (assoc-ref* work-reuse "enableReuse")
                              'boolean))
            (warning "Ignoring disable of WorkReuse. ravanan's strong caching using Guix makes it unnecessary."))))
-  ;; Copy input files and update corresponding input objects.
   (build-gexp-script name
     (let* ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
                                                    #())
@@ -874,6 +779,45 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
                            (ice-9 threads)
                            (guix search-paths)
                            (json))
+
+              (define (copy-input-files input inputs-directory)
+                ;; Copy input files and update corresponding input objects.
+                (cond
+                 ((vector? input)
+                  (vector-map copy-input-files
+                              input))
+                 ((eq? (object-type input)
+                       'File)
+                  (let ((path-in-inputs-directory
+                         ;; Input files may have the same filename. So, we take
+                         ;; the additional precaution of copying input files
+                         ;; into their own hash-prefixed subdirectories, just
+                         ;; like they are in the ravanan store.
+                         (expand-file-name (file-name-join
+                                            (take-right (file-name-split
+                                                         (assoc-ref input "path"))
+                                                        2))
+                                           inputs-directory)))
+                    (make-directories (file-dirname path-in-inputs-directory))
+                    (copy-file (assoc-ref input "path")
+                               path-in-inputs-directory)
+                    (maybe-assoc-set input
+                      (cons "location"
+                            (just path-in-inputs-directory))
+                      (cons "path"
+                            (just path-in-inputs-directory))
+                      (cons "basename"
+                            (just (basename path-in-inputs-directory)))
+                      (cons "nameroot"
+                            (just (file-name-stem path-in-inputs-directory)))
+                      (cons "nameext"
+                            (just (file-name-extension path-in-inputs-directory)))
+                      (cons "secondaryFiles"
+                            (maybe-let* ((secondary-files
+                                          (maybe-assoc-ref (just input) "secondaryFiles")))
+                              (just (vector-map copy-input-files
+                                                secondary-files)))))))
+                 (else input)))
 
               (define (copy-file-value value directory)
                 ;; Copy file represented by value to directory and return the
@@ -1056,10 +1000,12 @@ directory of the workflow."
 
               (call-with-temporary-directory
                (lambda (inputs-directory)
-                 ;; We need to canonicalize JSON trees before inserting them
-                 ;; into G-expressions. If we don't, we would have degenerate
-                 ;; G-expressions that produce exactly the same result.
-                 (let ((inputs #$(copy-input-files-gexp (canonicalize-json inputs)))
+                 (let ((inputs (map (match-lambda
+                                      ((id . input)
+                                       (cons id
+                                             (copy-input-files input inputs-directory))))
+                                    (json-string->scm
+                                     (getenv "WORKFLOW_INPUTS"))))
                        (runtime `(("cores" . ,#$(cores batch-system)))))
 
                    ;; Set environment defined by workflow.

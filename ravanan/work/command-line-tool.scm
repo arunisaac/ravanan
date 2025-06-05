@@ -19,6 +19,7 @@
 (define-module (ravanan work command-line-tool)
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-9 gnu)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 format)
@@ -29,6 +30,7 @@
   #:use-module (json)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
+  #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (value->string
@@ -44,7 +46,17 @@
             location->path
             canonicalize-file-value
             secondary-path
-            evaluate-javascript))
+            evaluate-javascript
+
+            command-line-binding
+            command-line-binding?
+            command-line-binding-position
+            command-line-binding-prefix
+            command-line-binding-type
+            command-line-binding-value
+            command-line-binding-item-separator
+            command-line-binding->args
+            build-command))
 
 (define (value->string x)
   "Convert value @var{x} to a string."
@@ -266,3 +278,155 @@ actually paths."
                                 (format #f "--eval=~a console.log(\"%j\", ~a)"
                                         preamble expression))
       json->scm)))
+
+(define-immutable-record-type <command-line-binding>
+  (command-line-binding position prefix type value item-separator)
+  command-line-binding?
+  (position command-line-binding-position)
+  (prefix command-line-binding-prefix)
+  (type command-line-binding-type)
+  (value command-line-binding-value)
+  (item-separator command-line-binding-item-separator))
+
+(define (command-line-binding->args binding)
+  "Return a list of arguments for @var{binding}. The returned list may
+contain strings or G-expressions. The G-expressions may reference an
+@code{inputs-directory} variable that must be defined in the context in which
+the G-expressions are inserted."
+  (let ((prefix (command-line-binding-prefix binding))
+        (type (command-line-binding-type binding))
+        (value (command-line-binding-value binding)))
+    (cond
+     ((eq? type 'boolean)
+      (if value
+          ;; TODO: Error out if boolean input has no prefix?
+          (maybe->list prefix)
+          (list)))
+     ((eq? type 'null) (list))
+     ((array-type? type)
+      (match value
+        ;; Empty arrays should be noops.
+        (() (list))
+        (_
+         (let ((args (append-map command-line-binding->args
+                                 value)))
+           (append (maybe->list prefix)
+                   (from-maybe
+                    (maybe-let* ((item-separator (command-line-binding-item-separator binding)))
+                      (just (list (string-join args item-separator))))
+                    args))))))
+     (else
+      (append (maybe->list prefix)
+              (list (case type
+                      ((string)
+                       value)
+                      ((int float)
+                       (number->string value))
+                      ((File)
+                       (assoc-ref* value "path"))
+                      (else
+                       (user-error "Invalid formal input type ~a"
+                                   type)))))))))
+
+(define (build-command base-command arguments formal-inputs inputs)
+  "Return a list of @code{<command-line-binding>} objects for a
+@code{CommandLineTool} class workflow with @var{base-command}, @var{arguments},
+@var{formal-inputs} and @var{inputs}. The @code{value} field of the returned
+@code{<command-line-binding>} objects may be strings or G-expressions. The
+G-expressions may reference @var{inputs} and @var{runtime} variables that must
+be defined in the context in which the G-expressions are inserted."
+  (define (argument->command-line-binding i argument)
+    (command-line-binding (cond
+                           ((assoc-ref argument "position")
+                            => string->number)
+                           (else i))
+                          (maybe-assoc-ref (just argument) "prefix")
+                          'string
+                          (value->string (assoc-ref* argument "valueFrom"))
+                          %nothing))
+
+  (define (collect-bindings ids+inputs+types+bindings)
+    (append-map id+input+type-tree+binding->command-line-binding
+                ids+inputs+types+bindings))
+
+  (define id+input+type-tree+binding->command-line-binding
+    (match-lambda
+      ;; We stretch the idea of an input id, by making it an address that
+      ;; identifies the exact location of a value in a tree that possibly
+      ;; contains array types. For example, '("foo") identifies the input "foo";
+      ;; '("foo" 1) identifies the 1th element of the array input "foo"; '("foo"
+      ;; 37 1) identifies the 1th element of the 37th element of the array input
+      ;; "foo"; etc.
+      ((id input type-tree binding)
+       ;; Check type.
+       (let* ((type (formal-parameter-type type-tree))
+              (matched-type (match-type input type)))
+         (unless matched-type
+           (error input "Type mismatch" input type))
+         (let ((position
+                (from-maybe
+                 (maybe-let* ((position (maybe-assoc-ref binding "position")))
+                   (just (string->number position)))
+                 ;; FIXME: Why a default value of 0?
+                 0))
+               (prefix (maybe-assoc-ref binding "prefix")))
+           (cond
+            ;; Recurse over array types.
+            ;; TODO: Implement record and enum types.
+            ((array-type? matched-type)
+             (list (command-line-binding
+                    position
+                    prefix
+                    matched-type
+                    (append-map (lambda (i input)
+                                  (id+input+type-tree+binding->command-line-binding
+                                   (list (append id (list i))
+                                         input
+                                         (assoc-ref type-tree "items")
+                                         (maybe-assoc-ref (just type-tree)
+                                                          "inputBinding"))))
+                                (iota (vector-length input))
+                                (vector->list input))
+                    (maybe-assoc-ref binding "itemSeparator"))))
+            (else
+             (list (command-line-binding position
+                                         prefix
+                                         matched-type
+                                         (apply json-ref inputs id)
+                                         %nothing)))))))))
+
+  ;; For details of this algorithm, see §4.1 Input binding of the CWL
+  ;; 1.2 CommandLineTool specification:
+  ;; https://www.commonwl.org/v1.2/CommandLineTool.html#Input_binding
+  (append
+   ;; Insert elements from baseCommand.
+   (vector->list (or base-command
+                     (vector)))
+   (sort
+    (append
+     ;; Collect CommandLineBinding objects from arguments; assign a sorting key.
+     (vector->list
+      (vector-map-indexed argument->command-line-binding
+                          (or arguments
+                              #())))
+     ;; Collect CommandLineBinding objects from the inputs schema; assign a
+     ;; sorting key.
+     (collect-bindings
+      (filter-map (lambda (formal-input)
+                    ;; Exclude formal inputs without an inputBinding.
+                    (and (assoc "inputBinding" formal-input)
+                         (let ((id (assoc-ref formal-input "id")))
+                           (list (list id)
+                                 (or (assoc-ref inputs id)
+                                     (assoc-ref formal-input "default")
+                                     'null)
+                                 (or (assoc-ref formal-input "type")
+                                     (user-error "Type of input ~a not specified"
+                                                 id))
+                                 (maybe-assoc-ref (just formal-input)
+                                                  "inputBinding")))))
+                  (vector->list formal-inputs))))
+    ;; Sort elements using the assigned sorting keys.
+    (lambda (binding1 binding2)
+      (< (command-line-binding-position binding1)
+         (command-line-binding-position binding2))))))

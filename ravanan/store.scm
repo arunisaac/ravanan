@@ -18,9 +18,12 @@
 
 (define-module (ravanan store)
   #:use-module (srfi srfi-26)
+  #:use-module (srfi srfi-71)
   #:use-module (ice-9 filesystem)
+  #:use-module (gcrypt hash)
   #:use-module (guix base16)
   #:use-module (guix base32)
+  #:use-module (guix build utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work vectors)
@@ -29,10 +32,10 @@
             %store-logs-directory
 
             make-store
-            script->store-files-directory
-            script->store-data-file
-            script->store-stdout-file
-            script->store-stderr-file
+            step-store-files-directory
+            step-store-data-file
+            step-store-stdout-file
+            step-store-stderr-file
             intern-file))
 
 (define %store-files-directory
@@ -58,29 +61,56 @@ already exists, do nothing."
                     %store-data-directory
                     %store-logs-directory))))
 
-(define (script->store-files-directory script store)
-  "Return the store files directory in @var{store} corresponding to @var{script}
-path."
+(define (sha1-hash-sexp tree)
+  (bytevector->base32-string
+   (let ((port get-hash (open-hash-port (hash-algorithm sha1))))
+     ;; tree should probably be canonicalized using canonical S-expressions or
+     ;; similar. But, it doesn't matter much for our purposes. write already
+     ;; canonicalizes in a way. In the unlikely case of a problem, the worst
+     ;; that can happen is that we recompute all steps of the workflow.
+     (write tree port)
+     (close port)
+     (get-hash))))
+
+(define (step-store-basename script inputs)
+  "Return the basename in the store for files of CWL step with @var{script} and
+@var{inputs}."
+  (string-append (sha1-hash-sexp (cons script inputs))
+                 "-"
+                 (strip-store-file-name script)))
+
+(define (step-store-files-directory script inputs store)
+  "Return the @var{store} files directory for CWL step with @var{script} and
+@var{inputs}."
   (expand-file-name (file-name-join* %store-files-directory
-                                     (basename script))
+                                     (step-store-basename script inputs))
                     store))
 
-(define (script->store-data-file script store)
-  "Return the store data file in @var{store} corresponding to @var{script} path."
+(define (step-store-data-file script inputs store)
+  "Return the @var{store} data file for CWL step with @var{script} and
+@var{inputs}."
   (expand-file-name (file-name-join* %store-data-directory
-                                     (string-append (basename script) ".json"))
+                                     (string-append
+                                      (step-store-basename script inputs)
+                                      ".json"))
                     store))
 
-(define (script->store-stdout-file script store)
-  "Return the store stdout file in @var{store} corresponding to @var{script} path."
+(define (step-store-stdout-file script inputs store)
+  "Return the @var{store} stdout file for CWL step with @var{script} and
+@var{inputs}."
   (expand-file-name (file-name-join* %store-logs-directory
-                                     (string-append (basename script) ".stdout"))
+                                     (string-append
+                                      (step-store-basename script inputs)
+                                      ".stdout"))
                     store))
 
-(define (script->store-stderr-file script store)
-  "Return the store stderr file in @var{store} corresponding to @var{script} path."
+(define (step-store-stderr-file script inputs store)
+  "Return the @var{store} stderr file for CWL step with @var{script} and
+@var{inputs}."
   (expand-file-name (file-name-join* %store-logs-directory
-                                     (string-append (basename script) ".stderr"))
+                                     (string-append
+                                      (step-store-basename script inputs)
+                                      ".stderr"))
                     store))
 
 (define (same-filesystem? path1 path2)
