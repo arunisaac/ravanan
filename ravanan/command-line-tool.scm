@@ -401,39 +401,35 @@ state-monadic job state object.
           (when (file-exists? store-files-directory)
             (delete-file-recursively store-files-directory))
           (mkdir store-files-directory)
-          (cond
-           ((eq? batch-system 'single-machine)
-            (state-let* ((success? (single-machine:submit-job
-                                    `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                       ,store-files-directory)
-                                      ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                       ,store-data-file))
-                                    stdout-file
-                                    stderr-file
-                                    script)))
-              (state-return (single-machine-job-state script success?))))
-           ((slurm-api-batch-system? batch-system)
-            (state-let* ((job-id
-                          (slurm:submit-job `(("WORKFLOW_OUTPUT_DIRECTORY" .
-                                               ,store-files-directory)
-                                              ("WORKFLOW_OUTPUT_DATA_FILE" .
-                                               ,store-data-file))
-                                            stdout-file
-                                            stderr-file
-                                            cpus
-                                            name
-                                            script
-                                            #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
-                                            #:jwt (slurm-api-batch-system-jwt batch-system)
-                                            #:partition (slurm-api-batch-system-partition batch-system)
-                                            #:nice (slurm-api-batch-system-nice batch-system))))
-              (format (current-error-port)
-                      "~a submitted as job ID ~a~%"
-                      script
-                      job-id)
-              (state-return (slurm-job-state script job-id))))
-           (else
-            (assertion-violation batch-system "Invalid batch system")))))))
+          (let ((environment
+                 `(("WORKFLOW_OUTPUT_DIRECTORY" . ,store-files-directory)
+                   ("WORKFLOW_OUTPUT_DATA_FILE" . ,store-data-file))))
+            (cond
+             ((eq? batch-system 'single-machine)
+              (state-let* ((success? (single-machine:submit-job environment
+                                                                stdout-file
+                                                                stderr-file
+                                                                script)))
+                (state-return (single-machine-job-state script success?))))
+             ((slurm-api-batch-system? batch-system)
+              (state-let* ((job-id
+                            (slurm:submit-job environment
+                                              stdout-file
+                                              stderr-file
+                                              cpus
+                                              name
+                                              script
+                                              #:api-endpoint (slurm-api-batch-system-endpoint batch-system)
+                                              #:jwt (slurm-api-batch-system-jwt batch-system)
+                                              #:partition (slurm-api-batch-system-partition batch-system)
+                                              #:nice (slurm-api-batch-system-nice batch-system))))
+                (format (current-error-port)
+                        "~a submitted as job ID ~a~%"
+                        script
+                        job-id)
+                (state-return (slurm-job-state script job-id))))
+             (else
+              (assertion-violation batch-system "Invalid batch system"))))))))
 
 (define (capture-command-line-tool-output script store)
   "Capture and return output of @code{CommandLineTool} class workflow that ran
