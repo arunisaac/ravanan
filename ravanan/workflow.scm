@@ -168,24 +168,6 @@ requirements and hints of the step."
                         (assoc-ref* input "type"))))
        (assoc-ref input "id")))
 
-(define* (command-line-tool->propagator name cwl)
-  "Convert @code{CommandLineTool} workflow @var{cwl} of @var{name} to a
-propagator."
-  (propagator name
-              (scheduler-proc name cwl %nothing %nothing)
-              (vector-map->list (lambda (input)
-                                  (cons (assoc-ref input "id")
-                                        (assoc-ref input "id")))
-                                (assoc-ref cwl "inputs"))
-              ;; Inputs that either have a default or accept null values are
-              ;; optional.
-              (vector-filter-map->list optional-input?
-                                       (assoc-ref cwl "inputs"))
-              (vector-map->list (lambda (output)
-                                  (cons (assoc-ref output "id")
-                                        (assoc-ref output "id")))
-                                (assoc-ref cwl "outputs"))))
-
 (define* (workflow-class->propnet name cwl scheduler batch-system)
   "Return a propagator network scheduled using @var{scheduler} on
 @var{batch-system} for @var{cwl}, a @code{Workflow} class workflow with
@@ -197,38 +179,39 @@ propagator."
                 scatter-method))
 
   (define (step->propagator step)
-    (let* ((step-id (assoc-ref* step "id"))
-           (step-propagator
-            (command-line-tool->propagator step-id (assoc-ref* step "run"))))
-      (propagator (propagator-name step-propagator)
-                  (let ((proc (propagator-proc step-propagator)))
-                    (scheduler-proc (scheduler-proc-name proc)
-                                    (inherit-requirements-and-hints
-                                     (scheduler-proc-cwl proc)
-                                     (or (assoc-ref cwl "requirements")
-                                         #())
-                                     (or (assoc-ref cwl "hints")
-                                         #())
-                                     (or (assoc-ref step "requirements")
-                                         #())
-                                     (or (assoc-ref step "hints")
-                                         #()))
-                                    (maybe-assoc-ref (just step) "scatter")
-                                    (maybe-bind (maybe-assoc-ref (just step) "scatterMethod")
-                                                (compose just normalize-scatter-method))))
-                  (map (match-lambda
-                         ((input-id . _)
-                          (cons input-id
-                                (json-ref step "in" input-id))))
-                       (propagator-inputs step-propagator))
-                  (propagator-optional-inputs step-propagator)
-                  (filter-map (match-lambda
-                                ((output . cell)
-                                 (and (vector-member output
-                                                     (assoc-ref* step "out"))
-                                      (cons output
-                                            (string-append step-id "/" cell)))))
-                              (propagator-outputs step-propagator)))))
+    (let ((step-id (assoc-ref* step "id"))
+          (run (assoc-ref* step "run")))
+      (propagator step-id
+                  (scheduler-proc step-id
+                                  (inherit-requirements-and-hints
+                                   run
+                                   (or (assoc-ref cwl "requirements")
+                                       #())
+                                   (or (assoc-ref cwl "hints")
+                                       #())
+                                   (or (assoc-ref step "requirements")
+                                       #())
+                                   (or (assoc-ref step "hints")
+                                       #()))
+                                  (maybe-assoc-ref (just step) "scatter")
+                                  (maybe-bind (maybe-assoc-ref (just step) "scatterMethod")
+                                              (compose just normalize-scatter-method)))
+                  (vector-map->list (lambda (input)
+                                      (let ((input-id (assoc-ref input "id")))
+                                        (cons input-id
+                                              (json-ref step "in" input-id))))
+                                    (assoc-ref run "inputs"))
+                  ;; Inputs that either have a default or accept null values are
+                  ;; optional.
+                  (vector-filter-map->list optional-input?
+                                           (assoc-ref run "inputs"))
+                  (vector-map->list (lambda (output)
+                                      (let ((output-id (assoc-ref output "id")))
+                                        (and (vector-member output-id
+                                                            (assoc-ref* step "out"))
+                                             (cons output-id
+                                                   (string-append step-id "/" output-id)))))
+                                    (assoc-ref run "outputs")))))
 
   (maybe-let* ((requirements (maybe-assoc-ref (just cwl) "requirements")))
     (check-requirements requirements
