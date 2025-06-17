@@ -99,6 +99,12 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
 (define (invalid-option opt name arg result)
   (error "Invalid option" name))
 
+(define (print-short-usage program)
+  (format (current-error-port)
+          "Usage: ~a [OPTIONS] CWL-WORKFLOW INPUTS
+Run CWL-WORKFLOW with INPUTS.~%"
+          program))
+
 (define (print-usage program)
   (format (current-error-port)
           "Usage: ~a [OPTIONS] CWL-WORKFLOW INPUTS
@@ -283,4 +289,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                         outputs)
                            outputs)
                        #:pretty #t))
-          (newline)))))))
+          (newline))
+         (_
+          (print-short-usage program)
+          (exit #f)))))))
