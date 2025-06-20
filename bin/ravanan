@@ -36,6 +36,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (ravanan utils)
              (ravanan verbosity)
              (ravanan workflow)
+             (ravanan work ui)
              (ravanan work utils)
              (ravanan work vectors))
 
@@ -45,7 +46,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                   (if (member arg (list "single-machine" "slurm-api"))
                       (acons 'batch-system (string->symbol arg)
                              result)
-                      (error "Unknown batch system" arg))))
+                      (user-error "Unknown batch system ~a" arg))))
         (option (list "guix-channels") #t #f
                 (lambda (opt name arg result)
                   (acons 'guix-channels-file arg result)))
@@ -88,7 +89,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                           (cons 'traces
                                 (cons (string->symbol arg)
                                       (assq-ref result 'traces))))
-                        (error "Unknown trace subsystem" arg)))))
+                        (user-error "Unknown trace subsystem ~a" arg)))))
         (option (list "help") #f #t
                 (lambda (opt name arg result)
                   (acons 'help #t result)))
@@ -97,7 +98,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                   (acons 'version #t result)))))
 
 (define (invalid-option opt name arg result)
-  (error "Invalid option" name))
+  (user-error "Invalid option ~a" name))
 
 (define (print-short-usage program)
   (format (current-error-port)
@@ -218,13 +219,13 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
          (exit #t))
        ;; Check for required arguments.
        (unless (assq-ref args 'store)
-         (error "--store not specified"))
+         (user-error "--store not specified"))
        (case (assq-ref args 'batch-system)
          ((slurm-api)
           (unless (assq-ref args 'scratch)
-            (error "--scratch not specified"))
+            (user-error "--scratch not specified"))
           (unless (assq-ref args 'slurm-jwt)
-            (error "--slurm-jwt not specified"))))
+            (user-error "--slurm-jwt not specified"))))
        (match (reverse (assq-ref args 'args))
          ((workflow-file inputs-file)
           ;; We must not try to compile guix manifest files.
@@ -245,13 +246,13 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                      (let ((file (manifest-file-error-file c)))
                                        (cond
                                         ((not file)
-                                         (error "--guix-manifest not specified"))
+                                         (user-error "--guix-manifest not specified"))
                                         ((not (file-exists? file))
-                                         (error "Manifest file ~a does not exist"
-                                                file))
+                                         (user-error "Manifest file ~a does not exist"
+                                                     file))
                                         (else
-                                         (error "Error loading manifest file"
-                                                file)
+                                         (user-error "Error loading manifest file ~a"
+                                                     file)
                                          (raise-exception c))))))
                             (parameterize ((%traces (assq-ref args 'traces)))
                               (run-workflow (file-name-stem workflow-file)
