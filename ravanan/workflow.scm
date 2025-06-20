@@ -257,8 +257,7 @@ object or a @code{<scheduler-proc>} object."
            (scatter (from-maybe (scheduler-proc-scatter proc)
                                 #f))
            (scatter-method (from-maybe (scheduler-proc-scatter-method proc)
-                                       #f))
-           (class (assoc-ref* cwl "class")))
+                                       #f)))
       (if scatter
           (case scatter-method
             ((dot-product)
@@ -281,7 +280,8 @@ object or a @code{<scheduler-proc>} object."
             ((nested-cross-product flat-cross-product)
              (error scatter-method
                     "Scatter method not implemented yet")))
-          (let* ((formal-inputs (assoc-ref* cwl "inputs"))
+          (let* ((class (assoc-ref* cwl "class"))
+                 (formal-inputs (assoc-ref* cwl "inputs"))
                  ;; We need to resolve inputs after adding defaults since the
                  ;; default values may contain uninterned File objects.
                  (inputs (resolve-inputs (add-defaults inputs formal-inputs)
