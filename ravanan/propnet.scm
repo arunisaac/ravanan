@@ -68,6 +68,12 @@
   (optional-inputs propagator-optional-inputs)
   (outputs propagator-outputs))
 
+(set-record-type-printer! <propagator>
+                          (lambda (record port)
+                            (display "#<<propagator> " port)
+                            (write (propagator-name record) port)
+                            (display ">" port)))
+
 (define-immutable-record-type <scheduler>
   (scheduler schedule poll capture-output)
   scheduler?
@@ -89,6 +95,18 @@
   (cells-inbox propnet-state-cells-inbox)
   (propagators-in-flight propnet-state-propagators-in-flight)
   (propagators-inbox propnet-state-propagators-inbox))
+
+(set-record-type-printer! <propnet-state>
+                          (lambda (record port)
+                            (display "#<<propnet-state> cells: " port)
+                            (write (run-with-state (propnet-state-cells record)) port)
+                            (display " cells-inbox: " port)
+                            (write (run-with-state (propnet-state-cells-inbox record)) port)
+                            (display " propagators-in-flight: " port)
+                            (write (run-with-state (propnet-state-propagators-in-flight record)) port)
+                            (display " propagators-inbox: " port)
+                            (write (run-with-state (propnet-state-propagators-inbox record)) port)
+                            (display ">" port)))
 
 (define (partition-map pred proc lst)
   "Partition @var{lst} into two lists using @var{pred} like @code{partition}. Then,
