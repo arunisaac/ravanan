@@ -175,8 +175,10 @@ requirements and hints of the step."
                         (assoc-ref* input "type"))))
        (assoc-ref input "id")))
 
-(define (workflow->scheduler-proc name cwl scheduler batch-system
-                                  scatter scatter-method)
+(define* (workflow->scheduler-proc name cwl scheduler batch-system
+                                   #:optional
+                                   (scatter %nothing)
+                                   (scatter-method %nothing))
   "Return a @code{<scheduler-proc>} object for @var{cwl} workflow named @var{name}
 scheduled using @var{scheduler} on @var{batch-system}. @var{scatter} and
 @var{scatter-method} are the CWL scattering properties of this step."
@@ -571,8 +573,7 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
       (run-with-state
        (let loop ((mstate ((scheduler-schedule scheduler)
                            (workflow->scheduler-proc name cwl
-                                                     scheduler batch-system
-                                                     %nothing %nothing)
+                                                     scheduler batch-system)
                            inputs
                            scheduler)))
          ;; Poll.
