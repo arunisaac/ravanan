@@ -63,7 +63,7 @@
   (inputs job-failure-inputs))
 
 (define-immutable-record-type <scheduler-proc>
-  (scheduler-proc name cwl-or-propnet formal-inputs formal-outputs scatter scatter-method)
+  (-scheduler-proc name cwl-or-propnet formal-inputs formal-outputs scatter scatter-method)
   scheduler-proc?
   (name scheduler-proc-name)
   (cwl-or-propnet scheduler-proc-cwl-or-propnet)
@@ -71,6 +71,11 @@
   (formal-outputs scheduler-proc-formal-outputs)
   (scatter scheduler-proc-scatter)
   (scatter-method scheduler-proc-scatter-method))
+
+(define* (scheduler-proc name cwl-or-propnet formal-inputs formal-outputs
+                         #:optional (scatter %nothing) (scatter-method %nothing))
+  (-scheduler-proc name cwl-or-propnet formal-inputs formal-outputs
+                   scatter scatter-method))
 
 (define-immutable-record-type <command-line-tool-state>
   (command-line-tool-state job-state formal-outputs)
@@ -281,9 +286,7 @@ object."
                       (schedule (scheduler-proc name
                                                 cwl-or-propnet
                                                 (scheduler-proc-formal-inputs proc)
-                                                (scheduler-proc-formal-outputs proc)
-                                                %nothing
-                                                %nothing)
+                                                (scheduler-proc-formal-outputs proc))
                                 ;; Replace scattered inputs with single
                                 ;; elements.
                                 (apply assoc-set
