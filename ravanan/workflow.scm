@@ -63,19 +63,23 @@
   (inputs job-failure-inputs))
 
 (define-immutable-record-type <scheduler-proc>
-  (-scheduler-proc name cwl-or-propnet formal-inputs formal-outputs scatter scatter-method)
+  (-scheduler-proc name script-or-propnet formal-inputs formal-outputs
+                   resource-requirement scatter scatter-method)
   scheduler-proc?
   (name scheduler-proc-name)
-  (cwl-or-propnet scheduler-proc-cwl-or-propnet)
+  (script-or-propnet scheduler-proc-script-or-propnet)
   (formal-inputs scheduler-proc-formal-inputs)
   (formal-outputs scheduler-proc-formal-outputs)
+  (resource-requirement scheduler-proc-resource-requirement)
   (scatter scheduler-proc-scatter)
   (scatter-method scheduler-proc-scatter-method))
 
-(define* (scheduler-proc name cwl-or-propnet formal-inputs formal-outputs
-                         #:optional (scatter %nothing) (scatter-method %nothing))
-  (-scheduler-proc name cwl-or-propnet formal-inputs formal-outputs
-                   scatter scatter-method))
+(define* (scheduler-proc name script-or-propnet formal-inputs formal-outputs
+                         #:optional
+                         (resource-requirement %nothing)
+                         (scatter %nothing) (scatter-method %nothing))
+  (-scheduler-proc name script-or-propnet formal-inputs formal-outputs
+                   resource-requirement scatter scatter-method))
 
 (define-immutable-record-type <command-line-tool-state>
   (command-line-tool-state job-state formal-outputs)
@@ -175,32 +179,64 @@ requirements and hints of the step."
                         (assoc-ref* input "type"))))
        (assoc-ref input "id")))
 
-(define* (workflow->scheduler-proc name cwl scheduler batch-system
+(define* (workflow->scheduler-proc name cwl scheduler
+                                   manifest-file channels scratch store
+                                   batch-system guix-daemon-socket
                                    #:optional
                                    (scatter %nothing)
                                    (scatter-method %nothing))
   "Return a @code{<scheduler-proc>} object for @var{cwl} workflow named @var{name}
-scheduled using @var{scheduler} on @var{batch-system}. @var{scatter} and
-@var{scatter-method} are the CWL scattering properties of this step."
+scheduled using @var{scheduler}. @var{scatter} and @var{scatter-method} are the
+CWL scattering properties of this step.
+
+@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
+@var{batch-system} and @var{guix-daemon-socket} are the same as in
+@code{run-workflow}."
   (scheduler-proc name
                   (let ((class (assoc-ref* cwl "class")))
                     (cond
                      ((string=? class "CommandLineTool")
-                      cwl)
+                      (build-command-line-tool-script name
+                                                      manifest-file
+                                                      channels
+                                                      cwl
+                                                      scratch
+                                                      store
+                                                      batch-system
+                                                      guix-daemon-socket))
                      ((string=? class "ExpressionTool")
                       (error "Workflow class not implemented yet" class))
                      ((string=? class "Workflow")
-                      (workflow-class->propnet cwl scheduler batch-system))
+                      (workflow-class->propnet cwl
+                                               scheduler
+                                               manifest-file
+                                               channels
+                                               scratch
+                                               store
+                                               batch-system
+                                               guix-daemon-socket))
                      (else
                       (assertion-violation class "Unexpected workflow class"))))
                   (assoc-ref* cwl "inputs")
                   (assoc-ref* cwl "outputs")
+                  (find-requirement (inherit-requirements
+                                     (or (assoc-ref cwl "requirements")
+                                         #())
+                                     (or (assoc-ref cwl "hints")
+                                         #()))
+                                    "ResourceRequirement")
                   scatter
                   scatter-method))
 
-(define* (workflow-class->propnet cwl scheduler batch-system)
+(define* (workflow-class->propnet cwl scheduler
+                                  manifest-file channels scratch store
+                                  batch-system guix-daemon-socket)
   "Return a propagator network scheduled using @var{scheduler} on
-@var{batch-system} for @var{cwl}, a @code{Workflow} class workflow."
+@var{batch-system} for @var{cwl}, a @code{Workflow} class workflow.
+
+@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
+@var{batch-system} and @var{guix-daemon-socket} are the same as in
+@code{run-workflow}."
   (define (normalize-scatter-method scatter-method)
     (assoc-ref* '(("dotproduct" . dot-product)
                   ("nested_crossproduct" . nested-cross-product)
@@ -219,7 +255,12 @@ scheduled using @var{scheduler} on @var{batch-system}. @var{scatter} and
                                  (or (assoc-ref step "hints")
                                      #()))
                                 scheduler
+                                manifest-file
+                                channels
+                                scratch
+                                store
                                 batch-system
+                                guix-daemon-socket
                                 (maybe-assoc-ref (just step) "scatter")
                                 (maybe-bind (maybe-assoc-ref (just step) "scatterMethod")
                                             (compose just normalize-scatter-method)))))
@@ -267,14 +308,13 @@ scheduled using @var{scheduler} on @var{batch-system}. @var{scatter} and
            merge-values
            scheduler))
 
-(define* (workflow-scheduler manifest-file channels scratch store batch-system
-                             #:key guix-daemon-socket)
+(define* (workflow-scheduler store batch-system)
   (define (schedule proc inputs scheduler)
     "Schedule @var{proc} with inputs from the @var{inputs} association list. Return a
 state-monadic job state object. @var{proc} must be a @code{<scheduler-proc>}
 object."
     (let* ((name (scheduler-proc-name proc))
-           (cwl-or-propnet (scheduler-proc-cwl-or-propnet proc))
+           (script-or-propnet (scheduler-proc-script-or-propnet proc))
            (scatter (from-maybe (scheduler-proc-scatter proc)
                                 #f))
            (scatter-method (from-maybe (scheduler-proc-scatter-method proc)
@@ -286,7 +326,7 @@ object."
                     (lambda input-elements
                       ;; Recurse with scattered inputs spliced in.
                       (schedule (scheduler-proc name
-                                                cwl-or-propnet
+                                                script-or-propnet
                                                 (scheduler-proc-formal-inputs proc)
                                                 (scheduler-proc-formal-outputs proc))
                                 ;; Replace scattered inputs with single
@@ -304,36 +344,29 @@ object."
             ((nested-cross-product flat-cross-product)
              (error scatter-method
                     "Scatter method not implemented yet")))
-          (if (propnet? cwl-or-propnet)
-              (state-let* ((propnet-state (schedule-propnet cwl-or-propnet inputs)))
+          (if (propnet? script-or-propnet)
+              (state-let* ((propnet-state (schedule-propnet script-or-propnet inputs)))
                 (state-return
                  (workflow-state propnet-state
                                  (scheduler-proc-formal-outputs proc))))
-              (let* ((class (assoc-ref* cwl-or-propnet "class"))
-                     (formal-inputs (scheduler-proc-formal-inputs proc))
+              (let* ((formal-inputs (scheduler-proc-formal-inputs proc))
                      ;; We need to resolve inputs after adding defaults since
                      ;; the default values may contain uninterned File objects.
                      (inputs (resolve-inputs (add-defaults inputs formal-inputs)
                                              formal-inputs
-                                             store)))
-                (cond
-                 ((string=? class "CommandLineTool")
-                  (state-let* ((job-state
-                                (run-command-line-tool name
-                                                       manifest-file
-                                                       channels
-                                                       cwl-or-propnet
-                                                       inputs
-                                                       scratch
-                                                       store
-                                                       batch-system
-                                                       #:guix-daemon-socket guix-daemon-socket)))
-                    (state-return (command-line-tool-state job-state
-                                                           (scheduler-proc-formal-outputs proc)))))
-                 ((string=? class "ExpressionTool")
-                  (error "Workflow class not implemented yet" class))
-                 (else
-                  (assertion-violation class "Unexpected workflow class"))))))))
+                                             store))
+                     (resource-requirement
+                      (scheduler-proc-resource-requirement proc)))
+                (state-let* ((job-state
+                              (run-command-line-tool name
+                                                     script-or-propnet
+                                                     inputs
+                                                     resource-requirement
+                                                     store
+                                                     batch-system)))
+                  (state-return
+                   (command-line-tool-state job-state
+                                            (scheduler-proc-formal-outputs proc)))))))))
 
   (define (poll state)
     "Return updated state and current status of job @var{state} object as a
@@ -567,13 +600,17 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
                 script
                 (step-store-stdout-file script inputs store)
                 (step-store-stderr-file script inputs store)))))
-    (let ((scheduler (workflow-scheduler
-                      manifest-file channels scratch store batch-system
-                      #:guix-daemon-socket guix-daemon-socket)))
+    (let ((scheduler (workflow-scheduler store batch-system)))
       (run-with-state
        (let loop ((mstate ((scheduler-schedule scheduler)
                            (workflow->scheduler-proc name cwl
-                                                     scheduler batch-system)
+                                                     scheduler
+                                                     manifest-file
+                                                     channels
+                                                     scratch
+                                                     store
+                                                     batch-system
+                                                     guix-daemon-socket)
                            inputs
                            scheduler)))
          ;; Poll.

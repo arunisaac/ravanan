@@ -53,9 +53,11 @@
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
-  #:export (run-command-line-tool
+  #:export (build-command-line-tool-script
+            run-command-line-tool
             check-requirements
             inherit-requirements
+            find-requirement
             %command-line-tool-supported-requirements
             command-line-tool-supported-requirements
             capture-command-line-tool-output
@@ -297,40 +299,29 @@ When @var{guix-daemon-socket} is provided, connect to that Guix daemon."
               (built-derivations (list drv))
               (return (derivation->output-path drv))))))))
 
-(define* (run-command-line-tool name manifest-file channels cwl inputs
-                                scratch store batch-system
-                                #:key guix-daemon-socket)
-  "Run @code{CommandLineTool} class workflow @var{cwl} named @var{name} with
-@var{inputs} using tools from Guix manifest in @var{manifest-file}. Return a
-state-monadic job state object.
+(define* (run-command-line-tool name script inputs resource-requirement
+                                store batch-system)
+  "Run @code{CommandLineTool} class workflow @var{script} named @var{name} with
+@var{inputs}. Return a state-monadic job state object.
 
-@var{channels}, @var{scratch}, @var{store}, @var{batch-system} and
-@var{guix-daemon-socket} are the same as in @code{run-workflow} from
+@var{resource-requirement} is the @code{ResourceRequirement} of the workflow.
+@var{store} and @var{batch-system} are the same as in @code{run-workflow} from
 @code{(ravanan workflow)}."
-  (let* ((script
-          (build-command-line-tool-script name manifest-file channels cwl
-                                          scratch store batch-system
-                                          guix-daemon-socket))
-         (requirements (inherit-requirements (or (assoc-ref cwl "requirements")
-                                                 #())
-                                             (or (assoc-ref cwl "hints")
-                                                 #())))
-         (cpus (from-maybe
-                (maybe-bind (maybe-assoc-ref (find-requirement requirements
-                                                               "ResourceRequirement")
-                                             "coresMin")
-                            (compose just
-                                     inexact->exact
-                                     ceiling
-                                     (cut coerce-type <> 'number)
-                                     (cut coerce-expression
-                                          <>
-                                          `(("inputs" . ,inputs)))))
-                1))
-         (store-files-directory (step-store-files-directory script inputs store))
-         (store-data-file (step-store-data-file script inputs store))
-         (stdout-file (step-store-stdout-file script inputs store))
-         (stderr-file (step-store-stderr-file script inputs store)))
+  (let ((cpus (from-maybe
+               (maybe-bind (maybe-assoc-ref resource-requirement
+                                            "coresMin")
+                           (compose just
+                                    inexact->exact
+                                    ceiling
+                                    (cut coerce-type <> 'number)
+                                    (cut coerce-expression
+                                         <>
+                                         `(("inputs" . ,inputs)))))
+               1))
+        (store-files-directory (step-store-files-directory script inputs store))
+        (store-data-file (step-store-data-file script inputs store))
+        (stdout-file (step-store-stdout-file script inputs store))
+        (stderr-file (step-store-stderr-file script inputs store)))
     (if (file-exists? store-data-file)
         ;; Return a dummy success state object if script has already
         ;; been run successfully.
