@@ -440,64 +440,55 @@ maybe-monadic value."
                                  (guix profiles))))
       (raise-exception (manifest-file-error manifest-file))))
 
-(define (call-with-inferior inferior proc)
-  "Call @var{proc} with @var{inferior} and return the return value of @var{proc}.
-Close @var{inferior} when done, even if @var{proc} exits non-locally."
-  (dynamic-wind (const #t)
-                (cut proc inferior)
-                (cut close-inferior inferior)))
-
-(define (manifest-file->environment manifest-file channels guix-daemon-socket)
+(define (manifest-file->environment manifest-file inferior guix-daemon-socket)
   "Build @var{manifest-file} and return an association list of environment
 variables to set to use the built profile. Connect to the Guix daemon specified
-by @var{guix-daemon-socket}. If @var{channels} is not @code{#f}, build manifest
-in a Guix inferior with @var{channels}."
-  (if channels
-      (call-with-inferior (inferior-for-channels channels)
-        (cut inferior-eval
-             `(begin
-                (use-modules (ice-9 match)
-                             (guix search-paths)
-                             (gnu packages)
-                             (guile)
-                             (guix gexp)
-                             (guix profiles))
+by @var{guix-daemon-socket}. Build manifest in @var{inferior} unless it is
+@code{#f}."
+  (if inferior
+      (cut inferior-eval
+           `(begin
+              (use-modules (ice-9 match)
+                           (guix search-paths)
+                           (gnu packages)
+                           (guile)
+                           (guix gexp)
+                           (guix profiles))
 
-                (define (build-derivation drv guix-daemon-socket)
-                  (if guix-daemon-socket
-                      (parameterize ((%daemon-socket-uri guix-daemon-socket))
-                        (build-derivation drv))
-                      (with-store store
-                        (run-with-store store
-                          (mlet %store-monad ((drv drv))
-                            (mbegin %store-monad
-                              (built-derivations (list drv))
-                              (return (derivation->output-path drv))))))))
+              (define (build-derivation drv guix-daemon-socket)
+                (if guix-daemon-socket
+                    (parameterize ((%daemon-socket-uri guix-daemon-socket))
+                      (build-derivation drv))
+                    (with-store store
+                      (run-with-store store
+                        (mlet %store-monad ((drv drv))
+                          (mbegin %store-monad
+                            (built-derivations (list drv))
+                            (return (derivation->output-path drv))))))))
 
-                ;; Do not auto-compile manifest files.
-                (set! %load-should-auto-compile #f)
-                (let ((manifest (load ,(canonicalize-path manifest-file))))
-                  (map (match-lambda
-                         ((specification . value)
-                          (cons (search-path-specification-variable specification)
-                                value)))
-                       (evaluate-search-paths
-                        (manifest-search-paths manifest)
-                        (list (build-derivation
-                               (profile-derivation manifest
-                                                   #:allow-collisions? #t)
-                               ,guix-daemon-socket))))))
-             <>))
+              ;; Do not auto-compile manifest files.
+              (set! %load-should-auto-compile #f)
+              (let ((manifest (load ,(canonicalize-path manifest-file))))
+                (map (match-lambda
+                       ((specification . value)
+                        (cons (search-path-specification-variable specification)
+                              value)))
+                     (evaluate-search-paths
+                      (manifest-search-paths manifest)
+                      (list (build-derivation
+                             (profile-derivation manifest
+                                                 #:allow-collisions? #t)
+                             ,guix-daemon-socket))))))
+           <>)
       (manifest->environment (load-manifest manifest-file)
                              guix-daemon-socket)))
 
-(define (software-packages->environment packages channels guix-daemon-socket)
+(define (software-packages->environment packages inferior guix-daemon-socket)
   "Build a profile with @var{packages} and return an association list
 of environment variables to set to use the built profile. @var{packages} is a
 vector of @code{SoftwarePackage} assocation lists as defined in the CWL
-standard. Connect to the Guix daemon specified by @var{guix-daemon-socket}. If
-@var{channels} is not @code{#f}, look up packages in a Guix inferior with
-@var{channels}."
+standard. Connect to the Guix daemon specified by @var{guix-daemon-socket}. Look
+up packages in @var{inferior} unless it is @code{#f}."
   (define (software-package->package-specification package)
     (string-append (assoc-ref* package "package")
                    (from-maybe
@@ -510,19 +501,17 @@ standard. Connect to the Guix daemon specified by @var{guix-daemon-socket}. If
     (compose (cut manifest->environment <> guix-daemon-socket)
              packages->manifest))
 
-  (if channels
-      (call-with-inferior (inferior-for-channels channels)
-        (lambda (inferior)
-          (packages->environment
-           (vector-map->list (lambda (package)
-                               (let ((name (assoc-ref package "package"))
-                                     (version (assoc-ref package "version")))
-                                 (match (lookup-inferior-packages inferior
-                                                                  name
-                                                                  version)
-                                   ((inferior-package _ ...)
-                                    inferior-package))))
-                             packages))))
+  (if inferior
+      (packages->environment
+       (vector-map->list (lambda (package)
+                           (let ((name (assoc-ref package "package"))
+                                 (version (assoc-ref package "version")))
+                             (match (lookup-inferior-packages inferior
+                                                              name
+                                                              version)
+                               ((inferior-package _ ...)
+                                inferior-package))))
+                         packages))
       (packages->environment
        (vector-map->list (compose specification->package
                                   software-package->package-specification)
@@ -554,15 +543,16 @@ by @var{guix-daemon-socket}."
                                    #:allow-collisions? #t)
                guix-daemon-socket)))))
 
-(define (build-command-line-tool-script name manifest-file channels cwl
+(define (build-command-line-tool-script name manifest-file inferior cwl
                                         scratch store batch-system
                                         guix-daemon-socket)
   "Build and return script to run @code{CommandLineTool} class workflow @var{cwl}
 named @var{name} using tools from Guix manifest in @var{manifest-file} and on
-@var{batch-system}.
+@var{batch-system}. Use @var{inferior} to build manifests, unless it is
+@code{#f}.
 
-@var{channels}, @var{scratch}, @var{store} and @var{guix-daemon-socket} are the
-same as in @code{run-workflow} from @code{(ravanan workflow)}."
+@var{scratch}, @var{store} and @var{guix-daemon-socket} are the same as in
+@code{run-workflow} from @code{(ravanan workflow)}."
   (define (environment-variables env-var-requirement)
     (just (vector-map->list (lambda (environment-definition)
                               #~(list #$(assoc-ref* environment-definition
@@ -980,13 +970,13 @@ directory of the workflow."
                              ;; file.
                              (#()
                               (manifest-file->environment manifest-file
-                                                          channels
+                                                          inferior
                                                           guix-daemon-socket))
                              ;; Use package specifications to build an
                              ;; environment.
                              (_
                               (software-packages->environment packages
-                                                              channels
+                                                              inferior
                                                               guix-daemon-socket))))
 
               (call-with-temporary-directory

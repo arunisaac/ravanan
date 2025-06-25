@@ -27,6 +27,7 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (web uri)
+  #:use-module (guix inferior)
   #:use-module (ravanan batch-system)
   #:use-module (ravanan command-line-tool)
   #:use-module (ravanan job-state)
@@ -180,7 +181,7 @@ requirements and hints of the step."
        (assoc-ref input "id")))
 
 (define* (workflow->scheduler-proc name cwl scheduler
-                                   manifest-file channels scratch store
+                                   manifest-file inferior scratch store
                                    batch-system guix-daemon-socket
                                    #:optional
                                    (scatter %nothing)
@@ -189,16 +190,17 @@ requirements and hints of the step."
 scheduled using @var{scheduler}. @var{scatter} and @var{scatter-method} are the
 CWL scattering properties of this step.
 
-@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
-@var{batch-system} and @var{guix-daemon-socket} are the same as in
-@code{run-workflow}."
+@var{manifest-file}, @var{scratch}, @var{store}, @var{batch-system} and
+@var{guix-daemon-socket} are the same as in @code{run-workflow}. @var{inferior}
+is the same as in @code{build-command-line-tool-script} from @code{(ravanan
+command-line-tool)}."
   (scheduler-proc name
                   (let ((class (assoc-ref* cwl "class")))
                     (cond
                      ((string=? class "CommandLineTool")
                       (build-command-line-tool-script name
                                                       manifest-file
-                                                      channels
+                                                      inferior
                                                       cwl
                                                       scratch
                                                       store
@@ -210,7 +212,7 @@ CWL scattering properties of this step.
                       (workflow-class->propnet cwl
                                                scheduler
                                                manifest-file
-                                               channels
+                                               inferior
                                                scratch
                                                store
                                                batch-system
@@ -229,14 +231,15 @@ CWL scattering properties of this step.
                   scatter-method))
 
 (define* (workflow-class->propnet cwl scheduler
-                                  manifest-file channels scratch store
+                                  manifest-file inferior scratch store
                                   batch-system guix-daemon-socket)
   "Return a propagator network scheduled using @var{scheduler} on
 @var{batch-system} for @var{cwl}, a @code{Workflow} class workflow.
 
-@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
-@var{batch-system} and @var{guix-daemon-socket} are the same as in
-@code{run-workflow}."
+@var{manifest-file}, @var{scratch}, @var{store}, @var{batch-system} and
+@var{guix-daemon-socket} are the same as in @code{run-workflow}. @var{inferior}
+is the same as in @code{build-command-line-tool-script} from @code{(ravanan
+command-line-tool)}."
   (define (normalize-scatter-method scatter-method)
     (assoc-ref* '(("dotproduct" . dot-product)
                   ("nested_crossproduct" . nested-cross-product)
@@ -256,7 +259,7 @@ CWL scattering properties of this step.
                                      #()))
                                 scheduler
                                 manifest-file
-                                channels
+                                inferior
                                 scratch
                                 store
                                 batch-system
@@ -580,6 +583,32 @@ error out."
                                          formal-inputs))
                     formal-inputs))
 
+(define (call-with-inferior inferior proc)
+  "Call @var{proc} with @var{inferior} and return the return value of @var{proc}.
+Close @var{inferior} when done, even if @var{proc} exits non-locally."
+  (dynamic-wind (const #t)
+                (cut proc inferior)
+                (cut close-inferior inferior)))
+
+(define (build-workflow name cwl scheduler
+                        manifest-file channels scratch store
+                        batch-system guix-daemon-socket)
+  "Build @var{cwl} workflow named @var{name} into a @code{<scheduler-proc>} object
+scheduled using @var{scheduler}.
+
+@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
+@var{batch-system} and @var{guix-daemon-socket} are the same as in
+@code{run-workflow}."
+  (define builder
+    (cut workflow->scheduler-proc name cwl scheduler
+         manifest-file <> scratch store
+         batch-system guix-daemon-socket))
+
+  (if channels
+      (call-with-inferior (inferior-for-channels channels)
+        builder)
+      (builder #f)))
+
 (define* (run-workflow name manifest-file channels cwl inputs
                        scratch store batch-system
                        #:key guix-daemon-socket)
@@ -603,14 +632,15 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
     (let ((scheduler (workflow-scheduler store batch-system)))
       (run-with-state
        (let loop ((mstate ((scheduler-schedule scheduler)
-                           (workflow->scheduler-proc name cwl
-                                                     scheduler
-                                                     manifest-file
-                                                     channels
-                                                     scratch
-                                                     store
-                                                     batch-system
-                                                     guix-daemon-socket)
+                           (build-workflow name
+                                           cwl
+                                           scheduler
+                                           manifest-file
+                                           channels
+                                           scratch
+                                           store
+                                           batch-system
+                                           guix-daemon-socket)
                            inputs
                            scheduler)))
          ;; Poll.
