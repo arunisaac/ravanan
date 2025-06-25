@@ -713,7 +713,7 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
     (maybe-let* ((work-reuse (find-requirement requirements "WorkReuse")))
       (and (not (coerce-type (assoc-ref* work-reuse "enableReuse")
                              'boolean))
-           (user-error "Disabling WorkReuse is not supported. ravanan's strong caching using Guix makes it unnecessary."))))
+           (user-error "Disabling WorkReuse is not supported. With ravanan's strong caching using Guix, there is no need to disable WorkReuse."))))
   (maybe-let* ((hints (maybe-assoc-ref (just cwl) "hints")))
     (check-requirements hints
                         batch-system
@@ -724,7 +724,7 @@ same as in @code{run-workflow} from @code{(ravanan workflow)}."
     (maybe-let* ((work-reuse (find-requirement hints "WorkReuse")))
       (and (not (coerce-type (assoc-ref* work-reuse "enableReuse")
                              'boolean))
-           (warning "Ignoring disable of WorkReuse. ravanan's strong caching using Guix makes it unnecessary."))))
+           (warning "Ignoring disable of WorkReuse. With ravanan's strong caching using Guix, there is no need to disable WorkReuse."))))
   (build-gexp-script name
     (let* ((requirements (inherit-requirements (or (assoc-ref cwl "requirements")
                                                    #())
