@@ -514,10 +514,12 @@ packages in @var{inferior} unless it is @code{#f}."
 (define (software-packages->search-path-sexps packages inferior)
   "Return a list of search path S-expressions for a profile with @var{packages}.
 @var{packages} is a vector of @code{SoftwarePackage} assocation lists as defined
-in the CWL standard. Look up packages in @var{inferior} unless it is @code{#f}."
-  (map search-path-specification->sexp
-       (manifest-search-paths
-        (software-packages->manifest packages inferior))))
+in the CWL standard. Look up packages in @var{inferior} unless it is @code{#f}.
+Return value is monadic."
+  (mbegin %store-monad
+    (return (map search-path-specification->sexp
+                 (manifest-search-paths
+                  (software-packages->manifest packages inferior))))))
 
 (define (software-packages->profile-derivation packages inferior)
   "Return a derivation to build a profile with @var{packages}. @var{packages} is a
@@ -952,14 +954,14 @@ directory of the workflow."
                                    value)))
                         (evaluate-search-paths
                          (map sexp->search-path-specification
-                              '#$(match packages
-                                   (#()
-                                    (run-with-store guix-store
+                              '#$(run-with-store guix-store
+                                   (match packages
+                                     (#()
                                       (manifest-file->search-path-sexps manifest-file
-                                                                        inferior)))
-                                   (_
-                                    (software-packages->search-path-sexps packages
-                                                                          inferior))))
+                                                                        inferior))
+                                     (_
+                                      (software-packages->search-path-sexps packages
+                                                                            inferior)))))
                          '(#$(run-with-store guix-store
                                (match packages
                                  ;; No package specifications; try the manifest
