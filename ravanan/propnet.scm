@@ -26,22 +26,26 @@
   #:use-module (ravanan work monads)
   #:use-module (ravanan work utils)
   #:export (propnet
+            propnet?
             propnet-propagators
             propnet-value=?
             propnet-merge-values
             propnet-scheduler
             propagator
+            propagator?
             propagator-name
             propagator-proc
             propagator-inputs
             propagator-optional-inputs
             propagator-outputs
             scheduler
+            scheduler?
             scheduler-schedule
             scheduler-poll
             scheduler-capture-output
             schedule-propnet
             state+status
+            state+status?
             state+status-state
             state+status-status
             poll-propnet
