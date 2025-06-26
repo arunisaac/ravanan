@@ -447,6 +447,7 @@ Return value is monadic."
   (define proc
     `(lambda (store)
        ;; Do not auto-compile manifest files.
+       (set! %load-should-auto-compile #f)
        (map search-path-specification->sexp
             (manifest-search-paths (load ,manifest-file)))))
 
