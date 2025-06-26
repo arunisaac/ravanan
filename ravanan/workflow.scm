@@ -189,24 +189,24 @@ requirements and hints of the step."
                                    (scatter-method %nothing))
   "Return a @code{<scheduler-proc>} object for @var{cwl} workflow named @var{name}
 scheduled using @var{scheduler}. @var{scatter} and @var{scatter-method} are the
-CWL scattering properties of this step.
+CWL scattering properties of this step. Build @code{CommandLineTool} workflow
+scripts using @var{guix-store}.
 
 @var{manifest-file}, @var{scratch}, @var{store} and @var{batch-system} are the
-same as in @code{run-workflow}. @var{inferior} and @var{guix-store} are the same
-as in @code{build-command-line-tool-script} from @code{(ravanan
-command-line-tool)}."
+same as in @code{run-workflow}. @var{inferior} is the same as in
+@code{build-command-line-tool-script} from @code{(ravanan command-line-tool)}."
   (scheduler-proc name
                   (let ((class (assoc-ref* cwl "class")))
                     (cond
                      ((string=? class "CommandLineTool")
-                      (build-command-line-tool-script name
-                                                      manifest-file
-                                                      inferior
-                                                      cwl
-                                                      scratch
-                                                      store
-                                                      batch-system
-                                                      guix-store))
+                      (run-with-store guix-store
+                        (build-command-line-tool-script name
+                                                        manifest-file
+                                                        inferior
+                                                        cwl
+                                                        scratch
+                                                        store
+                                                        batch-system)))
                      ((string=? class "ExpressionTool")
                       (error "Workflow class not implemented yet" class))
                      ((string=? class "Workflow")
@@ -235,12 +235,13 @@ command-line-tool)}."
                                   manifest-file inferior scratch store
                                   batch-system guix-store)
   "Return a propagator network scheduled using @var{scheduler} on
-@var{batch-system} for @var{cwl}, a @code{Workflow} class workflow.
+@var{batch-system} for @var{cwl}, a @code{Workflow} class workflow. Build
+@code{CommandLineTool} workflow scripts using @var{guix-store}.
 
 @var{manifest-file}, @var{scratch}, @var{store}, @var{batch-system} and
 @var{guix-daemon-socket} are the same as in @code{run-workflow}. @var{inferior}
-and @var{guix-store} are the same as in @code{build-command-line-tool-script}
-from @code{(ravanan command-line-tool)}."
+is the same as in @code{build-command-line-tool-script} from @code{(ravanan
+command-line-tool)}."
   (define (normalize-scatter-method scatter-method)
     (assoc-ref* '(("dotproduct" . dot-product)
                   ("nested_crossproduct" . nested-cross-product)
