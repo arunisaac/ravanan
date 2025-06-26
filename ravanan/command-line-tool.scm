@@ -787,7 +787,7 @@ named @var{name} using tools from Guix manifest in @var{manifest-file} and on
                   ;; Copy input files and update corresponding input objects.
                   (cond
                    ((vector? input)
-                    (vector-map copy-input-files
+                    (vector-map (cut copy-input-files <> inputs-directory)
                                 input))
                    ((eq? (object-type input)
                          'File)
@@ -818,7 +818,7 @@ named @var{name} using tools from Guix manifest in @var{manifest-file} and on
                         (cons "secondaryFiles"
                               (maybe-let* ((secondary-files
                                             (maybe-assoc-ref (just input) "secondaryFiles")))
-                                (just (vector-map copy-input-files
+                                (just (vector-map (cut copy-input-files <> inputs-directory)
                                                   secondary-files)))))))
                    (else input)))
 
