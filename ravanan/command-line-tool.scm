@@ -435,49 +435,59 @@ maybe-monadic value."
                                  (guix profiles))))
       (raise-exception (manifest-file-error manifest-file))))
 
-(define (manifest-file->environment manifest-file inferior store)
-  "Build @var{manifest-file} and return an association list of environment
-variables to set to use the built profile. Connect to the Guix daemon using
-@var{store}. Build manifest in @var{inferior} unless it is @code{#f}."
+;; Monadic version of inferior-eval-with-store; Argument order is rearranged
+;; slightly to suit store-lift.
+(define inferior-meval-with-store
+  (store-lift (lambda (store inferior proc)
+                (inferior-eval-with-store inferior store proc))))
+
+(define (manifest-file->search-path-sexps manifest-file inferior)
+  "Return a list of search path S-expressions for a profile described by
+@var{manifest-file}. Load manifest in @var{inferior} unless it is @code{#f}.
+Return value is monadic."
+  (define proc
+    `(lambda (store)
+       ;; Do not auto-compile manifest files.
+       (map search-path-specification->sexp
+            (manifest-search-paths (load ,(canonicalize-path manifest-file))))))
+
   (if inferior
-      (cut inferior-eval
-           `(begin
-              (use-modules (ice-9 match)
-                           (guix search-paths)
-                           (gnu packages)
-                           (guile)
-                           (guix gexp)
-                           (guix profiles))
+      (begin
+        (inferior-eval '(use-modules (guix profiles)
+                                     (guix search-paths))
+                       inferior)
+        (mbegin %store-monad
+          (inferior-meval-with-store inferior proc)))
+      (mbegin %store-monad
+        (return (map search-path-specification->sexp
+                     (manifest-search-paths (load-manifest manifest-file)))))))
 
-              (define (build-derivation drv)
-                (run-with-store store
-                  (mlet %store-monad ((drv drv))
-                    (mbegin %store-monad
-                      (built-derivations (list drv))
-                      (return (derivation->output-path drv))))))
+(define (manifest-file->profile-derivation manifest-file inferior)
+  "Return a derivation to build @var{manifest-file}. Build manifest in
+@var{inferior} unless it is @code{#f}. Return value is monadic."
+  (define proc
+    `(lambda (store)
+       ;; Do not auto-compile manifest files.
+       (set! %load-should-auto-compile #f)
+       (derivation-file-name
+        (run-with-store store
+          (profile-derivation (load ,(canonicalize-path manifest-file))
+                              #:allow-collisions? #t)))))
 
-              ;; Do not auto-compile manifest files.
-              (set! %load-should-auto-compile #f)
-              (let ((manifest (load ,(canonicalize-path manifest-file))))
-                (map (match-lambda
-                       ((specification . value)
-                        (cons (search-path-specification-variable specification)
-                              value)))
-                     (evaluate-search-paths
-                      (manifest-search-paths manifest)
-                      (list (build-derivation
-                             (profile-derivation manifest
-                                                 #:allow-collisions? #t)))))))
-           <>)
-      (manifest->environment (load-manifest manifest-file)
-                             store)))
+  (if inferior
+      (begin
+        (inferior-eval '(use-modules (guix profiles))
+                       inferior)
+        (mlet %store-monad ((drv-file (inferior-meval-with-store inferior proc)))
+          (return (read-derivation-from-file drv-file))))
+      (let ((manifest (load-manifest manifest-file)))
+        (profile-derivation manifest
+                            #:allow-collisions? #t))))
 
-(define (software-packages->environment packages inferior store)
-  "Build a profile with @var{packages} and return an association list
-of environment variables to set to use the built profile. @var{packages} is a
-vector of @code{SoftwarePackage} assocation lists as defined in the CWL
-standard. Connect to the Guix daemon using @var{store}. Look up packages in
-@var{inferior} unless it is @code{#f}."
+(define (software-packages->manifest packages inferior)
+  "Return a manifest with @var{packages}. @var{packages} is a vector of
+@code{SoftwarePackage} assocation lists as defined in the CWL standard. Look up
+packages in @var{inferior} unless it is @code{#f}."
   (define (software-package->package-specification package)
     (string-append (assoc-ref* package "package")
                    (from-maybe
@@ -486,12 +496,8 @@ standard. Connect to the Guix daemon using @var{store}. Look up packages in
                                          (cut string-append "@" <>)))
                     "")))
 
-  (define packages->environment
-    (compose (cut manifest->environment <> store)
-             packages->manifest))
-
-  (if inferior
-      (packages->environment
+  (packages->manifest
+   (if inferior
        (vector-map->list (lambda (package)
                            (let ((name (assoc-ref package "package"))
                                  (version (assoc-ref package "version")))
@@ -500,32 +506,26 @@ standard. Connect to the Guix daemon using @var{store}. Look up packages in
                                                               version)
                                ((inferior-package _ ...)
                                 inferior-package))))
-                         packages))
-      (packages->environment
+                         packages)
        (vector-map->list (compose specification->package
                                   software-package->package-specification)
                          packages))))
 
-(define (manifest->environment manifest store)
-  "Build @var{manifest} and return an association list of environment
-variables to set to use the built profile. Connect to the Guix daemon using
-@var{store}."
-  (define (build-derivation drv)
-    (run-with-store store
-      (mlet %store-monad ((drv drv))
-        (mbegin %store-monad
-          (built-derivations (list drv))
-          (return (derivation->output-path drv))))))
+(define (software-packages->search-path-sexps packages inferior)
+  "Return a list of search path S-expressions for a profile with @var{packages}.
+@var{packages} is a vector of @code{SoftwarePackage} assocation lists as defined
+in the CWL standard. Look up packages in @var{inferior} unless it is @code{#f}."
+  (map search-path-specification->sexp
+       (manifest-search-paths
+        (software-packages->manifest packages inferior))))
 
-  (map (match-lambda
-         ((specification . value)
-          (cons (search-path-specification-variable specification)
-                value)))
-       (evaluate-search-paths
-        (manifest-search-paths manifest)
-        (list (build-derivation
-               (profile-derivation manifest
-                                   #:allow-collisions? #t))))))
+(define (software-packages->profile-derivation packages inferior)
+  "Return a derivation to build a profile with @var{packages}. @var{packages} is a
+vector of @code{SoftwarePackage} assocation lists as defined in the CWL
+standard. Look up packages in @var{inferior} unless it is @code{#f}. Return
+value is monadic."
+  (profile-derivation (software-packages->manifest packages inferior)
+                      #:allow-collisions? #t))
 
 (define (build-command-line-tool-script name manifest-file inferior cwl
                                         scratch store batch-system
@@ -947,22 +947,31 @@ directory of the workflow."
 
               ;; Set search paths for manifest.
               (for-each (match-lambda
-                          ((name . value)
-                           (setenv name value)))
-                        '#$(match packages
-                             ;; No package specifications; try the manifest
-                             ;; file.
-                             (#()
-                              (manifest-file->environment manifest-file
-                                                          inferior
-                                                          guix-daemon-socket))
-                             ;; Use package specifications to build an
-                             ;; environment.
-                             (_
-                              (software-packages->environment packages
-                                                              inferior
-                                                              guix-daemon-socket))))
-
+                          ((specification . value)
+                           (setenv (search-path-specification-variable specification)
+                                   value)))
+                        (evaluate-search-paths
+                         (map sexp->search-path-specification
+                              '#$(match packages
+                                   (#()
+                                    (run-with-store guix-store
+                                      (manifest-file->search-path-sexps manifest-file
+                                                                        inferior)))
+                                   (_
+                                    (software-packages->search-path-sexps packages
+                                                                          inferior))))
+                         '(#$(run-with-store guix-store
+                               (match packages
+                                 ;; No package specifications; try the manifest
+                                 ;; file.
+                                 (#()
+                                  (manifest-file->profile-derivation manifest-file
+                                                                     inferior))
+                                 ;; Use package specifications to build an
+                                 ;; environment.
+                                 (_
+                                  (software-packages->profile-derivation packages
+                                                                         inferior)))))))
               (call-with-temporary-directory
                (lambda (inputs-directory)
                  (let ((inputs (map (match-lambda
