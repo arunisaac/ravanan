@@ -448,7 +448,7 @@ Return value is monadic."
     `(lambda (store)
        ;; Do not auto-compile manifest files.
        (map search-path-specification->sexp
-            (manifest-search-paths (load ,(canonicalize-path manifest-file))))))
+            (manifest-search-paths (load ,manifest-file)))))
 
   (if inferior
       (begin
@@ -470,7 +470,7 @@ Return value is monadic."
        (set! %load-should-auto-compile #f)
        (derivation-file-name
         (run-with-store store
-          (profile-derivation (load ,(canonicalize-path manifest-file))
+          (profile-derivation (load ,manifest-file)
                               #:allow-collisions? #t)))))
 
   (if inferior
