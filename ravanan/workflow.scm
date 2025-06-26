@@ -28,6 +28,7 @@
   #:use-module (ice-9 match)
   #:use-module (web uri)
   #:use-module (guix inferior)
+  #:use-module (guix store)
   #:use-module (ravanan batch-system)
   #:use-module (ravanan command-line-tool)
   #:use-module (ravanan job-state)
@@ -182,7 +183,7 @@ requirements and hints of the step."
 
 (define* (workflow->scheduler-proc name cwl scheduler
                                    manifest-file inferior scratch store
-                                   batch-system guix-daemon-socket
+                                   batch-system guix-store
                                    #:optional
                                    (scatter %nothing)
                                    (scatter-method %nothing))
@@ -190,9 +191,9 @@ requirements and hints of the step."
 scheduled using @var{scheduler}. @var{scatter} and @var{scatter-method} are the
 CWL scattering properties of this step.
 
-@var{manifest-file}, @var{scratch}, @var{store}, @var{batch-system} and
-@var{guix-daemon-socket} are the same as in @code{run-workflow}. @var{inferior}
-is the same as in @code{build-command-line-tool-script} from @code{(ravanan
+@var{manifest-file}, @var{scratch}, @var{store} and @var{batch-system} are the
+same as in @code{run-workflow}. @var{inferior} and @var{guix-store} are the same
+as in @code{build-command-line-tool-script} from @code{(ravanan
 command-line-tool)}."
   (scheduler-proc name
                   (let ((class (assoc-ref* cwl "class")))
@@ -205,7 +206,7 @@ command-line-tool)}."
                                                       scratch
                                                       store
                                                       batch-system
-                                                      guix-daemon-socket))
+                                                      guix-store))
                      ((string=? class "ExpressionTool")
                       (error "Workflow class not implemented yet" class))
                      ((string=? class "Workflow")
@@ -216,7 +217,7 @@ command-line-tool)}."
                                                scratch
                                                store
                                                batch-system
-                                               guix-daemon-socket))
+                                               guix-store))
                      (else
                       (assertion-violation class "Unexpected workflow class"))))
                   (assoc-ref* cwl "inputs")
@@ -232,14 +233,14 @@ command-line-tool)}."
 
 (define* (workflow-class->propnet cwl scheduler
                                   manifest-file inferior scratch store
-                                  batch-system guix-daemon-socket)
+                                  batch-system guix-store)
   "Return a propagator network scheduled using @var{scheduler} on
 @var{batch-system} for @var{cwl}, a @code{Workflow} class workflow.
 
 @var{manifest-file}, @var{scratch}, @var{store}, @var{batch-system} and
 @var{guix-daemon-socket} are the same as in @code{run-workflow}. @var{inferior}
-is the same as in @code{build-command-line-tool-script} from @code{(ravanan
-command-line-tool)}."
+and @var{guix-store} are the same as in @code{build-command-line-tool-script}
+from @code{(ravanan command-line-tool)}."
   (define (normalize-scatter-method scatter-method)
     (assoc-ref* '(("dotproduct" . dot-product)
                   ("nested_crossproduct" . nested-cross-product)
@@ -263,7 +264,7 @@ command-line-tool)}."
                                 scratch
                                 store
                                 batch-system
-                                guix-daemon-socket
+                                guix-store
                                 (maybe-assoc-ref (just step) "scatter")
                                 (maybe-bind (maybe-assoc-ref (just step) "scatterMethod")
                                             (compose just normalize-scatter-method)))))
@@ -590,24 +591,31 @@ Close @var{inferior} when done, even if @var{proc} exits non-locally."
                 (cut proc inferior)
                 (cut close-inferior inferior)))
 
-(define (build-workflow name cwl scheduler
-                        manifest-file channels scratch store
-                        batch-system guix-daemon-socket)
+(define* (build-workflow name cwl scheduler
+                         manifest-file channels scratch store
+                         batch-system
+                         #:optional guix-daemon-socket)
   "Build @var{cwl} workflow named @var{name} into a @code{<scheduler-proc>} object
-scheduled using @var{scheduler}.
+scheduled using @var{scheduler}. When @var{guix-daemon-socket} is specified,
+connect to the Guix daemon at that specific socket. Else, connect to the default
+socket.
 
-@var{manifest-file}, @var{channels}, @var{scratch}, @var{store},
-@var{batch-system} and @var{guix-daemon-socket} are the same as in
-@code{run-workflow}."
+@var{manifest-file}, @var{channels}, @var{scratch}, @var{store} and
+@var{batch-system} are the same as in @code{run-workflow}."
   (define builder
     (cut workflow->scheduler-proc name cwl scheduler
          manifest-file <> scratch store
-         batch-system guix-daemon-socket))
+         batch-system <>))
 
-  (if channels
-      (call-with-inferior (inferior-for-channels channels)
-        builder)
-      (builder #f)))
+  (if guix-daemon-socket
+      (parameterize ((%daemon-socket-uri guix-daemon-socket))
+        (build-workflow name cwl scheduler manifest-file channels
+                        scratch store batch-system))
+      (with-store guix-store
+        (if channels
+            (call-with-inferior (inferior-for-channels channels)
+              (cut builder <> guix-store))
+            (builder #f guix-store)))))
 
 (define* (run-workflow name manifest-file channels cwl inputs
                        scratch store batch-system
