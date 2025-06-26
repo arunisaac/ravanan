@@ -596,14 +596,28 @@ named @var{name} using tools from Guix manifest in @var{manifest-file} and on
       (cons "valueFrom"
             (coerce-expression (assoc-ref* argument "valueFrom")))))
 
+  (define (vector->gexp vec)
+    ;; FIXME: G-expressions in vectors are not properly substituted. Fix this in
+    ;; Guix.
+    #~(vector #$@(vector->list vec)))
+
+  (define (alist->gexp alist)
+    ;; FIXME: G-expressions as values in dotted alists are not properly
+    ;; substituted. Fix this in Guix.
+    #~(list #$@(map (match-lambda
+                      ((key . value)
+                       #~(cons #$key #$value)))
+                    alist)))
+
   (define run-command-gexp
     #~(run-command (append-map (lambda (arg)
                                  (if (command-line-binding? arg)
                                      (command-line-binding->args arg)
                                      (list arg)))
                                (build-command #$(assoc-ref cwl "baseCommand")
-                                              #$(vector-map coerce-argument
-                                                            (assoc-ref cwl "arguments"))
+                                              #$(vector->gexp
+                                                 (vector-map (compose alist->gexp coerce-argument)
+                                                             (assoc-ref cwl "arguments")))
                                               #$(assoc-ref cwl "inputs")
                                               inputs))
                    #$(coerce-expression (assoc-ref cwl "stdin"))
