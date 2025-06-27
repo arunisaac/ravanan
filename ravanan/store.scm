@@ -26,6 +26,7 @@
   #:use-module (guix build utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
+  #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (%store-files-directory
             %store-data-directory
@@ -75,7 +76,7 @@ already exists, do nothing."
 (define (step-store-basename script inputs)
   "Return the basename in the store for files of CWL step with @var{script} and
 @var{inputs}."
-  (string-append (sha1-hash-sexp (cons script inputs))
+  (string-append (sha1-hash-sexp (cons script (canonicalize-json inputs)))
                  "-"
                  (strip-store-file-name script)))
 
