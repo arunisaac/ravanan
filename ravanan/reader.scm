@@ -101,10 +101,10 @@ each association list of the returned vector of association lists. If
 
 (define (normalize-env-var-requirement env-var-requirement)
   (assoc-set env-var-requirement
-             (cons "envDef"
-                   (coerce-alist->vector
-                    (assoc-ref env-var-requirement "envDef")
-                    "envName" "envValue"))))
+    (cons "envDef"
+          (coerce-alist->vector
+           (assoc-ref env-var-requirement "envDef")
+           "envName" "envValue"))))
 
 (define (normalize-requirements maybe-requirements)
   (maybe-let* ((requirements maybe-requirements))
