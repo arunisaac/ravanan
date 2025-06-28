@@ -106,13 +106,26 @@ each association list of the returned vector of association lists. If
            (assoc-ref env-var-requirement "envDef")
            "envName" "envValue"))))
 
+(define (normalize-software-requirement software-requirement)
+  (maybe-assoc-set software-requirement
+    ;; Canonicalize manifest file path so that we look it up with respect to the
+    ;; path of the workflow file.
+    (cons "manifest"
+          (maybe-bind (maybe-assoc-ref (just software-requirement)
+                                       "manifest")
+                      (compose just canonicalize-path)))))
+
 (define (normalize-requirements maybe-requirements)
   (maybe-let* ((requirements maybe-requirements))
     (just (vector-map (lambda (requirement)
-                        (if (string=? (assoc-ref requirement "class")
-                                      "EnvVarRequirement")
-                            (normalize-env-var-requirement requirement)
-                            requirement))
+                        (let ((class (assoc-ref requirement "class")))
+                          (cond
+                           ((string=? class "EnvVarRequirement")
+                            (normalize-env-var-requirement requirement))
+                           ((string=? class "SoftwareRequirement")
+                            (normalize-software-requirement requirement))
+                           (else
+                            requirement))))
                       (coerce-alist->vector requirements "class")))))
 
 (define (normalize-secondary-files secondary-files default-required)
