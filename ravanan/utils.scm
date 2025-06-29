@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -54,4 +54,4 @@ before loading script."
        ;; define-module invocation" warning during compilation. But, it is
        ;; probably safe to ignore this warning since we use load only within a
        ;; dummy module.
-       (load (canonicalize-path script-file))))))
+       (load script-file)))))
