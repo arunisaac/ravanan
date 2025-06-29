@@ -333,7 +333,8 @@ object."
                       (schedule (scheduler-proc name
                                                 script-or-propnet
                                                 (scheduler-proc-formal-inputs proc)
-                                                (scheduler-proc-formal-outputs proc))
+                                                (scheduler-proc-formal-outputs proc)
+                                                (scheduler-proc-resource-requirement proc))
                                 ;; Replace scattered inputs with single
                                 ;; elements.
                                 (apply assoc-set
