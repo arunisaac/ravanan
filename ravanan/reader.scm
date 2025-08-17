@@ -274,10 +274,15 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                          workflow-file
                          (string-join (condition-irritants c)
                                       ": "))))
-    (call-with-current-directory (dirname workflow-file)
-      ;; TODO: Implement $import directive.
-      (cut normalize-workflow
-           (preprocess-include (read-yaml-file (basename workflow-file)))))))
+    (let ((workflow-path (guard (c ((unsupported-uri-scheme? c)
+                                    (user-error "Unsupported URI scheme ~a in ~a"
+                                                (unsupported-uri-scheme-scheme c)
+                                                workflow-file)))
+                           (location->path workflow-file))))
+      (call-with-current-directory (dirname workflow-path)
+        ;; TODO: Implement $import directive.
+        (cut normalize-workflow
+             (preprocess-include (read-yaml-file (basename workflow-path))))))))
 
 (define (normalize-input input)
   "Normalize actual @var{input}."
@@ -300,19 +305,24 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                          inputs-file
                          (string-join (condition-irritants c)
                                       ": "))))
-    (call-with-current-directory (dirname inputs-file)
-      (lambda ()
-        (map (match-lambda
-               ((input-id . input)
-                (cons input-id
-                      (normalize-input input))))
-             ;; Even though YAML is a superset of JSON, use the JSON
-             ;; reader if possible; it is simpler and less prone to type
-             ;; ambiguities.
-             (if (string=? (file-name-extension inputs-file)
-                           ".json")
-                 (read-json-file (basename inputs-file))
-                 (read-yaml-file (basename inputs-file))))))))
+    (let ((inputs-path (guard (c ((unsupported-uri-scheme? c)
+                                  (user-error "Unsupported URI scheme ~a in ~a"
+                                                (unsupported-uri-scheme-scheme c)
+                                                inputs-file)))
+                         (location->path inputs-file))))
+      (call-with-current-directory (dirname inputs-path)
+        (lambda ()
+          (map (match-lambda
+                 ((input-id . input)
+                  (cons input-id
+                        (normalize-input input))))
+               ;; Even though YAML is a superset of JSON, use the JSON
+               ;; reader if possible; it is simpler and less prone to type
+               ;; ambiguities.
+               (if (string=? (file-name-extension inputs-path)
+                             ".json")
+                   (read-json-file (basename inputs-path))
+                   (read-yaml-file (basename inputs-path)))))))))
 
 (define (coerce-type val type)
   "Coerce @var{val} to @var{type}."
