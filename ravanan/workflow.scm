@@ -479,11 +479,10 @@ is the class of the workflow."
             (inputs (job-state-inputs (command-line-tool-state-job-state state))))
         (state-return
          (begin
-           (format (current-error-port)
-                   "~a completed; logs at ~a and ~a~%"
-                   script
-                   (step-store-stdout-file script inputs store)
-                   (step-store-stderr-file script inputs store))
+           (log-info "~a completed; logs at ~a and ~a~%"
+                     script
+                     (step-store-stdout-file script inputs store)
+                     (step-store-stderr-file script inputs store))
            (filter-outputs "CommandLineTool"
                            (capture-command-line-tool-output script inputs store)
                            (command-line-tool-state-formal-outputs state))))))))

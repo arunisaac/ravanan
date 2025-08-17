@@ -26,6 +26,7 @@
   #:use-module (guix build utils)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
+  #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (%store-files-directory
@@ -52,9 +53,8 @@
   "Make @var{store} directory and initialize with subdirectories. If @var{store}
 already exists, do nothing."
   (unless (file-exists? store)
-    (format (current-error-port)
-            "store ~a does not exist; creating it~%"
-            store)
+    (log-warning "store ~a does not exist; creating it"
+                 store)
     (make-directories store)
     (for-each (lambda (directory)
                 (mkdir (expand-file-name directory store)))
@@ -147,13 +147,11 @@ interned path and location."
                                        (basename path))
                       store)))
                 (if (file-exists? interned-path)
-                    (format (current-error-port)
-                            "~a previously interned into store as ~a~%"
-                            path interned-path)
-                    (begin
-                      (format (current-error-port)
-                              "Interning ~a into store as ~a~%"
+                    (log-info "~a previously interned into store as ~a~%"
                               path interned-path)
+                    (begin
+                      (log-info "Interning ~a into store as ~a~%"
+                                path interned-path)
                       (mkdir (dirname interned-path))
                       ;; Hard link if on the same filesystem. Else, copy.
                       ((if (same-filesystem? path

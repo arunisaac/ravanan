@@ -20,6 +20,7 @@
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ravanan work monads)
+  #:use-module (ravanan work ui)
   #:export (submit-job))
 
 (define (submit-job environment stdout-file stderr-file script)
@@ -34,9 +35,8 @@ else @code{#f}. The return value is state-monadic."
                  ((name . value)
                   (setenv name value)))
                environment)
-     (format (current-error-port)
-             "Running ~a~%"
-             script)
+     (log-info "Running ~a~%"
+               script)
      (zero? (with-output-to-file stdout-file
               (lambda ()
                 (with-error-to-file stderr-file

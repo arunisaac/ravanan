@@ -111,7 +111,7 @@
                              supported-requirements
                              #:optional hint?)
   "Error out if any of @var{requirements} are not supported by @var{batch-system}.
-If @var{hint?} is @code{#t}, only print a warning.
+If @var{hint?} is @code{#t}, only log a warning.
 @var{supported-requirements-for-batch-system} is a function that when passed a
 batch system returns the requirements supported by it.
 @var{supported-requirements} is the list of requirements supported by at least
@@ -321,9 +321,8 @@ the built script as a monadic value."
         ;; been run successfully.
         (state-return
          (begin
-           (format (current-error-port)
-                   "~a previously run; retrieving result from store~%"
-                   script)
+           (log-info "~a previously run; retrieving result from store"
+                     script)
            (single-machine-job-state script inputs #t)))
         ;; Run script if it has not already been run.
         (begin
@@ -359,10 +358,9 @@ the built script as a monadic value."
                                               #:jwt (slurm-api-batch-system-jwt batch-system)
                                               #:partition (slurm-api-batch-system-partition batch-system)
                                               #:nice (slurm-api-batch-system-nice batch-system))))
-                (format (current-error-port)
-                        "~a submitted as job ID ~a~%"
-                        script
-                        job-id)
+                (log-info "~a submitted as job ID ~a~%"
+                          script
+                          job-id)
                 (state-return (slurm-job-state script inputs job-id))))
              (else
               (assertion-violation batch-system "Invalid batch system"))))))))
