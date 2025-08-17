@@ -292,19 +292,27 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
 
 (define (read-inputs inputs-file)
   "Read @var{inputs-file} resolving file paths if any."
-  (call-with-current-directory (dirname inputs-file)
-    (lambda ()
-      (map (match-lambda
-             ((input-id . input)
-              (cons input-id
-                    (normalize-input input))))
-           ;; Even though YAML is a superset of JSON, use the JSON
-           ;; reader if possible; it is simpler and less prone to type
-           ;; ambiguities.
-           (if (string=? (file-name-extension inputs-file)
-                         ".json")
-               (read-json-file (basename inputs-file))
-               (read-yaml-file (basename inputs-file)))))))
+  (guard (c ((and (who-condition? c)
+                  (memq (condition-who c)
+                        '(read-json-file read-yaml-file))
+                  (irritants-condition? c))
+             (user-error "Unable to read inputs file ~a: ~a"
+                         inputs-file
+                         (string-join (condition-irritants c)
+                                      ": "))))
+    (call-with-current-directory (dirname inputs-file)
+      (lambda ()
+        (map (match-lambda
+               ((input-id . input)
+                (cons input-id
+                      (normalize-input input))))
+             ;; Even though YAML is a superset of JSON, use the JSON
+             ;; reader if possible; it is simpler and less prone to type
+             ;; ambiguities.
+             (if (string=? (file-name-extension inputs-file)
+                           ".json")
+                 (read-json-file (basename inputs-file))
+                 (read-yaml-file (basename inputs-file))))))))
 
 (define (coerce-type val type)
   "Coerce @var{val} to @var{type}."
