@@ -81,6 +81,14 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
                 (lambda (opt name arg result)
                   (acons 'outdir arg
                          result)))
+        (option (list "log-level") #t #f
+                (lambda (opt name arg result)
+                  (let ((accepted-values (list "debug" "info" "warning"
+                                               "error" "critical")))
+                    (if (member (string-downcase arg) accepted-values)
+                        (acons 'log-level (string->symbol (string-downcase arg))
+                               result)
+                        (user-error "Unknown log level ~a" arg)))))
         (option (list "trace") #t #f
                 (lambda (opt name arg result)
                   (let ((accepted-values (list "slurm-api")))
@@ -137,6 +145,9 @@ Slurm API batch system options:
 
 Debugging options:
 
+  --log-level=LEVEL              log messages with higher severity than LEVEL
+                                 (accepted values: debug, info, warning,
+                                                   error, critical)
   --trace=SUBSYSTEM              enable tracing on subsystem;
                                  repeat to trace multiple subsystems
                                  (accepted values: slurm-api)
@@ -208,6 +219,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                               (slurm-api-endpoint . ,(build-uri 'http
                                                                 #:host "localhost"
                                                                 #:port 6820))
+                              (log-level . warning)
                               (traces . ())))))
        (when (assq-ref args 'help)
          (print-usage program)
@@ -254,7 +266,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                          (user-error "Error loading manifest file ~a"
                                                      file)
                                          (raise-exception c))))))
-                            (parameterize ((%traces (assq-ref args 'traces)))
+                            (parameterize ((%log-level (assq-ref args 'log-level))
+                                           (%traces (assq-ref args 'traces)))
                               (run-workflow (file-name-stem workflow-file)
                                             (and (assq 'guix-manifest-file args)
                                                  (canonicalize-path
