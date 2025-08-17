@@ -17,6 +17,7 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan work command-line-tool)
+  #:use-module (rnrs conditions)
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
@@ -33,7 +34,11 @@
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
-  #:export (value->string
+  #:export (unsupported-uri-scheme
+            unsupported-uri-scheme?
+            unsupported-uri-scheme-scheme
+
+            value->string
             call-with-current-directory
             object-type
             match-type
@@ -57,6 +62,10 @@
             command-line-binding-item-separator
             command-line-binding->args
             build-command))
+
+(define-condition-type &unsupported-uri-scheme &serious
+  unsupported-uri-scheme unsupported-uri-scheme?
+  (scheme unsupported-uri-scheme-scheme))
 
 (define (value->string x)
   "Convert value @var{x} to a string."
@@ -229,11 +238,16 @@ status in @var{success-codes} as success. Error out otherwise."
   (string-append "sha1$" (sha1-hash file)))
 
 (define (location->path location)
-  "Convert file @var{location} URI to path. Tolerate invalid locations that are
-actually paths."
+  "Convert file @var{location} @code{file://} URI to path. Tolerate invalid
+locations that are actually paths. Raise an @code{&unsupported-uri-scheme}
+condition on unsupported URI schemes."
   (cond
-   ;; If location is an URI, parse the URI and return the path part.
-   ((string->uri location) => uri-path)
+   ;; If location is a file:// URI, parse the URI and return the path part.
+   ((string->uri location)
+    => (lambda (uri)
+         (if (eq? (uri-scheme uri) 'file)
+             (uri-path uri)
+             (raise-exception (unsupported-uri-scheme (uri-scheme uri))))))
    ;; location is actually a path; return as is.
    (else location)))
 
