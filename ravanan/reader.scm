@@ -162,7 +162,7 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
       (maybe-assoc-set input
         (cons "default"
               (maybe-bind (maybe-assoc-ref (just input) "default")
-                          normalize-input))
+                          (compose just normalize-input)))
         (cons "secondaryFiles"
               (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
                           (compose just
