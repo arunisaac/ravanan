@@ -294,8 +294,7 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
            ;; ambiguities.
            (if (string=? (file-name-extension inputs-file)
                          ".json")
-               (call-with-input-file (basename inputs-file)
-                 json->scm)
+               (read-json-file (basename inputs-file))
                (read-yaml-file (basename inputs-file)))))))
 
 (define (coerce-type val type)
