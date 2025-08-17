@@ -17,6 +17,8 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan reader)
+  #:use-module (rnrs conditions)
+  #:use-module (rnrs exceptions)
   #:use-module (rnrs io ports)
   #:use-module (srfi srfi-26)
   #:use-module (ice-9 filesystem)
@@ -310,3 +312,12 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
          val
          (string->number val)))
     (else val)))
+
+(define (read-json-file file)
+  "Read JSON @var{file} and return scheme tree."
+  (guard (c (else
+             (raise-exception
+              (condition (make-who-condition 'read-json-file)
+                         c))))
+    (call-with-input-file file
+      json->scm)))
