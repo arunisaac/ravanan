@@ -28,6 +28,7 @@
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
+  #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
   #:export (read-workflow
@@ -265,10 +266,18 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
 
 (define (read-workflow workflow-file)
   "Read CWL workflow (of any class) from @var{workflow-file}."
-  (call-with-current-directory (dirname workflow-file)
-    ;; TODO: Implement $import directive.
-    (cut normalize-workflow
-         (preprocess-include (read-yaml-file (basename workflow-file))))))
+  (guard (c ((and (who-condition? c)
+                  (eq? (condition-who c)
+                       'read-yaml-file)
+                  (irritants-condition? c))
+             (user-error "Unable to read workflow file ~a: ~a"
+                         workflow-file
+                         (string-join (condition-irritants c)
+                                      ": "))))
+    (call-with-current-directory (dirname workflow-file)
+      ;; TODO: Implement $import directive.
+      (cut normalize-workflow
+           (preprocess-include (read-yaml-file (basename workflow-file)))))))
 
 (define (normalize-input input)
   "Normalize actual @var{input}."
