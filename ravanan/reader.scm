@@ -24,7 +24,7 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:use-module (json)
-  #:use-module (yaml)
+  #:use-module ((yaml) #:prefix yaml:)
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work monads)
   #:use-module (ravanan work types)
@@ -320,3 +320,16 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                          c))))
     (call-with-input-file file
       json->scm)))
+
+(define (read-yaml-file file)
+  "Read YAML @var{file} and return scheme tree."
+  (guard (c ((and (message-condition? c)
+                  (string-prefix? "read-yaml-file:" (condition-message c)))
+             (raise-exception
+              (condition (make-who-condition 'read-yaml-file)
+                         (make-irritants-condition
+                          (match (string-split (condition-message c) #\:)
+                            ((_ message file)
+                             (list (string-trim message)
+                                   (string-trim file)))))))))
+    (yaml:read-yaml-file file)))
