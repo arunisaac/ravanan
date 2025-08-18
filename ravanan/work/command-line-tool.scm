@@ -253,10 +253,12 @@ condition on unsupported URI schemes."
 
 (define (canonicalize-file-value value)
   "Canonicalize @code{File} type @var{value} adding missing fields."
-  (let ((path (or (assoc-ref value "path")
-                  (location->path (assoc-ref value "location"))))
-        (location (or (assoc-ref value "location")
-                      (string-append "file://" (assoc-ref value "path")))))
+  (let* ((path (or (assoc-ref value "path")
+                   (location->path (assoc-ref value "location"))))
+         ;; The location field may actually be a path instead of an URI; that's
+         ;; invalid. So, unconditionally reconstruct the location URI from path.
+         ;; This assumes they are always file:// URIs, but that works for now.
+         (location (string-append "file://" path)))
     ;; Populate all fields of the File type value.
     (maybe-assoc-set `(("class" . "File")
                        ("location" . ,location)
