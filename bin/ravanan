@@ -153,7 +153,7 @@ Debugging options:
                                  (accepted values: debug, info, warning,
                                                    error, critical)
   --trace=SUBSYSTEM              enable tracing on subsystem;
-                                 repeat to trace multiple subsystems
+                                 repeat to trace more than one subsystem
                                  (accepted values: slurm-api)
   --quiet                        disable all logging and tracing;
                                  overrides --log-level and --trace
