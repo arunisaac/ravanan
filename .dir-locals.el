@@ -14,4 +14,5 @@
   (eval . (put 'call-with-inferior 'scheme-indent-function 1))
   (eval . (put 'maybe-let* 'scheme-indent-function 1))
   (eval . (put 'maybe-assoc-set 'scheme-indent-function 1))
+  (eval . (put 'run-with-state 'scheme-indent-function 0))
   (eval . (put 'state-let* 'scheme-indent-function 1))))
