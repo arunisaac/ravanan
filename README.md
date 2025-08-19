@@ -1,4 +1,4 @@
-[![Laminar](https://ci.systemreboot.net/badge/ravanan.svg)](https://ci.systemreboot.net/jobs/ravanan)
+[![Laminar](https://ci.systemreboot.net/badge/ravanan.svg)](https://ci.systemreboot.net/jobs/ravanan) [![CWL v1.2 Conformance](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/required.svg)](#cwl-v1.2-conformance)
 
 ravanan (pronounced rah-vun-un, IPA: rɑːvʌnʌn, Shavian: 𐑮𐑭𐑝𐑳𐑯𐑳𐑯) is a [Common Workflow Language (CWL)](https://www.commonwl.org/) implementation that is powered by [GNU Guix](https://guix.gnu.org/) and provides strong reproducibility guarantees. ravanan provides strong bullet-proof caching ([work reuse](https://www.commonwl.org/v1.2/CommandLineTool.html#WorkReuse)) so you never run the same step of your workflow twice, nor do you have to keep track of which steps were run and with what parameters: ravanan remembers everything for you. ravanan captures logs from every step of your workflow so you can always trace back in case of job failures.
 
@@ -19,6 +19,7 @@ ravanan currently runs on single machines and on slurm via its [API](https://slu
   - [On HPC using slurm](#on-hpc-using-slurm)
   - [Using a specific version of Guix](#using-a-specific-version-of-guix)
   - [Referencing local scripts](#referencing-local-scripts)
+- [CWL conformance](#cwl-conformance)
 - [License](#license)
 - [The Name](#the-name)
 
@@ -150,6 +151,16 @@ Thanks to Guix, a better way is possible. Guix, in its magnificent elegance, doe
 # Contributing
 
 Please send questions, feedback, bug reports and patches to [ravanan@systemreboot.net](mailto:ravanan@systemreboot.net). You may also browse the [archives](https://lists.systemreboot.net/ravanan) of previous conversations. We do not accept issues or pull requests on GitHub. Thank you!
+
+# CWL conformance
+
+CWL conformance is a work in progress. We're getting there!
+
+## [CWL v1.2 conformance](https://ci.systemreboot.net/jobs/ravanan-cwl-v1.2-conformance)
+
+![required](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/required.svg)
+
+![all](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/all.svg) ![command_line_tool](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/command_line_tool.svg) ![conditional](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/conditional.svg) ![docker](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/docker.svg) ![env_var](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/env_var.svg) ![expression_tool](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/expression_tool.svg) ![format_checking](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/format_checking.svg) ![initial_work_dir](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/initial_work_dir.svg) ![inline_javascript](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/inline_javascript.svg) ![inplace_update](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/inplace_update.svg) ![input_object_requirements](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/input_object_requirements.svg) ![json_schema_invalid](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/json_schema_invalid.svg) ![load_listing](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/load_listing.svg) ![multiple_input](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/multiple_input.svg) ![multiple](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/multiple.svg) ![networkaccess](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/networkaccess.svg) ![required](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/required.svg) ![require](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/require.svg) ![resource](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/resource.svg) ![scatter](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/scatter.svg) ![schema_def](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/schema_def.svg) ![secondary_files](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/secondary_files.svg) ![shell_command](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/shell_command.svg) ![step_input](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/step_input.svg) ![subworkflow](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/subworkflow.svg) ![timelimit](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/timelimit.svg) ![workflow](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/workflow.svg) ![work_reuse](https://ci.systemreboot.net/archive/ravanan-cwl-v1.2-conformance/latest/work_reuse.svg)
 
 # License
 
