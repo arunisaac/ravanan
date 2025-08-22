@@ -51,7 +51,7 @@
                    "--"
                    "--store=store"
                    (string-append "--guix-manifest="
-                                  #$(local-file "../cwl-conformance/cwltest-manifest.scm"))))
+                                  #$(local-file "../cwl-conformance/manifest.scm"))))
           ((program _ ...)
            (format (current-error-port)
                    "Usage: ~a CWL-V1.2-REPO~%"
