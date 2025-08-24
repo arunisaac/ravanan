@@ -48,8 +48,6 @@
                   "--test" cwltest-suite
                   "--tool" #$(file-append ravanan "/bin/ravanan")
                   "--badgedir" "badges"
-                  ;; With these tests, evil things happen and too much memory is
-                  ;; consumed. So, disable for now.
                   (append '#$(match skip-tests
                                (() '())
                                (_ (list "-S" (string-join skip-tests ","))))
@@ -66,6 +64,8 @@
   (program-file "cwl-v1.2-conformance"
                 (cwltest-suite-gexp
                  (local-file "../cwl-conformance/manifest.scm")
+                 ;; With these tests, evil things happen and too much memory is
+                 ;; consumed. So, disable for now.
                  #:skip-tests (list "env_home_tmpdir"
                                     "env_home_tmpdir_docker"
                                     "env_home_tmpdir_docker_no_return_code"))))
