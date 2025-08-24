@@ -14,5 +14,5 @@ cd rundir
 ```
 Then, build and run the tests.
 ```
-$(guix build -L ../.guix -e '(@ (cwl-conformance) e2e-tests)')
+$(guix build -L ../.guix -f ../.guix/e2e-tests.scm)
 ```

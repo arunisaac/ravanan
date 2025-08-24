@@ -19,17 +19,13 @@
 (define-module (cwl-conformance)
   #:use-module ((cwltest-package) #:select (cwltest))
   #:use-module ((ravanan-package) #:select (ravanan))
-  #:use-module ((gnu packages bioinformatics) #:select (ccwl))
-  #:use-module ((gnu packages nss) #:select (nss-certs))
   #:use-module ((gnu packages python) #:select (python))
   #:use-module ((gnu packages python-web) #:select (python-pybadges))
-  #:use-module (guix build utils)
   #:use-module (guix gexp)
   #:use-module (guix git-download)
   #:use-module (guix packages)
-  #:use-module (guix profiles)
-  #:use-module (guix utils)
-  #:use-module (ice-9 match))
+  #:use-module (ice-9 match)
+  #:export (cwltest-suite-gexp))
 
 (define* (cwltest-suite-gexp cwltest-suite manifest-file #:key (skip-tests '()))
   (with-imported-modules '((guix build utils))
@@ -79,89 +75,5 @@
                  #:skip-tests (list "env_home_tmpdir"
                                     "env_home_tmpdir_docker"
                                     "env_home_tmpdir_docker_no_return_code"))))
-
-(define (ccwl-compile source-file)
-  #~(begin
-      (use-modules (rnrs io ports)
-                   (srfi srfi-26)
-                   (ice-9 match)
-                   (ice-9 popen))
-
-      (define (call-with-input-pipe command proc)
-        (match command
-          ((prog args ...)
-           (let ((port #f))
-             (dynamic-wind
-               (lambda ()
-                 (set! port (apply open-pipe* OPEN_READ prog args)))
-               (cut proc port)
-               (lambda ()
-                 (unless (zero? (close-pipe port))
-                   (error "Command invocation failed" command))))))))
-
-      (call-with-output-file #$output
-        (cut display
-             (call-with-input-pipe '(#$(file-append ccwl "/bin/ccwl")
-                                     "compile"
-                                     #$source-file)
-               get-string-all)
-             <>))))
-
-(define e2e-tools-ccwl-sources
-  `(("hello-world.scm" . ,(local-file "../e2e-tests/tools/hello-world.scm"))))
-
-(define e2e-tools
-  (file-union "e2e-tools"
-              (map (match-lambda
-                     ((ccwl-source-filename . ccwl-source-file)
-                      (let ((cwl-filename (string-append (basename ccwl-source-filename ".scm")
-                                                         ".cwl")))
-                        (list cwl-filename
-                              (computed-file cwl-filename
-                                             (ccwl-compile ccwl-source-file))))))
-                   e2e-tools-ccwl-sources)))
-
-(define e2e-test-suite
-  (file-union "e2e-test-suite"
-              `(("tests.yaml" ,(local-file "../e2e-tests/tests.yaml"))
-                ("tools" ,e2e-tools)
-                ("jobs" ,(local-file "../e2e-tests/jobs"
-                                     #:recursive? #t)))))
-
-(define-public e2e-tests
-  (program-file "e2e-tests"
-                (cwltest-suite-gexp (file-append e2e-test-suite "/tests.yaml")
-                                    (local-file "../e2e-tests/manifest.scm"))))
-
-(define generate-badges-gexp
-  (with-imported-modules '((guix build utils))
-    #~(begin
-        (use-modules (guix build utils)
-                     (ice-9 match))
-
-        (match (command-line)
-          ((_ cwltest-badgedir output-directory)
-           (set-path-environment-variable
-            "GUIX_PYTHONPATH"
-            '(#$(string-append "lib/python"
-                               (version-major+minor (package-version python))
-                               "/site-packages"))
-            (list #$(profile
-                      (content (packages->manifest
-                                (list python python-pybadges))))))
-           (invoke #$(file-append python "/bin/python3")
-                   #$(local-file "../cwl-conformance/badgegen.py")
-                   cwltest-badgedir
-                   #$(local-file "../cwl-conformance/commonwl.svg")
-                   output-directory))
-          ((program _ ...)
-           (format (current-error-port)
-                   "Usage: ~a CWLTEST_BADGEDIR OUTPUT-DIRECTORY~%"
-                   program)
-           (exit #f))))))
-
-(define-public generate-badges
-  (program-file "generate-badges"
-                generate-badges-gexp))
 
 cwl-v1.2-conformance
