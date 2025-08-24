@@ -27,14 +27,14 @@
   #:use-module (guix profiles)
   #:use-module (guix utils))
 
-(define cwl-v1.2-conformance-gexp
+(define* (cwltest-suite-gexp manifest-file #:key (skip-tests '()))
   (with-imported-modules '((guix build utils))
     #~(begin
         (use-modules (guix build utils)
                      (ice-9 match))
 
         (match (command-line)
-          ((_ cwl-v1.2-repo)
+          ((_ cwltest-suite)
            (for-each mkdir
                      (list "tmpdir" "store"))
            ;; cwltest writes out output directories to TMPDIR, but does not
@@ -44,28 +44,28 @@
            ;; https://github.com/common-workflow-language/cwltest/issues/249
            (setenv "TMPDIR" "tmpdir")
            (invoke #$(file-append cwltest "/bin/cwltest")
-                   "--test" (string-append cwl-v1.2-repo "/conformance_tests.yaml")
+                   "--test" cwltest-suite
                    ;; With these tests, evil things happen and too much
                    ;; memory is consumed. So, disable for now.
-                   "-S" (string-join (list "env_home_tmpdir"
-                                           "env_home_tmpdir_docker"
-                                           "env_home_tmpdir_docker_no_return_code")
-                                     ",")
+                   "-S" (string-join skip-tests ",")
                    "--tool" #$(file-append ravanan "/bin/ravanan")
                    "--badgedir" "badges"
                    "--"
                    "--store=store"
-                   (string-append "--guix-manifest="
-                                  #$(local-file "../cwl-conformance/manifest.scm"))))
+                   (string-append "--guix-manifest=" #$manifest-file)))
           ((program _ ...)
            (format (current-error-port)
-                   "Usage: ~a CWL-V1.2-REPO~%"
+                   "Usage: ~a CWLTEST-SUITE~%"
                    program)
            (exit #f))))))
 
 (define-public cwl-v1.2-conformance
   (program-file "cwl-v1.2-conformance"
-                cwl-v1.2-conformance-gexp))
+                (cwltest-suite-gexp
+                 (local-file "../cwl-conformance/manifest.scm")
+                 #:skip-tests (list "env_home_tmpdir"
+                                    "env_home_tmpdir_docker"
+                                    "env_home_tmpdir_docker_no_return_code"))))
 
 (define generate-badges-gexp
   (with-imported-modules '((guix build utils))
