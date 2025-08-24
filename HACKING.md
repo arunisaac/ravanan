@@ -7,12 +7,12 @@ guix shell -L .guix -Df manifest.scm
 
 # Run end-to-end tests
 
-ravanan comes with a suite of end-to-end tests under `e2e-tests`. To run them, first compile the required CWL workflows from the ccwl sources.
+ravanan comes with a suite of end-to-end tests under `e2e-tests`. End-to-end tests require a running Guix daemon. To run them, create and change into a new empty directory.
 ```
-make -C e2e-tests
+mkdir rundir
+cd rundir
 ```
-Then, run cwltest like so:
+Then, build and run the tests.
 ```
-make -C e2e-tests check
+$(guix build -L ../.guix -e '(@ (cwl-conformance) e2e-tests)')
 ```
-End-to-end tests require a running Guix daemon.
