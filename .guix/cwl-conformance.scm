@@ -37,6 +37,11 @@
           ((_ cwl-v1.2-repo)
            (for-each mkdir
                      (list "tmpdir" "store"))
+           ;; cwltest writes out output directories to TMPDIR, but does not
+           ;; clean up after. So, we set TMPDIR to our own temporary directory
+           ;; that we can manage easily. See pending issue on cleaning up
+           ;; temporary output directories:
+           ;; https://github.com/common-workflow-language/cwltest/issues/249
            (setenv "TMPDIR" "tmpdir")
            (invoke #$(file-append cwltest "/bin/cwltest")
                    "--test" (string-append cwl-v1.2-repo "/conformance_tests.yaml")
