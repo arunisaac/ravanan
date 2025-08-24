@@ -25,7 +25,8 @@
   #:use-module (guix gexp)
   #:use-module (guix packages)
   #:use-module (guix profiles)
-  #:use-module (guix utils))
+  #:use-module (guix utils)
+  #:use-module (ice-9 match))
 
 (define* (cwltest-suite-gexp manifest-file #:key (skip-tests '()))
   (with-imported-modules '((guix build utils))
@@ -42,16 +43,19 @@
            ;; https://github.com/common-workflow-language/cwltest/issues/249
            (mkdir "tmpdir")
            (setenv "TMPDIR" "tmpdir")
-           (invoke #$(file-append cwltest "/bin/cwltest")
-                   "--test" cwltest-suite
-                   ;; With these tests, evil things happen and too much
-                   ;; memory is consumed. So, disable for now.
-                   "-S" (string-join skip-tests ",")
-                   "--tool" #$(file-append ravanan "/bin/ravanan")
-                   "--badgedir" "badges"
-                   "--"
-                   "--store=store"
-                   (string-append "--guix-manifest=" #$manifest-file)))
+           (apply invoke
+                  #$(file-append cwltest "/bin/cwltest")
+                  "--test" cwltest-suite
+                  "--tool" #$(file-append ravanan "/bin/ravanan")
+                  "--badgedir" "badges"
+                  ;; With these tests, evil things happen and too much memory is
+                  ;; consumed. So, disable for now.
+                  (append '#$(match skip-tests
+                               (() '())
+                               (_ (list "-S" (string-join skip-tests ","))))
+                          (list "--"
+                                "--store=store"
+                                (string-append "--guix-manifest=" #$manifest-file)))))
           ((program _ ...)
            (format (current-error-port)
                    "Usage: ~a CWLTEST-SUITE~%"
