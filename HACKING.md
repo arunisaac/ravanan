@@ -4,3 +4,15 @@ Drop into a development environment using `guix shell`. This shell includes addi
 ```
 guix shell -L .guix -Df manifest.scm
 ```
+
+# Run end-to-end tests
+
+ravanan comes with a suite of end-to-end tests under `e2e-tests`. To run them, first compile the required CWL workflows from the ccwl sources.
+```
+make -C e2e-tests
+```
+Then, run cwltest like so:
+```
+make -C e2e-tests check
+```
+End-to-end tests require a running Guix daemon.
