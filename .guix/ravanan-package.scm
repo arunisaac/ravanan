@@ -29,7 +29,16 @@
     (source (local-file ".."
                         "ravanan-checkout"
                         #:recursive? #t
-                        #:select? (or (git-predicate (dirname (current-source-directory)))
-                                      (const #t))))))
+                        #:select? (lambda (file stat)
+                                    ;; If .guix is included, changes to other
+                                    ;; files under .guix—such as the CWL
+                                    ;; conformance tests—unnecessarily trigger a
+                                    ;; rebuild of ravanan. This could be a
+                                    ;; nuisance when hacking on the CWL
+                                    ;; conformance test scripts.
+                                    (and (not (string-contains file "/.guix/"))
+                                         ((or (git-predicate (dirname (current-source-directory)))
+                                              (const #t))
+                                          file stat)))))))
 
 ravanan
