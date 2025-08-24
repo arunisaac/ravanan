@@ -66,6 +66,10 @@
                                     "env_home_tmpdir_docker"
                                     "env_home_tmpdir_docker_no_return_code"))))
 
+(define-public e2e-tests
+  (program-file "ravanan-e2e-tests"
+                (cwltest-suite-gexp (local-file "../e2e-tests/manifest.scm"))))
+
 (define generate-badges-gexp
   (with-imported-modules '((guix build utils))
     #~(begin
