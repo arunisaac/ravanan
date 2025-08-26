@@ -33,6 +33,8 @@
         (use-modules (guix build utils)
                      (ice-9 match))
 
+        ;; Guix peeks into HOME.
+        (setenv "HOME" (getcwd))
         ;; cwltest writes out output directories to TMPDIR, but does not clean
         ;; up after. So, we set TMPDIR to our own temporary directory that we
         ;; can manage easily. See pending issue on cleaning up temporary output
