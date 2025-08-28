@@ -16,3 +16,15 @@ Then, build and run the tests.
 ```
 $(guix build -L ../.guix -f ../.guix/e2e-tests.scm)
 ```
+
+# Run the CWL v1.2 conformance test suite
+
+The CWL v1.2 conformance test suite is run similar to the end-to-end tests. Create and change into a new empty directory.
+```
+mkdir rundir
+cd rundir
+```
+Then, build and run the tests.
+```
+$(guix build -L ../.guix -f ../.guix/cwl-conformance.scm)
+```
