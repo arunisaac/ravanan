@@ -1,0 +1,5 @@
+message: foo
+other_messages:
+  - bar
+  - foobar
+  - barbar

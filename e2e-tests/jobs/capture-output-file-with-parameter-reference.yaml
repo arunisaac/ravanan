@@ -1,0 +1,4 @@
+archive:
+  class: File
+  location: hello.tar
+extractfile: hello.txt

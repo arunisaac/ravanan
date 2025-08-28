@@ -7,3 +7,138 @@
       class: File
       size: 13
       checksum: sha1$47a013e660d408619d894b20806b1d5086aab03b
+- id: capture-output-file
+  doc: Capture output file using a glob
+  tool: tools/capture-output-file.cwl
+  job: jobs/capture-output-file.yaml
+  output:
+    extracted_file:
+      class: File
+      basename: hello.txt
+      nameroot: hello
+      nameext: .txt
+      size: 13
+      checksum: sha1$a0b65939670bc2c010f4d5d6a0b3e4e4590fb92b
+- id: capture-output-file-with-parameter-reference
+  doc: Capture output file using a glob and a parameter reference
+  tool: tools/capture-output-file-with-parameter-reference.cwl
+  job: jobs/capture-output-file-with-parameter-reference.yaml
+  output:
+    extracted_file:
+      class: File
+      basename: hello.txt
+      nameroot: hello
+      nameext: .txt
+      size: 13
+      checksum: sha1$a0b65939670bc2c010f4d5d6a0b3e4e4590fb92b
+- id: capture-stdout
+  doc: Capture standard output as a file
+  tool: tools/capture-stdout.cwl
+  job: jobs/hello-world.yaml
+  output:
+    printed_message:
+      class: File
+      basename: printed-message-output.txt
+      nameroot: printed-message-output
+      nameext: .txt
+      size: 13
+      checksum: sha1$47a013e660d408619d894b20806b1d5086aab03b
+- id: checksum
+  doc: Compute several hashes
+  tool: tools/checksum.cwl
+  job: jobs/checksum.yaml
+  output:
+    md5:
+      class: File
+      basename: md5
+      nameroot: md5
+      nameext: ""
+      size: 44
+      checksum: sha1$9fa7df2256ce2e726bd9e89485d596b9985971a7
+    sha1:
+      class: File
+      basename: sha1
+      nameroot: sha1
+      nameext: ""
+      size: 52
+      checksum: sha1$5beabf5a3d41d2c4a494d4342419894d9d7800e0
+    sha256:
+      class: File
+      basename: sha256
+      nameroot: sha256
+      nameext: ""
+      size: 76
+      checksum: sha1$1d4d44c8563d8e5279dd8d0eb1e3e599c7c3ef3f
+- id: decompress-compile-run
+  doc: Decompress a compressed C source file, compile and run it
+  tool: tools/decompress-compile-run.cwl
+  job: jobs/decompress-compile-run.yaml
+  output:
+    stdout:
+      class: File
+      basename: run-output.txt
+      nameroot: run-output
+      nameext: .txt
+      size: 13
+      checksum: sha1$a0b65939670bc2c010f4d5d6a0b3e4e4590fb92b
+- id: inline-javascript-requirement
+  doc: Run javascript for InlineJavascriptRequirement
+  tool: tools/inline-javascript-requirement.cwl
+  job: jobs/inline-javascript-requirement.json
+  output:
+    sum:
+      class: File
+      size: 3
+      checksum: sha1$030514d80869744a4e2f60d2fd37d6081f5ed01a
+- id: pass-stdin
+  doc: Pass standard input into command
+  tool: tools/pass-stdin.cwl
+  job: jobs/checksum.yaml
+  output:
+    bytes:
+      class: File
+      size: 6
+      checksum: sha1$0929a71b2f03c579afed345f79635816595c2041
+- id: prefix-arguments
+  doc: Command with prefix arguments
+  tool: tools/prefix-arguments.cwl
+  job: jobs/prefix-arguments.json
+  output:
+    sequence:
+      class: File
+      size: 21
+      checksum: sha1$474f936f3e4a4db3f01ee46f9fa8fc928a07c2ab
+- id: scatter
+  doc: Workflow with a scattering step
+  tool: tools/scatter.cwl
+  job: jobs/scatter.yaml
+  output:
+    printed_output:
+      - class: File
+        size: 8
+        checksum: sha1$d53a205a336e07cf9eac45471b3870f9489288ec
+      - class: File
+        size: 11
+        checksum: sha1$f784299d4fcaf81aba0b0647264a959fdfe8180d
+      - class: File
+        size: 11
+        checksum: sha1$b7ee58e14913c07256e9255e69310ddcde4bdb51
+- id: spell-check
+  doc: Spell-check workflow using Unix utilities
+  tool: tools/spell-check.cwl
+  job: jobs/spell-check.yaml
+  output:
+    misspellings:
+      class: File
+      basename: misspelt-words
+      size: 6
+      checksum: sha1$e701a33e7681ea185a709168c44e13217497d220
+- id: staging-input-files
+  doc: Stage input files to working directory
+  tool: tools/staging-input-files.cwl
+  job: jobs/staging-input-files.yaml
+  output:
+    output_file:
+      class: File
+      size: 76
+      checksum: sha1$a43e1394643339f6a203147ccbf82cc3be1777e0

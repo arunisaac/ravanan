@@ -1,0 +1,3 @@
+compressed_source:
+  class: File
+  location: hello.c.gz

@@ -1,0 +1,6 @@
+text-file:
+  class: File
+  location: spell-check-text.txt
+dictionary:
+  class: File
+  location: spell-check-dictionary

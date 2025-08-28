@@ -50,7 +50,30 @@
              <>))))
 
 (define e2e-tools-ccwl-sources
-  `(("hello-world.scm" . ,(local-file "../e2e-tests/tools/hello-world.scm"))))
+  `(("capture-output-file.scm"
+     . ,(local-file "../e2e-tests/tools/capture-output-file.scm"))
+    ("capture-output-file-with-parameter-reference.scm"
+     . ,(local-file "../e2e-tests/tools/capture-output-file-with-parameter-reference.scm"))
+    ("capture-stdout"
+     . ,(local-file "../e2e-tests/tools/capture-stdout.scm"))
+    ("checksum"
+     . ,(local-file "../e2e-tests/tools/checksum.scm"))
+    ("decompress-compile-run"
+     . ,(local-file "../e2e-tests/tools/decompress-compile-run.scm"))
+    ("inline-javascript-requirement"
+     . ,(local-file "../e2e-tests/tools/inline-javascript-requirement.scm"))
+    ("hello-world.scm"
+     . ,(local-file "../e2e-tests/tools/hello-world.scm"))
+    ("pass-stdin"
+     . ,(local-file "../e2e-tests/tools/pass-stdin.scm"))
+    ("prefix-arguments"
+     . ,(local-file "../e2e-tests/tools/prefix-arguments.scm"))
+    ("scatter"
+     . ,(local-file "../e2e-tests/tools/scatter.scm"))
+    ("spell-check"
+     . ,(local-file "../e2e-tests/tools/spell-check.scm"))
+    ("staging-input-files"
+     . ,(local-file "../e2e-tests/tools/staging-input-files.scm"))))
 
 (define e2e-tools
   (file-union "e2e-tools"

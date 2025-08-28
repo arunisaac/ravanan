@@ -1,2 +1,2 @@
 (specifications->manifest
- (list "coreutils"))
+ (list "coreutils" "gcc-toolchain" "gzip" "tar"))
