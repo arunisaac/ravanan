@@ -227,56 +227,57 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                                 #:port 6820))
                               (log-level . warning)
                               (traces . ())))))
-       (when (assq-ref args 'help)
-         (print-usage program)
-         (exit #t))
-       (when (assq-ref args 'version)
-         (format (current-output-port)
-                 "~a ~a~%"
-                 %project %version)
-         (exit #t))
-       ;; Check for required arguments.
-       (unless (assq-ref args 'store)
-         (user-error "--store not specified"))
-       (case (assq-ref args 'batch-system)
-         ((slurm-api)
-          (unless (assq-ref args 'scratch)
-            (user-error "--scratch not specified"))
-          (unless (assq-ref args 'slurm-jwt)
-            (user-error "--slurm-jwt not specified"))))
-       (match (reverse (assq-ref args 'args))
-         ((workflow-file inputs-file)
-          ;; We must not try to compile guix manifest files.
-          (set! %load-should-auto-compile #f)
-          (make-store (assq-ref args 'store))
-          (let* ( ;; FIXME: This is a bit of a hack to avoid canonizing remote
-                 ;; paths.
-                 (store (if (file-name-absolute? (assq-ref args 'store))
-                            (assq-ref args 'store)
-                            (canonicalize-path (assq-ref args 'store))))
-                 (outputs (guard (c ((manifest-file-error? c)
-                                     ;; Steps may provide their own
-                                     ;; SoftwareRequirement. So, at this point, we do
-                                     ;; not know if a manifest file is required and
-                                     ;; can't check for these manifest file errors
-                                     ;; right away. Instead, we depend on exceptions
-                                     ;; bubbled up from lower down the stack.
-                                     (let ((file (manifest-file-error-file c)))
-                                       (cond
-                                        ((not file)
-                                         (user-error "--guix-manifest not specified"))
-                                        ((not (file-exists? file))
-                                         (user-error "Manifest file ~a does not exist"
-                                                     file))
-                                        (else
-                                         (user-error "Error loading manifest file ~a"
-                                                     file)
-                                         (raise-exception c))))))
-                            (parameterize ((%log-level (and (not (assq-ref args 'quiet))
-                                                            (assq-ref args 'log-level)))
-                                           (%traces (if (assq-ref args 'quiet)
-                                                        '()
-                                                        (assq-ref args 'traces))))
+       (parameterize ((%log-level (and (not (assq-ref args 'quiet))
+                                       (assq-ref args 'log-level)))
+                      (%traces (if (assq-ref args 'quiet)
+                                   '()
+                                   (assq-ref args 'traces))))
+         (when (assq-ref args 'help)
+           (print-usage program)
+           (exit #t))
+         (when (assq-ref args 'version)
+           (format (current-output-port)
+                   "~a ~a~%"
+                   %project %version)
+           (exit #t))
+         ;; Check for required arguments.
+         (unless (assq-ref args 'store)
+           (user-error "--store not specified"))
+         (case (assq-ref args 'batch-system)
+           ((slurm-api)
+            (unless (assq-ref args 'scratch)
+              (user-error "--scratch not specified"))
+            (unless (assq-ref args 'slurm-jwt)
+              (user-error "--slurm-jwt not specified"))))
+         (match (reverse (assq-ref args 'args))
+           ((workflow-file inputs-file)
+            ;; We must not try to compile guix manifest files.
+            (set! %load-should-auto-compile #f)
+            (make-store (assq-ref args 'store))
+            (let* ( ;; FIXME: This is a bit of a hack to avoid canonizing remote
+                   ;; paths.
+                   (store (if (file-name-absolute? (assq-ref args 'store))
+                              (assq-ref args 'store)
+                              (canonicalize-path (assq-ref args 'store))))
+                   (outputs (guard (c ((manifest-file-error? c)
+                                       ;; Steps may provide their own
+                                       ;; SoftwareRequirement. So, at this
+                                       ;; point, we do not know if a manifest
+                                       ;; file is required and can't check for
+                                       ;; these manifest file errors right away.
+                                       ;; Instead, we depend on exceptions
+                                       ;; bubbled up from lower down the stack.
+                                       (let ((file (manifest-file-error-file c)))
+                                         (cond
+                                          ((not file)
+                                           (user-error "--guix-manifest not specified"))
+                                          ((not (file-exists? file))
+                                           (user-error "Manifest file ~a does not exist"
+                                                       file))
+                                          (else
+                                           (user-error "Error loading manifest file ~a"
+                                                       file)
+                                           (raise-exception c))))))
                               (run-workflow (file-name-stem workflow-file)
                                             (and (assq 'guix-manifest-file args)
                                                  (canonicalize-path
@@ -305,14 +306,14 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                      (read-jwt (assq-ref args 'slurm-jwt)))
                                                 (assq-ref args 'slurm-partition)
                                                 (assq-ref args 'slurm-nice))))
-                                            #:guix-daemon-socket (assq-ref args 'guix-daemon-socket))))))
-            (scm->json (if (assq-ref args 'outdir)
-                           (symlink-to-output-directory store
-                                                        (assq-ref args 'outdir)
-                                                        outputs)
-                           outputs)
-                       #:pretty #t))
-          (newline))
-         (_
-          (print-short-usage program)
-          (exit #f)))))))
+                                            #:guix-daemon-socket (assq-ref args 'guix-daemon-socket)))))
+              (scm->json (if (assq-ref args 'outdir)
+                             (symlink-to-output-directory store
+                                                          (assq-ref args 'outdir)
+                                                          outputs)
+                             outputs)
+                         #:pretty #t))
+            (newline))
+           (_
+            (print-short-usage program)
+            (exit #f))))))))
