@@ -24,6 +24,8 @@
   #:use-module (guix gexp)
   #:use-module (guix git-download)
   #:use-module (guix packages)
+  #:use-module (guix profiles)
+  #:use-module (guix utils)
   #:use-module (ice-9 match)
   #:export (cwltest-suite-gexp))
 
@@ -77,5 +79,36 @@
                  #:skip-tests (list "env_home_tmpdir"
                                     "env_home_tmpdir_docker"
                                     "env_home_tmpdir_docker_no_return_code"))))
+
+(define generate-badges-gexp
+  (with-imported-modules '((guix build utils))
+    #~(begin
+        (use-modules (guix build utils)
+                     (ice-9 match))
+
+        (match (command-line)
+          ((_ cwltest-badgedir output-directory)
+           (set-path-environment-variable
+            "GUIX_PYTHONPATH"
+            '(#$(string-append "lib/python"
+                               (version-major+minor (package-version python))
+                               "/site-packages"))
+            (list #$(profile
+                      (content (packages->manifest
+                                (list python python-pybadges))))))
+           (invoke #$(file-append python "/bin/python3")
+                   #$(local-file "../cwl-conformance/badgegen.py")
+                   cwltest-badgedir
+                   #$(local-file "../cwl-conformance/commonwl.svg")
+                   output-directory))
+          ((program _ ...)
+           (format (current-error-port)
+                   "Usage: ~a CWLTEST_BADGEDIR OUTPUT-DIRECTORY~%"
+                   program)
+           (exit #f))))))
+
+(define-public generate-badges
+  (program-file "generate-badges"
+                generate-badges-gexp))
 
 cwl-v1.2-conformance
