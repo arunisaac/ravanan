@@ -18,12 +18,12 @@
 
 (define-module (ravanan work types)
   #:use-module (srfi srfi-9 gnu)
-            union-type
-            union-type?
-            union-type-subtypes))
   #:export (cwl-array-type
             cwl-array-type?
             cwl-array-type-subtype
+            cwl-union-type
+            cwl-union-type?
+            cwl-union-type-subtypes))
 
 (define-immutable-record-type <cwl-array-type>
   (cwl-array-type subtype)
@@ -31,9 +31,9 @@
   (subtype cwl-array-type-subtype))
 
 (define-immutable-record-type <union-type>
-  (-union-type subtypes)
-  union-type?
-  (subtypes union-type-subtypes))
+  (-cwl-union-type subtypes)
+  cwl-union-type?
+  (subtypes cwl-union-type-subtypes))
 
-(define (union-type . subtypes)
-  (-union-type subtypes))
+(define (cwl-union-type . subtypes)
+  (-cwl-union-type subtypes))

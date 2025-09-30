@@ -130,9 +130,9 @@ example, when @var{type} is a union type."
                 (vector->list obj))
          type))
    ;; Match any one of the subtypes of the union type.
-   ((union-type? type)
+   ((cwl-union-type? type)
     (any (cut match-type obj <>)
-         (union-type-subtypes type)))
+         (cwl-union-type-subtypes type)))
    ;; Else, match the exact type of the object.
    (else
     (and (eq? (object-type obj)
@@ -172,9 +172,9 @@ example, when @var{type} is a union type."
                                    (cwl-array-type-subtype type)))
                 matches)
          type))
-   ((union-type? type)
+   ((cwl-union-type? type)
     (any (cut glob-match-type matches <>)
-         (union-type-subtypes type)))))
+         (cwl-union-type-subtypes type)))))
 
 ;; TODO: Support all types.
 (define (formal-parameter-type type)
@@ -182,7 +182,7 @@ example, when @var{type} is a union type."
   (cond
    ;; Union types
    ((vector? type)
-    (apply union-type
+    (apply cwl-union-type
            (map formal-parameter-type (vector->list type))))
    ;; Other types
    ((string? type)
