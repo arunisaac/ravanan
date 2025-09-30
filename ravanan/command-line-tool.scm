@@ -18,7 +18,7 @@
 
 (define-module (ravanan command-line-tool)
   #:use-module ((rnrs base) #:select (assertion-violation error))
-  #:use-module (rnrs conditions)
+  #:use-module ((rnrs conditions) #:select (condition define-condition-type))
   #:use-module (rnrs exceptions)
   #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-9 gnu)
