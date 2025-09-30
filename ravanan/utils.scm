@@ -22,7 +22,8 @@
   #:use-module (ice-9 filesystem)
   #:use-module (ice-9 match)
   #:export (string-trim-prefix
-            load-script))
+            load-script)
+  #:declarative? #f)
 
 (define (string-trim-prefix prefix str)
   "Remove @var{prefix} from @var{str} if it exists. Else, return @var{str} as is."
