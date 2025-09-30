@@ -156,8 +156,8 @@ the @code{required} field when it is not specified."
   "Return @code{#t} if @var{type} is a @code{File}, an array of @code{File}s, an
 array of array of @code{File}s, etc. Else, return @code{#f}"
   (or (eq? type 'File)
-      (and (array-type? type)
-           (some-file-type? (array-type-subtype type)))))
+      (and (cwl-array-type? type)
+           (some-file-type? (cwl-array-type-subtype type)))))
 
 (define (normalize-formal-input input)
   "Normalize formal @var{input}."

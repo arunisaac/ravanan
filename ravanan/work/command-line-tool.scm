@@ -98,9 +98,9 @@ directory after THUNK returns."
    ((vector? obj)
     (match obj
       (#(head _ ...)
-       (array-type (object-type head)))
+       (cwl-array-type (object-type head)))
       (#()
-       (array-type 'Any))))
+       (cwl-array-type 'Any))))
    ;; File and Directory objects
    ((assoc-ref obj "class") => string->symbol)
    (else
@@ -124,9 +124,9 @@ example, when @var{type} is a union type."
    ((eq? type 'double)
     (match-type obj 'float))
    ;; Recursively match type of every element of array.
-   ((array-type? type)
+   ((cwl-array-type? type)
     (and (vector? obj)
-         (every (cut match-type <> (array-type-subtype type))
+         (every (cut match-type <> (cwl-array-type-subtype type))
                 (vector->list obj))
          type))
    ;; Match any one of the subtypes of the union type.
@@ -166,10 +166,10 @@ example, when @var{type} is a union type."
                  'directory)
             type))
       (_ #f)))
-   ((array-type? type)
+   ((cwl-array-type? type)
     (and (every (lambda (m)
                   (glob-match-type (list m)
-                                   (array-type-subtype type)))
+                                   (cwl-array-type-subtype type)))
                 matches)
          type))
    ((union-type? type)
@@ -190,7 +190,7 @@ example, when @var{type} is a union type."
    ;; Array types
    ((string=? (assoc-ref type "type")
               "array")
-    (array-type (formal-parameter-type (assoc-ref type "items"))))))
+    (cwl-array-type (formal-parameter-type (assoc-ref type "items"))))))
 
 (define (run-command command stdin-file stdout-file success-codes)
   "Run @var{command} passing in @var{stdin-file} as the standard input
@@ -320,7 +320,7 @@ the G-expressions are inserted."
           (maybe->list prefix)
           (list)))
      ((eq? type 'null) (list))
-     ((array-type? type)
+     ((cwl-array-type? type)
       (match value
         ;; Empty arrays should be noops.
         (() (list))
@@ -390,7 +390,7 @@ be defined in the context in which the G-expressions are inserted."
            (cond
             ;; Recurse over array types.
             ;; TODO: Implement record and enum types.
-            ((array-type? matched-type)
+            ((cwl-array-type? matched-type)
              (list (command-line-binding
                     position
                     prefix

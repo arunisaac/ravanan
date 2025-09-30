@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -24,6 +24,6 @@
 
 (test-equal "match null object to array type"
   #f
-  (match-type 'null (array-type 'File)))
+  (match-type 'null (cwl-array-type 'File)))
 
 (test-end "work.command-line-tool")

@@ -544,7 +544,7 @@ error out."
                     ;; TODO: Implement record and enum types.
                     (cond
                      ;; Recurse over array types.
-                     ((array-type? matched-type)
+                     ((cwl-array-type? matched-type)
                       (resolve input
                                (make-vector (vector-length input)
                                             (assoc-ref type-tree "items"))

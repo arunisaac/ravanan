@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -18,17 +18,17 @@
 
 (define-module (ravanan work types)
   #:use-module (srfi srfi-9 gnu)
-  #:export (array-type
-            array-type?
-            array-type-subtype
             union-type
             union-type?
             union-type-subtypes))
+  #:export (cwl-array-type
+            cwl-array-type?
+            cwl-array-type-subtype
 
-(define-immutable-record-type <array-type>
-  (array-type subtype)
-  array-type?
-  (subtype array-type-subtype))
+(define-immutable-record-type <cwl-array-type>
+  (cwl-array-type subtype)
+  cwl-array-type?
+  (subtype cwl-array-type-subtype))
 
 (define-immutable-record-type <union-type>
   (-union-type subtypes)

@@ -224,7 +224,7 @@ G-expressions are inserted."
            (cond
             ;; Recurse over array types.
             ;; TODO: Implement record and enum types.
-            ((array-type? matched-type)
+            ((cwl-array-type? matched-type)
              (list (command-line-binding
                     position
                     prefix
@@ -919,8 +919,8 @@ directory of the workflow."
                                 ((output-file)
                                  output-file)))
                              ;; TODO: Recurse.
-                             ((and (array-type? matched-type)
-                                   (memq (array-type-subtype matched-type)
+                             ((and (cwl-array-type? matched-type)
+                                   (memq (cwl-array-type-subtype matched-type)
                                          (list 'File 'Directory)))
                               (list->vector output-values))
                              ((eq? matched-type 'null)
