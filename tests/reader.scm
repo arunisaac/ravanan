@@ -125,7 +125,10 @@
      (canonicalize-json
       (let ((path (expand-file-name "foo" dir)))
         `(("class" . "File")
-          ("location" . ,(uri->string (build-uri 'file #:path path)))
+          ("location" . ,(uri->string (build-uri 'file
+                                                 #:host ""
+                                                 #:path path
+                                                 #:validate? #f)))
           ("path" . ,path)
           ("basename" . "foo")
           ("nameroot" . "foo")
@@ -147,7 +150,10 @@
      (canonicalize-json
       (let ((path (expand-file-name "foo" dir)))
         `(("class" . "File")
-          ("location" . ,(uri->string (build-uri 'file #:path path)))
+          ("location" . ,(uri->string (build-uri 'file
+                                                 #:host ""
+                                                 #:path path
+                                                 #:validate? #f)))
           ("path" . ,path)
           ("basename" . "foo")
           ("nameroot" . "foo")
