@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -122,25 +122,27 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 (define (evaluate-using-node expression context expression-lib)
   "This function is the same as @code{evaluate-parameter-reference-1} but uses
 the node javascript engine."
-  (define (set-variable name value)
-    (string-append name " = " (scm->json-string value) ";"))
-
-  (define preamble
-    (string-join (append expression-lib
-                         (filter-map (match-lambda
-                                       (((and (or "inputs" "self" "runtime")
-                                              name)
-                                         . value)
-                                        (set-variable name value))
-                                       (_ #f))
-                                     (or context
-                                         (list))))))
+  (define (context-value name)
+    (scm->json-string (assoc-ref context name)))
 
   (if context
       ;; Evaluate immediately.
-      (evaluate-javascript %node expression preamble)
+      (evaluate-javascript %node
+                           expression
+                           (string-append (string-join expression-lib)
+                                          "inputs = " (context-value "inputs") ";"
+                                          "self = " (context-value "self") ";"
+                                          "runtime = " (context-value "runtime") ";"))
       ;; Compile to a G-expression that evaluates expression.
-      #~(evaluate-javascript #$%worker-node #$expression #$preamble)))
+      #~(evaluate-javascript #$%worker-node
+                             #$expression
+                             ;; Context variables are only fully available at
+                             ;; runtime. So, defer their reference to the
+                             ;; G-expression.
+                             (string-append #$(string-join expression-lib)
+                                            "inputs = " (scm->json-string inputs) ";"
+                                            "self = " (scm->json-string self) ";"
+                                            "runtime = " (scm->json-string runtime) ";"))))
 
 (define (tokenize-parameter-references str)
   "Split @var{str} into tokens of parameter reference and literal strings."

@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -119,7 +119,12 @@
    (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)")))
 
 (test-equal "evaluate parameter reference with node (without context)"
-  '(evaluate-javascript (*approximate*) "(inputs.n + 1)" "")
+  '(evaluate-javascript (*approximate*)
+                        "(inputs.n + 1)"
+                        (string-append ""
+                                       "inputs = " (scm->json-string inputs) ";"
+                                       "self = " (scm->json-string self) ";"
+                                       "runtime = " (scm->json-string runtime) ";"))
   (gexp->sexp-rec
    (evaluate-parameter-reference "$(inputs.n + 1)")))
 
@@ -129,7 +134,12 @@
            (if (string? token) token (scm->json-string (canonicalize-json token))))
          (list (json-ref runtime "cores")
                "foo"
-               (evaluate-javascript (*approximate*) "(inputs.threads*2)" "")
+               (evaluate-javascript (*approximate*)
+                                    "(inputs.threads*2)"
+                                    (string-append ""
+                                                   "inputs = " (scm->json-string inputs) ";"
+                                                   "self = " (scm->json-string self) ";"
+                                                   "runtime = " (scm->json-string runtime) ";"))
                (json-ref inputs "output_filename")))
     "")
   (gexp->sexp-rec
@@ -142,7 +152,12 @@
          (list "foo"
                (json-ref inputs "vector")
                (json-ref inputs "object")
-               (evaluate-javascript (*approximate*) "(inputs.object.foo*20)" "")))
+               (evaluate-javascript (*approximate*)
+                                    "(inputs.object.foo*20)"
+                                    (string-append ""
+                                                   "inputs = " (scm->json-string inputs) ";"
+                                                   "self = " (scm->json-string self) ";"
+                                                   "runtime = " (scm->json-string runtime) ";"))))
     "")
   (gexp->sexp-rec
    (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)$(inputs.object.foo*20)")))
