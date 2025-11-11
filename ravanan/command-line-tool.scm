@@ -998,6 +998,7 @@ directory of the workflow."
                                                (copy-input-files input inputs-directory))))
                                       (json-string->scm
                                        (getenv "WORKFLOW_INPUTS"))))
+                         (self 'null)
                          (runtime `(("cores" . ,#$(cores batch-system)))))
 
                      ;; Set environment defined by workflow.
