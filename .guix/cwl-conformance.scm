@@ -35,26 +35,29 @@
         (use-modules (guix build utils)
                      (ice-9 match))
 
-        ;; Guix peeks into HOME.
-        (setenv "HOME" (getcwd))
-        ;; cwltest writes out output directories to TMPDIR, but does not clean
-        ;; up after. So, we set TMPDIR to our own temporary directory that we
-        ;; can manage easily. See pending issue on cleaning up temporary output
-        ;; directories:
-        ;; https://github.com/common-workflow-language/cwltest/issues/249
-        (mkdir "tmpdir")
-        (setenv "TMPDIR" "tmpdir")
-        (apply invoke
-               #$(file-append cwltest "/bin/cwltest")
-               "--test" #$cwltest-suite
-               "--tool" #$(file-append ravanan "/bin/ravanan")
-               "--badgedir" "badges"
-               (append '#$(match skip-tests
-                            (() '())
-                            (_ (list "-S" (string-join skip-tests ","))))
-                       (list "--"
-                             "--store=store"
-                             (string-append "--guix-manifest=" #$manifest-file)))))))
+        (match (command-line)
+          ((_ cwltest-args ...)
+           ;; Guix peeks into HOME.
+           (setenv "HOME" (getcwd))
+           ;; cwltest writes out output directories to TMPDIR, but does not
+           ;; clean up after. So, we set TMPDIR to our own temporary directory
+           ;; that we can manage easily. See pending issue on cleaning up
+           ;; temporary output directories:
+           ;; https://github.com/common-workflow-language/cwltest/issues/249
+           (mkdir "tmpdir")
+           (setenv "TMPDIR" "tmpdir")
+           (apply invoke
+                  #$(file-append cwltest "/bin/cwltest")
+                  "--test" #$cwltest-suite
+                  "--tool" #$(file-append ravanan "/bin/ravanan")
+                  "--badgedir" "badges"
+                  (append '#$(match skip-tests
+                               (() '())
+                               (_ (list "-S" (string-join skip-tests ","))))
+                          cwltest-args
+                          (list "--"
+                                "--store=store"
+                                (string-append "--guix-manifest=" #$manifest-file)))))))))
 
 (define cwl-v1.2-conformance-suite
   (let ((version "1.2.1"))
