@@ -630,44 +630,54 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
 @var{batch-system} is an object representing one of the supported batch systems.
 
 @var{guix-daemon-socket} is the Guix daemon socket to connect to."
-  (guard (c ((job-failure? c)
-             (let ((script (job-failure-script c))
-                   (inputs (job-failure-inputs c)))
-               (user-error
-                "~a failed; logs at ~a and ~a~%"
-                script
-                (step-store-stdout-file script inputs store)
-                (step-store-stderr-file script inputs store)))))
-    (let ((scheduler (workflow-scheduler store batch-system)))
+  (let* ((scheduler (workflow-scheduler store batch-system))
+         (scheduler-proc (build-workflow name
+                                         cwl
+                                         scheduler
+                                         manifest-file
+                                         channels
+                                         scratch
+                                         store
+                                         batch-system
+                                         guix-daemon-socket)))
+    ;; Check if all inputs are available and are of the right type.
+    (vector-for-each (lambda (formal-input)
+                       (let* ((id (assoc-ref formal-input "id"))
+                              (type (assoc-ref formal-input "type"))
+                              (input-value (assoc-ref inputs id)))
+                         (unless input-value
+                           (user-error "Input `~a' not provided" id))
+                         (unless (match-type input-value
+                                             (formal-parameter-type type))
+                           (user-error "Input `~a' not of type `~a'" id type))))
+                     (scheduler-proc-formal-inputs scheduler-proc))
+    (guard (c ((job-failure? c)
+               (let ((script (job-failure-script c))
+                     (inputs (job-failure-inputs c)))
+                 (user-error
+                  "~a failed; logs at ~a and ~a~%"
+                  script
+                  (step-store-stdout-file script inputs store)
+                  (step-store-stderr-file script inputs store)))))
       (run-with-state
-       (let loop ((mstate ((scheduler-schedule scheduler)
-                           (build-workflow name
-                                           cwl
-                                           scheduler
-                                           manifest-file
-                                           channels
-                                           scratch
-                                           store
-                                           batch-system
-                                           guix-daemon-socket)
-                           inputs
-                           scheduler)))
-         ;; Poll.
-         (state-let* ((state mstate)
-                      (state+status ((scheduler-poll scheduler) state)))
-           (if (eq? (state+status-status state+status)
-                    'pending)
-               (begin
-                 ;; Pause before looping and polling again so we don't bother the
-                 ;; job server too often.
-                 (sleep (cond
-                         ;; Single machine jobs are run synchronously. So, there
-                         ;; is no need to wait to poll them.
-                         ((eq? batch-system 'single-machine)
-                          0)
-                         ((slurm-api-batch-system? batch-system)
-                          %job-poll-interval)))
-                 (loop (state-return (state+status-state state+status))))
-               ;; Capture outputs.
-               ((scheduler-capture-output scheduler)
-                (state+status-state state+status)))))))))
+        (let loop ((mstate ((scheduler-schedule scheduler)
+                            scheduler-proc inputs scheduler)))
+          ;; Poll.
+          (state-let* ((state mstate)
+                       (state+status ((scheduler-poll scheduler) state)))
+            (if (eq? (state+status-status state+status)
+                     'pending)
+                (begin
+                  ;; Pause before looping and polling again so we don't bother the
+                  ;; job server too often.
+                  (sleep (cond
+                          ;; Single machine jobs are run synchronously. So, there
+                          ;; is no need to wait to poll them.
+                          ((eq? batch-system 'single-machine)
+                           0)
+                          ((slurm-api-batch-system? batch-system)
+                           %job-poll-interval)))
+                  (loop (state-return (state+status-state state+status))))
+                ;; Capture outputs.
+                ((scheduler-capture-output scheduler)
+                 (state+status-state state+status)))))))))
