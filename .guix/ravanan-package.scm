@@ -37,6 +37,7 @@
                                     ;; nuisance when hacking on the CWL
                                     ;; conformance test scripts.
                                     (and (not (string-contains file "/.guix/"))
+                                         (not (string-contains file "/e2e-tests/"))
                                          ((or (git-predicate (dirname (current-source-directory)))
                                               (const #t))
                                           file stat)))))))
