@@ -23,6 +23,7 @@ GIT ?= git
 GPG ?= gpg
 GUILD ?= guild
 GUILE ?= guile
+GUILE_RUN64 ?= guile-run64
 LZIP ?= lzip
 NODE ?= node
 SED ?= sed
@@ -62,9 +63,7 @@ all: $(objects) $(config_file)
 	GUILE_AUTO_COMPILE=0 $(GUILD) compile -L . -o $@ $<
 
 check:
-	for test in $(tests); do \
-		$(GUILE) --no-auto-compile -L . $$test; \
-	done
+	./pre-inst-env $(GUILE_RUN64) $(tests)
 
 install: $(sources) $(config_file) $(objects) $(scripts)
 	install -D $(scripts) --target-directory $(bindir)
