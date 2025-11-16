@@ -69,43 +69,50 @@ the experimental tree patterns.")
     (license (package-license chibi-scheme))))
 
 (define-public run64
-  (package
-    (name "run64")
-    (version "0.1.0")
-    (source (local-file "/home/arun/Projects/run64"
-                        "run64-checkout"
-                        #:recursive? #t
-                        #:select? (git-predicate "/home/arun/Projects/run64")))
-    (build-system gnu-build-system)
-    (arguments
-     (list #:make-flags #~(list (string-append "prefix=" #$output))
-           #:modules `(((guix build guile-build-system)
-                        #:select (target-guile-effective-version))
-                       ,@%default-gnu-imported-modules)
-           #:phases
-           (with-imported-modules `((guix build guile-build-system)
-                                    ,@%default-gnu-imported-modules)
-             #~(modify-phases %standard-phases
-                 (delete 'configure)
-                 (add-after 'install 'wrap
-                   (lambda* (#:key inputs outputs #:allow-other-keys)
-                     (let ((out (assoc-ref outputs "out"))
-                           (effective-version (target-guile-effective-version)))
-                       (wrap-program (string-append out "/bin/guile-run64")
-                         `("GUILE_LOAD_PATH" prefix
-                           (,(string-append out "/share/guile/site/" effective-version)
-                            ,(getenv "GUILE_LOAD_PATH")))
-                         `("GUILE_LOAD_COMPILED_PATH" prefix
-                           (,(string-append out "/lib/guile/"
-                                            effective-version "/site-ccache")
-                            ,(getenv "GUILE_LOAD_COMPILED_PATH")))))))))))
-    (inputs
-     (list guile-3.0
-           guile-chibi-match))
-    (home-page "https://run64.systemreboot.net")
-    (synopsis "SRFI-64 test runner for Scheme")
-    (description "run64 is a SRFI-64 test runner for Scheme.")
-    (license license:gpl3+)))
+  (let ((commit "79976781fd609409cd5ac543b3ecfa4d2531dd6a")
+        (revision "0"))
+    (package
+      (name "run64")
+      (version (git-version "0.1.0" revision commit))
+      (source (origin
+                (method git-fetch)
+                (uri (git-reference
+                       (url "https://git.systemreboot.net/run64")
+                       (commit commit)))
+                (file-name (git-file-name name version))
+                (sha256
+                 (base32
+                  "1fxz5463hv609hqmqn3rph3z9fd4viqxfxxx2js1y75zqqyb1ab9"))))
+      (build-system gnu-build-system)
+      (arguments
+       (list #:make-flags #~(list (string-append "prefix=" #$output))
+             #:modules `(((guix build guile-build-system)
+                          #:select (target-guile-effective-version))
+                         ,@%default-gnu-imported-modules)
+             #:phases
+             (with-imported-modules `((guix build guile-build-system)
+                                      ,@%default-gnu-imported-modules)
+               #~(modify-phases %standard-phases
+                   (delete 'configure)
+                   (add-after 'install 'wrap
+                     (lambda* (#:key inputs outputs #:allow-other-keys)
+                       (let ((out (assoc-ref outputs "out"))
+                             (effective-version (target-guile-effective-version)))
+                         (wrap-program (string-append out "/bin/guile-run64")
+                           `("GUILE_LOAD_PATH" prefix
+                             (,(string-append out "/share/guile/site/" effective-version)
+                              ,(getenv "GUILE_LOAD_PATH")))
+                           `("GUILE_LOAD_COMPILED_PATH" prefix
+                             (,(string-append out "/lib/guile/"
+                                              effective-version "/site-ccache")
+                              ,(getenv "GUILE_LOAD_COMPILED_PATH")))))))))))
+      (inputs
+       (list guile-3.0
+             guile-chibi-match))
+      (home-page "https://run64.systemreboot.net")
+      (synopsis "SRFI-64 test runner for Scheme")
+      (description "run64 is a SRFI-64 test runner for Scheme.")
+      (license license:gpl3+))))
 
 (define-public ravanan
   (package
