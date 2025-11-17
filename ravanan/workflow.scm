@@ -195,6 +195,7 @@ scripts using @var{guix-store}.
 @var{manifest-file}, @var{scratch}, @var{store} and @var{batch-system} are the
 same as in @code{run-workflow}. @var{inferior} is the same as in
 @code{build-command-line-tool-script} from @code{(ravanan command-line-tool)}."
+  ;; TODO: Statically validate workflow before/while building it.
   (scheduler-proc name
                   (let ((class (assoc-ref* cwl "class")))
                     (cond
