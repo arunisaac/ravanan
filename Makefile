@@ -19,14 +19,14 @@
 project = ravanan
 version = 0.1.0
 
-GIT ?= git
-GPG ?= gpg
-GUILD ?= guild
-GUILE ?= guile
-GUILE_RUN64 ?= guile-run64
-LZIP ?= lzip
-NODE ?= node
-SED ?= sed
+GIT = git
+GPG = gpg
+GUILD = guild
+GUILE = guile
+GUILE_RUN64 = guile-run64
+LZIP = lzip
+NODE = node
+SED = sed
 
 prefix ?= /usr/local
 bindir ?= $(prefix)/bin
