@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2025 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -23,19 +23,30 @@
 
 (test-equal "Trigger propagator with no inputs"
   '((out . #t))
-  (run-propnet (propnet (list (propagator "const"
-                                          (const '((out . #t)))
-                                          '()
-                                          '()
-                                          '((out . out))))
-                        (@@ (ravanan workflow) value=?)
-                        (@@ (ravanan workflow) merge-values)
-                        (scheduler (lambda (proc _)
-                                     proc)
-                                   (const 'completed)
-                                   0
-                                   (lambda (proc)
-                                     (proc))))
-               '()))
+  (run-with-state
+    (let loop ((mstate (schedule-propnet
+                        (propnet (list (propagator "const"
+                                                   (const '((out . #t)))
+                                                   '()
+                                                   '()
+                                                   '((out . out))))
+                                 (@@ (ravanan workflow) value=?)
+                                 (@@ (ravanan workflow) merge-values)
+                                 (scheduler (lambda (proc inputs scheduler)
+                                              (state-return proc))
+                                            (lambda (state)
+                                              (state-return (state+status state
+                                                                          'completed)))
+                                            (lambda (proc)
+                                              (state-return (proc)))))
+                        '())))
+      ;; Poll.
+      (state-let* ((state mstate)
+                   (state+status (poll-propnet state)))
+        (if (eq? (state+status-status state+status)
+                 'pending)
+            (loop (state-return (state+status-state state+status)))
+            ;; Capture outputs.
+            (capture-propnet-output (state+status-state state+status)))))))
 
 (test-end "propnet")
