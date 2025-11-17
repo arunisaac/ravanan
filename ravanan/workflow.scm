@@ -447,7 +447,7 @@ is the class of the workflow."
                              formal-outputs))
 
   (define (capture-output state)
-    "Return output of completed job @var{state}."
+    "Return output of completed job @var{state} as a state-monadic value."
     (cond
      ((workflow-state? state)
       (state-let* ((outputs (capture-propnet-output
