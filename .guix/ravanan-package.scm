@@ -18,38 +18,13 @@
 
 (define-module (ravanan-package)
   #:use-module ((gnu packages bioinformatics) #:select (ravanan) #:prefix guix:)
+  #:use-module ((gnu packages guile-xyz) #:select (guile-run64))
   #:use-module (guix build-system gnu)
   #:use-module (guix gexp)
   #:use-module (guix git-download)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages)
   #:use-module (guix utils))
-
-(define-public guile-run64
-  (let ((commit "5b2bc2d146e7b58f15e1bc653291b71d8376b763")
-        (revision "1"))
-    (package
-      (name "run64")
-      (version (git-version "0.1.0" revision commit))
-      (source (origin
-                (method git-fetch)
-                (uri (git-reference
-                       (url "https://git.systemreboot.net/run64")
-                       (commit commit)))
-                (file-name (git-file-name name version))
-                (sha256
-                 (base32
-                  "0wim4vxqzvwdvmdgx5q7ws03qqj392dh8hcph4yxxkqijnabqgvw"))))
-      (build-system gnu-build-system)
-      (arguments
-       (list #:make-flags #~(list (string-append "prefix=" #$output))
-             #:phases
-             #~(modify-phases %standard-phases
-                 (delete 'configure))))
-      (home-page "https://run64.systemreboot.net")
-      (synopsis "SRFI-64 test runner for Scheme")
-      (description "run64 is a SRFI-64 test runner for Scheme.")
-      (license license:gpl3+))))
 
 (define-public ravanan
   (package
