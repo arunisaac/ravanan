@@ -321,8 +321,8 @@ the built script as a monadic value."
         ;; been run successfully.
         (state-return
          (begin
-           (log-info "~a previously run; retrieving result from store"
-                     script)
+           (log-debug "~a previously run; retrieving result from store"
+                      script)
            (single-machine-job-state script inputs #t)))
         ;; Run script if it has not already been run.
         (begin

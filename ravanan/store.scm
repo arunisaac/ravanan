@@ -147,8 +147,8 @@ interned path and location."
                                        (basename path))
                       store)))
                 (if (file-exists? interned-path)
-                    (log-info "~a previously interned into store as ~a~%"
-                              path interned-path)
+                    (log-debug "~a previously interned into store as ~a~%"
+                               path interned-path)
                     (begin
                       (log-info "Interning ~a into store as ~a~%"
                                 path interned-path)
