@@ -225,7 +225,7 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                               (slurm-api-endpoint . ,(build-uri 'http
                                                                 #:host "localhost"
                                                                 #:port 6820))
-                              (log-level . warning)
+                              (log-level . info)
                               (traces . ())))))
        (parameterize ((%log-level (and (not (assq-ref args 'quiet))
                                        (assq-ref args 'log-level)))
