@@ -43,6 +43,7 @@
 
 Download release tarballs.
 
+- 2025-11-24 [ravanan-0.2.0.tar.lz](releases/ravanan-0.2.0.tar.lz) [GPG Signature](releases/ravanan-0.2.0.tar.lz.asc)
 - 2025-01-28 [ravanan-0.1.0.tar.lz](releases/ravanan-0.1.0.tar.lz) [GPG Signature](releases/ravanan-0.1.0.tar.lz.asc)
 
 Download [public signing key](https://systemreboot.net/about/arunisaac.pub).
