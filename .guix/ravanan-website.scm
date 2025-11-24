@@ -36,7 +36,7 @@
                 "--css=style.css"
                 "--from=gfm"
                 (string-append "--output=" #$output)
-                #$(file-append #$(package-source ravanan)
+                #$(file-append (package-source ravanan)
                                "/README.md")))))
 
 (define-public ravanan-website
