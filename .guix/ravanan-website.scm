@@ -30,6 +30,26 @@
     #~(begin
         (use-modules (guix build utils))
 
+        (copy-file #$(file-append (package-source ravanan)
+                                  "/README.md")
+                   "README.md")
+        ;; Add Download section.
+        (substitute* "README.md"
+          (("^- \\[Building from source\\]\\(#building-from-source\\)" all)
+           (string-append "- [Download](#download)\n"
+                          all))
+          (("^# Building from source" all)
+           (string-append "# Download
+
+Download release tarballs.
+
+- 2025-01-28 [ravanan-0.1.0.tar.lz](releases/ravanan-0.1.0.tar.lz) [GPG Signature](releases/ravanan-0.1.0.tar.lz.asc)
+
+Download [public signing key](https://systemreboot.net/about/arunisaac.pub).
+
+Browse the development version on [cgit](https://git.systemreboot.net/ravanan) or on [GitHub](https://github.com/arunisaac/ravanan/).
+"
+                          all)))
         (invoke #$(file-append pandoc "/bin/pandoc")
                 "--standalone"
                 "--metadata" "title=ravanan"
@@ -37,8 +57,7 @@
                 "--css=style.css"
                 "--from=gfm"
                 (string-append "--output=" #$output)
-                #$(file-append (package-source ravanan)
-                               "/README.md")))))
+                "README.md"))))
 
 (define-public ravanan-website
   (file-union "ravanan-website"
