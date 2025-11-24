@@ -84,7 +84,7 @@
 - id: inline-javascript-requirement
   doc: Run javascript for InlineJavascriptRequirement
   tool: tools/inline-javascript-requirement.cwl
-  job: jobs/inline-javascript-requirement.json
+  job: jobs/inline-javascript-requirement.yaml
   output:
     sum:
       class: File
@@ -102,7 +102,7 @@
 - id: prefix-arguments
   doc: Command with prefix arguments
   tool: tools/prefix-arguments.cwl
-  job: jobs/prefix-arguments.json
+  job: jobs/prefix-arguments.yaml
   output:
     sequence:
       class: File
