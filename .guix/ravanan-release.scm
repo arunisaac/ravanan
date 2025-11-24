@@ -20,32 +20,7 @@
   #:use-module ((gnu packages base) #:select (gnu-make))
   #:use-module ((gnu packages compression) #:select (lzip))
   #:use-module ((gnu packages version-control) #:select (git-minimal))
-  #:use-module (guix gexp)
-  #:use-module (ice-9 match)
-  #:use-module (ice-9 popen)
-  #:use-module (srfi srfi-26)
-  #:use-module (rnrs io ports))
-
-(define (call-with-input-pipe command proc)
-  "Call @var{proc} with input pipe to @var{command}. @var{command} is a list of
-program arguments."
-  (match command
-    ((prog args ...)
-     (let ((port #f))
-       (dynamic-wind
-         (lambda ()
-           (set! port (apply open-pipe* OPEN_READ prog args)))
-         (cut proc port)
-         (cut close-pipe port))))))
-
-(define version
-  (call-with-input-pipe (list "git" "tag" "--sort=-taggerdate" "--list" "v*")
-    (lambda (port)
-      (let ((line (get-line port)))
-        (if (eof-object? line)
-            ;; If there are no tags, assume first version.
-            "0.1.0"
-            (substring line (string-length "v")))))))
+  #:use-module (guix gexp))
 
 (define ravanan-git-repo
   (local-file "../.git"
@@ -55,17 +30,39 @@ program arguments."
 (define ravanan-release-gexp
   (with-imported-modules '((guix build utils))
     #~(begin
-        (use-modules (guix build utils))
+        (use-modules (guix build utils)
+                     (ice-9 match)
+                     (ice-9 popen)
+                     (srfi srfi-26)
+                     (rnrs io ports))
+
+        (define (call-with-input-pipe command proc)
+          "Call @var{proc} with input pipe to @var{command}. @var{command} is a list of
+program arguments."
+          (match command
+            ((prog args ...)
+             (let ((port #f))
+               (dynamic-wind
+                 (lambda ()
+                   (set! port (apply open-pipe* OPEN_READ prog args)))
+                 (cut proc port)
+                 (cut close-pipe port))))))
+
+        (define (git-version)
+          (call-with-input-pipe (list "git" "tag" "--sort=-taggerdate" "--list" "v*")
+            (compose (cut substring <> (string-length "v"))
+                     get-line)))
 
         (set-path-environment-variable
          "PATH" '("bin") '(#$git-minimal #$gnu-make #$lzip))
         (invoke "git" "clone" (string-append "file://" #$ravanan-git-repo) (getcwd))
-        (invoke "make" "dist" #$(string-append "version=" version))
-        (copy-file #$(string-append "ravanan-" version ".tar.lz")
-                   #$output))))
+        (let ((version (git-version)))
+          (invoke "make" "dist" (string-append "version=" version))
+          (copy-file (string-append "ravanan-" version ".tar.lz")
+                     #$output)))))
 
 (define ravanan-release
-  (computed-file (string-append "ravanan-" version ".tar.lz")
+  (computed-file "ravanan.tar.lz"
                  ravanan-release-gexp))
 
 ravanan-release
