@@ -17,7 +17,7 @@
 # along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 project = ravanan
-version = 0.1.0
+version = 0.2.0
 
 GIT = git
 GPG = gpg
