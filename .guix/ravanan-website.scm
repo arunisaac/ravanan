@@ -21,6 +21,7 @@
   #:use-module ((gnu packages haskell-xyz) #:select (pandoc))
   #:use-module (guix gexp)
   #:use-module (guix git-download)
+  #:use-module (guix packages)
   #:use-module (guix utils)
   #:use-module ((ravanan-package) #:select (ravanan)))
 
