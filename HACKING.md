@@ -16,6 +16,7 @@ Then, build and run the tests.
 ```
 $(guix build -L ../.guix -f ../.guix/e2e-tests.scm)
 ```
+Since ravanan depends on guix, and that guix may be too old, you may need to run this command outside the usual development environment.
 
 ## Run specific end-to-end test
 
@@ -39,3 +40,4 @@ To run a specific test alone (say, the `wf_simple` test):
 ```
 $(guix build -L ../.guix -f ../.guix/cwl-conformance.scm) -s wf_simple
 ```
+Since ravanan depends on guix, and that guix may be too old, you may need to run these commands outside the usual development environment.
