@@ -41,3 +41,20 @@ To run a specific test alone (say, the `wf_simple` test):
 $(guix build -L ../.guix -f ../.guix/cwl-conformance.scm) -s wf_simple
 ```
 Since ravanan depends on guix, and that guix may be too old, you may need to run these commands outside the usual development environment.
+
+# Make a release
+## Bump version
+Bump the `version` variable in `Makefile`.
+## Tag a release
+Tag a release `vx.x.x` putting news into the tag message.
+## Create a release tarball, test it, and sign it
+```
+cp $(guix build -f .guix/ravanan-release.scm) ravanan-x.x.x.tar.lz
+guix build --with-source=ravanan=ravanan-x.x.x.tar.lz -f .guix/ravanan-package.scm
+make distsign
+```
+## Publish release tarball
+Add release tarball and signature to website and GitHub.
+## Update Guix package
+## Publicize
+Publicize on the ravanan@systemreboot.net and guix-science@gnu.org mailing lists, and on the [CWL Discourse forum](https://cwl.discourse.group/).
