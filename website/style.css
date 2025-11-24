@@ -1,0 +1,48 @@
+@font-face {
+    font-family: 'Charter';
+    src: url('/fonts/charter_regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Fira Code';
+    src: url('/fonts/FiraCode-Regular.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'Fira Code';
+    src: url('/fonts/FiraCode-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+}
+
+body {
+    margin: 40px auto;
+    max-width: 900px;
+    line-height: 1.6;
+    font-family: 'Charter';
+    font-size: 20px;
+    padding: 0 10px;
+}
+
+pre, code, samp {
+    font-family: 'Fira Code';
+}
+
+pre {
+    background-color: #f0f0f0;
+    padding: 1em;
+    font-size: 0.9em;
+}
+
+code, samp {
+    font-size: 0.8em;
+    font-weight: 600;
+}
+
+img {
+    max-width: 100%;
+}
