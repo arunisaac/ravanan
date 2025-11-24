@@ -44,8 +44,9 @@ sources = $(filter-out $(config_file), \
 objects = $(sources:.scm=.go) $(config_file:.scm=.go)
 scripts = $(wildcard bin/*)
 tests = $(wildcard tests/*.scm) $(wildcard tests/work/*.scm)
+test_data = $(wildcard test-data/*)
 distribute_files = $(sources) $(config_file_template) $(scripts) \
-                   $(tests) pre-inst-env guix.scm \
+                   $(tests) $(test_data) pre-inst-env guix.scm \
                    .guix/ravanan-package.scm Makefile \
                    COPYING README.md
 

@@ -24,6 +24,7 @@ exec guile --no-auto-compile -e main -s "$0" "$@"
              (rnrs io ports)
              (srfi srfi-26)
              (srfi srfi-37)
+             (srfi srfi-71)
              (ice-9 filesystem)
              (ice-9 match)
              (web uri)
@@ -259,6 +260,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                    (store (if (file-name-absolute? (assq-ref args 'store))
                               (assq-ref args 'store)
                               (canonicalize-path (assq-ref args 'store))))
+                   (workflow inputs (read-workflow+inputs workflow-file
+                                                          inputs-file))
                    (outputs (guard (c ((manifest-file-error? c)
                                        ;; Steps may provide their own
                                        ;; SoftwareRequirement. So, at this
@@ -288,8 +291,8 @@ files that have the token in the @verbatim{SLURM_JWT=token} format."
                                                    (assq-ref args 'guix-channels-file))
                                                   #:modules '((guile)
                                                               (guix channels))))
-                                            (read-workflow workflow-file)
-                                            (read-inputs inputs-file)
+                                            workflow
+                                            inputs
                                             (case (assq-ref args 'batch-system)
                                               ((single-machine)
                                                (or (assq-ref args 'scratch)

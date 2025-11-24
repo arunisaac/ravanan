@@ -16,7 +16,8 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
-(use-modules (srfi srfi-64)
+(use-modules (srfi srfi-26)
+             (srfi srfi-64)
              (ice-9 filesystem)
              (ice-9 match)
              (web uri)
@@ -216,5 +217,18 @@
             (const #t))
           (normalize-input '(("class" . "File")
                              ("path" . "foo")))))))))
+
+(test-equal "Read YAML inputs file with type ambiguities"
+  '(("number" . 13)
+    ("flag" . #t)
+    ("reverseflag" . #f)
+    ("foo" . "bar")
+    ("arr" . #(1 2 3)))
+  (call-with-values
+      (cut read-workflow+inputs
+           "test-data/workflow-for-inputs-with-type-ambiguities.cwl"
+           "test-data/inputs-with-type-ambiguities.yaml")
+    (lambda (workflow inputs)
+      inputs)))
 
 (test-end "reader")

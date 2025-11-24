@@ -31,8 +31,7 @@
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
   #:use-module (ravanan work vectors)
-  #:export (read-workflow
-            read-inputs
+  #:export (read-workflow+inputs
             coerce-type))
 
 (define-condition-type &type-coercion-violation &violation
@@ -300,8 +299,10 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
     (canonicalize-file-value input))
    (else input)))
 
-(define (read-inputs inputs-file)
-  "Read @var{inputs-file} resolving file paths if any."
+(define (read-inputs inputs-file types)
+  "Read @var{inputs-file} resolving file paths if any. If @var{inputs-file} is an
+YAML file, coerce inputs to @var{types}. @var{types} is an association list
+mapping input identifiers to CWL types."
   (guard (c ((and (who-condition? c)
                   (memq (condition-who c)
                         '(read-json-file read-yaml-file))
@@ -327,7 +328,24 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                (if (string=? (file-name-extension inputs-path)
                              ".json")
                    (read-json-file (basename inputs-path))
-                   (read-yaml-file (basename inputs-path)))))))))
+                   (map (match-lambda
+                          ((input-id . input)
+                           (cons input-id
+                                 (cond
+                                  ((assoc-ref types input-id)
+                                   => (cut coerce-type input <>))
+                                  (else input)))))
+                        (read-yaml-file (basename inputs-path))))))))))
+
+(define (read-workflow+inputs workflow-file inputs-file)
+  (let ((workflow-cwl (read-workflow workflow-file)))
+    (values workflow-cwl
+            (read-inputs inputs-file
+                         (vector-map->list (lambda (formal-input)
+                                             (cons (assoc-ref formal-input "id")
+                                                   (formal-parameter-type
+                                                    (assoc-ref formal-input "type"))))
+                                           (assoc-ref workflow-cwl "inputs"))))))
 
 (define (coerce-type val type)
   "Coerce @var{val} to CWL @var{type}."
