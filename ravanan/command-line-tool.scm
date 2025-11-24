@@ -307,7 +307,7 @@ the built script as a monadic value."
                            (compose just
                                     inexact->exact
                                     ceiling
-                                    (cut coerce-type <> 'number)
+                                    (cut coerce-type <> 'int)
                                     (cut coerce-expression
                                          <>
                                          `(("inputs" . ,inputs)))))

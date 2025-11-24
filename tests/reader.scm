@@ -22,6 +22,7 @@
              (web uri)
              (ravanan reader)
              (ravanan work command-line-tool)
+             (ravanan work types)
              (ravanan work utils))
 
 (define normalize-formal-input
@@ -35,9 +36,55 @@
 
 (test-begin "reader")
 
-(test-equal "Coerce number to number"
+(test-equal "Coerce to boolean (true)"
+  #t
+  (coerce-type "true" 'boolean))
+
+(test-equal "Coerce to boolean (false)"
+  #f
+  (coerce-type "false" 'boolean))
+
+(test-equal "Coerce to int"
   37
-  (coerce-type 37 'number))
+  (coerce-type "37" 'int))
+
+(test-equal "Coerce to float"
+  37.1
+  (coerce-type "37.1" 'float))
+
+(test-equal "Coerce to double"
+  37.1
+  (coerce-type "37.1" 'double))
+
+(test-equal "Coerce to string"
+  "37"
+  (coerce-type "37" 'string))
+
+(test-equal "Coerce to File"
+  '(("class" . "File")
+    ("location" . "foo"))
+  (coerce-type '(("class" . "File")
+                 ("location" . "foo"))
+               'File))
+
+(test-equal "Coerce to array"
+  #(1 2 3)
+  (coerce-type #("1" "2" "3")
+               (cwl-array-type 'int)))
+
+(test-equal "Coerce to union type (int first)"
+  37
+  (coerce-type "37"
+               (cwl-union-type 'int 'string)))
+
+(test-equal "Coerce to union type (string first)"
+  "37"
+  (coerce-type "37"
+               (cwl-union-type 'string 'int)))
+
+(test-equal "Coerce int to int"
+  37
+  (coerce-type 37 'int))
 
 (test-equal "Normalize File type formal input"
   (canonicalize-json '(("type" . "File")

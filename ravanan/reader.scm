@@ -35,6 +35,11 @@
             read-inputs
             coerce-type))
 
+(define-condition-type &type-coercion-violation &violation
+  type-coercion-violation type-coercion-violation?
+  (value type-coercion-violation-value)
+  (type type-coercion-violation-type))
+
 (define (preprocess-include tree)
   (cond
    ;; Arrays
@@ -325,19 +330,44 @@ array of array of @code{File}s, etc. Else, return @code{#f}"
                    (read-yaml-file (basename inputs-path)))))))))
 
 (define (coerce-type val type)
-  "Coerce @var{val} to @var{type}."
+  "Coerce @var{val} to CWL @var{type}."
   ;; This function exists to handle YAML's type ambiguities.
   (case type
     ((boolean)
      (cond
       ((member val (list "true" "yes")) #t)
       ((member val (list "false" "no")) #f)
-      (else (error "Unable to coerce value to type" val type))))
-    ((number)
-     (if (number? val)
+      (else (raise-exception (type-coercion-violation val type)))))
+    ((int float double)
+     (cond
+      ((number? val) val)
+      ((string? val) (string->number val))
+      (else (raise-exception (type-coercion-violation val type)))))
+    ((string)
+     (if (string? val)
          val
-         (string->number val)))
-    (else val)))
+         (raise-exception (type-coercion-violation val type))))
+    ((File)
+     (if (and (list? val)
+              (string=? (assoc-ref val "class")
+                        "File"))
+         val
+         (raise-exception (type-coercion-violation val type))))
+    (else
+     (cond
+      ((cwl-array-type? type)
+       (vector-map (cut coerce-type <> (cwl-array-type-subtype type))
+                   val))
+      ((cwl-union-type? type)
+       (match (cwl-union-type-subtypes type)
+         (()
+          (raise-exception (type-coercion-violation val type)))
+         ((head-subtype tail-subtypes ...)
+          (guard (c ((type-coercion-violation? c)
+                     (coerce-type val (cwl-union-type tail-subtypes))))
+            (coerce-type val head-subtype)))))
+      (else
+       (error "Invalid type to coerce to" type))))))
 
 (define (read-json-file file)
   "Read JSON @var{file} and return scheme tree."
