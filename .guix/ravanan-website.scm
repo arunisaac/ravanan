@@ -33,8 +33,8 @@
         (copy-file #$(file-append (package-source ravanan)
                                   "/README.md")
                    "README.md")
-        ;; Add Download section.
         (substitute* "README.md"
+          ;; Add Download section.
           (("^- \\[Building from source\\]\\(#building-from-source\\)" all)
            (string-append "- [Download](#download)\n"
                           all))
@@ -50,7 +50,10 @@ Download [public signing key](https://systemreboot.net/about/arunisaac.pub).
 
 Browse the development version on [cgit](https://git.systemreboot.net/ravanan) or on [GitHub](https://github.com/arunisaac/ravanan/).
 "
-                          all)))
+                          all))
+          ;; Link to LICENSE web page.
+          (("\\[license details\\]\\(images/LICENSE.md\\)")
+           "[license details](images/LICENSE)"))
         (invoke #$(file-append pandoc "/bin/pandoc")
                 "--standalone"
                 "--metadata" "title=ravanan"
@@ -60,6 +63,21 @@ Browse the development version on [cgit](https://git.systemreboot.net/ravanan) o
                 (string-append "--output=" #$output)
                 "README.md"))))
 
+(define images-license-gexp
+  (with-imported-modules '((guix build utils))
+    #~(begin
+        (use-modules (guix build utils))
+
+        (invoke #$(file-append pandoc "/bin/pandoc")
+                "--standalone"
+                "--metadata" "title=License"
+                "--metadata" "document-css=false"
+                "--css=style.css"
+                "--from=gfm"
+                (string-append "--output=" #$output)
+                #$(file-append (package-source ravanan)
+                               "/images/LICENSE.md")))))
+
 (define-public ravanan-website
   (file-union "ravanan-website"
               `(("index.html"
@@ -67,6 +85,9 @@ Browse the development version on [cgit](https://git.systemreboot.net/ravanan) o
                                  ravanan-website-home-page-gexp))
                 ("images/ravanan-king-of-lanka.jpg"
                  ,(local-file "../images/ravanan-king-of-lanka.jpg"))
+                ("images/LICENSE.html"
+                 ,(computed-file "images-license.html"
+                                 images-license-gexp))
                 ("style.css" ,(local-file "../website/style.css"))
                 ("releases" ,(local-file "../releases"
                                          #:recursive? #t))
