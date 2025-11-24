@@ -68,6 +68,8 @@ Browse the development version on [cgit](https://git.systemreboot.net/ravanan) o
                 ("images/ravanan-king-of-lanka.jpg"
                  ,(local-file "../images/ravanan-king-of-lanka.jpg"))
                 ("style.css" ,(local-file "../website/style.css"))
+                ("releases" ,(local-file "../releases"
+                                         #:recursive? #t))
                 ("fonts/charter_regular.woff2"
                  ,(file-append font-charter
                                "/share/fonts/web/charter_regular.woff2"))
