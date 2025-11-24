@@ -1,6 +1,6 @@
 (define extract
   (command #:inputs (archive #:type File)
-           #:run "tar" "--extract" "--file" archive
+           #:run "tar" "--no-same-owner" "--extract" "--file" archive
            #:outputs (extracted_file
                       #:type File
                       #:binding ((glob . "hello.txt")))))
