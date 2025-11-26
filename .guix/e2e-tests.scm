@@ -22,69 +22,45 @@
   #:use-module (guix gexp)
   #:use-module (ice-9 match))
 
-(define (ccwl-compile source-file)
-  #~(begin
-      (use-modules (rnrs io ports)
-                   (srfi srfi-26)
-                   (ice-9 match)
-                   (ice-9 popen))
+(define (e2e-tools-gexp sources-directory)
+  (with-imported-modules '((guix build utils))
+    #~(begin
+        (use-modules (rnrs io ports)
+                     (srfi srfi-26)
+                     (ice-9 match)
+                     (ice-9 popen)
+                     (guix build utils))
 
-      (define (call-with-input-pipe command proc)
-        (match command
-          ((prog args ...)
-           (let ((port #f))
-             (dynamic-wind
-               (lambda ()
-                 (set! port (apply open-pipe* OPEN_READ prog args)))
-               (cut proc port)
-               (lambda ()
-                 (unless (zero? (close-pipe port))
-                   (error "Command invocation failed" command))))))))
+        (define (call-with-input-pipe command proc)
+          (match command
+            ((prog args ...)
+             (let ((port #f))
+               (dynamic-wind
+                 (lambda ()
+                   (set! port (apply open-pipe* OPEN_READ prog args)))
+                 (cut proc port)
+                 (lambda ()
+                   (unless (zero? (close-pipe port))
+                     (error "Command invocation failed" command))))))))
 
-      (call-with-output-file #$output
-        (cut display
-             (call-with-input-pipe '(#$(file-append ccwl "/bin/ccwl")
-                                     "compile"
-                                     #$source-file)
-               get-string-all)
-             <>))))
-
-(define e2e-tools-ccwl-sources
-  `(("capture-output-file.scm"
-     . ,(local-file "../e2e-tests/tools/capture-output-file.scm"))
-    ("capture-output-file-with-parameter-reference.scm"
-     . ,(local-file "../e2e-tests/tools/capture-output-file-with-parameter-reference.scm"))
-    ("capture-stdout"
-     . ,(local-file "../e2e-tests/tools/capture-stdout.scm"))
-    ("checksum"
-     . ,(local-file "../e2e-tests/tools/checksum.scm"))
-    ("decompress-compile-run"
-     . ,(local-file "../e2e-tests/tools/decompress-compile-run.scm"))
-    ("inline-javascript-requirement"
-     . ,(local-file "../e2e-tests/tools/inline-javascript-requirement.scm"))
-    ("hello-world.scm"
-     . ,(local-file "../e2e-tests/tools/hello-world.scm"))
-    ("pass-stdin"
-     . ,(local-file "../e2e-tests/tools/pass-stdin.scm"))
-    ("prefix-arguments"
-     . ,(local-file "../e2e-tests/tools/prefix-arguments.scm"))
-    ("scatter"
-     . ,(local-file "../e2e-tests/tools/scatter.scm"))
-    ("spell-check"
-     . ,(local-file "../e2e-tests/tools/spell-check.scm"))
-    ("staging-input-files"
-     . ,(local-file "../e2e-tests/tools/staging-input-files.scm"))))
+        (mkdir #$output)
+        (for-each (lambda (source-file)
+                    (call-with-output-file (string-append #$output
+                                                          "/"
+                                                          (basename source-file ".scm")
+                                                          ".cwl")
+                      (cut display
+                           (call-with-input-pipe (list #$(file-append ccwl "/bin/ccwl")
+                                                       "compile"
+                                                       source-file)
+                             get-string-all)
+                           <>)))
+                  (find-files #$sources-directory "\\.scm$")))))
 
 (define e2e-tools
-  (file-union "e2e-tools"
-              (map (match-lambda
-                     ((ccwl-source-filename . ccwl-source-file)
-                      (let ((cwl-filename (string-append (basename ccwl-source-filename ".scm")
-                                                         ".cwl")))
-                        (list cwl-filename
-                              (computed-file cwl-filename
-                                             (ccwl-compile ccwl-source-file))))))
-                   e2e-tools-ccwl-sources)))
+  (computed-file "e2e-tools"
+                 (e2e-tools-gexp (local-file "../e2e-tests/tools"
+                                             #:recursive? #t))))
 
 (define e2e-test-suite
   (file-union "e2e-test-suite"
