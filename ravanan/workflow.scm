@@ -645,7 +645,10 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
     (vector-for-each (lambda (formal-input)
                        (let* ((id (assoc-ref formal-input "id"))
                               (type (assoc-ref formal-input "type"))
-                              (input-value (assoc-ref inputs id)))
+                              ;; Either an input is provided or we have a
+                              ;; default.
+                              (input-value (or (assoc-ref inputs id)
+                                               (assoc-ref formal-input "default"))))
                          (unless input-value
                            (user-error "Input `~a' not provided" id))
                          (unless (match-type input-value
