@@ -156,35 +156,24 @@ the @code{required} field when it is not specified."
     (vector `(("pattern" . ,secondary-files)
               ("required" . ,default-required))))))
 
-(define (some-file-type? type)
-  "Return @code{#t} if @var{type} is a @code{File}, an array of @code{File}s, an
-array of array of @code{File}s, etc. Else, return @code{#f}"
-  (or (eq? type 'File)
-      (and (cwl-array-type? type)
-           (some-file-type? (cwl-array-type-subtype type)))))
-
 (define (normalize-formal-input input)
   "Normalize formal @var{input}."
-  (if (some-file-type? (formal-parameter-type (assoc-ref input "type")))
-      (maybe-assoc-set input
-        (cons "default"
-              (maybe-bind (maybe-assoc-ref (just input) "default")
-                          (compose just normalize-input)))
-        (cons "secondaryFiles"
-              (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
-                          (compose just
-                                   (cut normalize-secondary-files <> #t)))))
-      input))
+  (maybe-assoc-set input
+    (cons "default"
+          (maybe-bind (maybe-assoc-ref (just input) "default")
+                      (compose just normalize-input)))
+    (cons "secondaryFiles"
+          (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
+                      (compose just
+                               (cut normalize-secondary-files <> #t))))))
 
 (define (normalize-formal-output output)
   "Normalize formal @var{output}."
-  (if (some-file-type? (formal-parameter-type (assoc-ref output "type")))
-      (maybe-assoc-set output
-        (cons "secondaryFiles"
-              (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")
-                          (compose just
-                                   (cut normalize-secondary-files <> #f)))))
-      output))
+  (maybe-assoc-set output
+    (cons "secondaryFiles"
+          (maybe-bind (maybe-assoc-ref (just output) "secondaryFiles")
+                      (compose just
+                               (cut normalize-secondary-files <> #f))))))
 
 (define (normalize-base-command maybe-base-command)
   "Normalize @var{base-command} of @code{CommandLineTool} class workflow."
