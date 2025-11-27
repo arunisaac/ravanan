@@ -351,29 +351,29 @@ object."
             ((nested-cross-product flat-cross-product)
              (error scatter-method
                     "Scatter method not implemented yet")))
-          (if (propnet? script-or-propnet)
-              (state-let* ((propnet-state (schedule-propnet script-or-propnet inputs)))
-                (state-return
-                 (workflow-state propnet-state
-                                 (scheduler-proc-formal-outputs proc))))
-              (let* ((formal-inputs (scheduler-proc-formal-inputs proc))
-                     ;; We need to resolve inputs after adding defaults since
-                     ;; the default values may contain uninterned File objects.
-                     (inputs (resolve-inputs (add-defaults inputs formal-inputs)
-                                             formal-inputs
-                                             store))
-                     (resource-requirement
-                      (scheduler-proc-resource-requirement proc)))
-                (state-let* ((job-state
-                              (run-command-line-tool name
-                                                     script-or-propnet
-                                                     inputs
-                                                     resource-requirement
-                                                     store
-                                                     batch-system)))
+          (let* ((formal-inputs (scheduler-proc-formal-inputs proc))
+                 ;; We need to resolve inputs after adding defaults since the
+                 ;; default values may contain uninterned File objects.
+                 (inputs (resolve-inputs (add-defaults inputs formal-inputs)
+                                         formal-inputs
+                                         store)))
+            (if (propnet? script-or-propnet)
+                (state-let* ((propnet-state (schedule-propnet script-or-propnet inputs)))
                   (state-return
-                   (command-line-tool-state job-state
-                                            (scheduler-proc-formal-outputs proc)))))))))
+                   (workflow-state propnet-state
+                                   (scheduler-proc-formal-outputs proc))))
+                (let ((resource-requirement
+                       (scheduler-proc-resource-requirement proc)))
+                  (state-let* ((job-state
+                                (run-command-line-tool name
+                                                       script-or-propnet
+                                                       inputs
+                                                       resource-requirement
+                                                       store
+                                                       batch-system)))
+                    (state-return
+                     (command-line-tool-state job-state
+                                              (scheduler-proc-formal-outputs proc))))))))))
 
   (define (poll state)
     "Return updated state and current status of job @var{state} object as a
