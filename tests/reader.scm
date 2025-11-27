@@ -24,7 +24,8 @@
              (ravanan reader)
              (ravanan work command-line-tool)
              (ravanan work types)
-             (ravanan work utils))
+             (ravanan work utils)
+             (ravanan work vectors))
 
 (define normalize-formal-input
   (@@ (ravanan reader) normalize-formal-input))
@@ -230,5 +231,21 @@
            "test-data/inputs-with-type-ambiguities.yaml")
     (lambda (workflow inputs)
       inputs)))
+
+(test-equal "Resolve type ambiguities in workflow default inputs"
+  '(("number" . 13)
+    ("flag" . #t)
+    ("reverseflag" . #f)
+    ("foo" . "bar")
+    ("arr" . #(1 2 3)))
+  (call-with-values
+      (cut read-workflow+inputs
+           "test-data/workflow-with-default-inputs.cwl"
+           "test-data/empty.yaml")
+    (lambda (workflow inputs)
+      (vector-map->list (lambda (input)
+                          (cons (assoc-ref input "id")
+                                (assoc-ref input "default")))
+                        (assoc-ref workflow "inputs")))))
 
 (test-end "reader")

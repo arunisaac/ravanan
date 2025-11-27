@@ -160,8 +160,10 @@ the @code{required} field when it is not specified."
   "Normalize formal @var{input}."
   (maybe-assoc-set input
     (cons "default"
-          (maybe-bind (maybe-assoc-ref (just input) "default")
-                      (compose just normalize-input)))
+          (maybe-let* ((default (maybe-assoc-ref (just input) "default")))
+            (just (normalize-input
+                   (coerce-type default
+                                (formal-parameter-type (assoc-ref input "type")))))))
     (cons "secondaryFiles"
           (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
                       (compose just
