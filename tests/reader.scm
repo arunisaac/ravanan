@@ -27,15 +27,6 @@
              (ravanan work utils)
              (ravanan work vectors))
 
-(define normalize-formal-input
-  (@@ (ravanan reader) normalize-formal-input))
-
-(define normalize-formal-output
-  (@@ (ravanan reader) normalize-formal-output))
-
-(define normalize-input
-  (@@ (ravanan reader) normalize-input))
-
 (test-begin "reader")
 
 (test-equal "Coerce to boolean (true)"
@@ -88,136 +79,47 @@
   37
   (coerce-type 37 'int))
 
-(test-equal "Normalize File type formal input"
-  (canonicalize-json '(("type" . "File")
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #t))))))
-  (canonicalize-json (normalize-formal-input
-                      '(("type" . "File")
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
+(test-equal "Normalize inputs with only location"
+  (canonicalize-json
+   (let ((path (canonicalize-path "test-data/foo")))
+     `(("class" . "File")
+       ("location" . ,(uri->string (build-uri 'file
+                                              #:host ""
+                                              #:path path
+                                              #:validate? #f)))
+       ("path" . ,path)
+       ("basename" . "foo")
+       ("nameroot" . "foo")
+       ("nameext" . "")
+       ("size" . 0)
+       ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709"))))
+  (call-with-values
+      (cut read-workflow+inputs
+           "test-data/workflow-with-a-file-input.cwl"
+           "test-data/input-file-with-location-only.yaml")
+    (lambda (workflow inputs)
+      (canonicalize-json (assoc-ref inputs "foo")))))
 
-(test-equal "Normalize File array type formal input"
-  (canonicalize-json '(("type"
-                        ("type" . "array")
-                        ("items" . "File"))
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #t))))))
-  (canonicalize-json (normalize-formal-input
-                      '(("type"
-                         ("type" . "array")
-                         ("items" . "File"))
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
-
-(test-equal "Normalize array of File arrays type formal input"
-  (canonicalize-json '(("type"
-                        ("type" . "array")
-                        ("items" . (("type" . "array")
-                                    ("items" . "File"))))
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #t))))))
-  (canonicalize-json (normalize-formal-input
-                      '(("type"
-                         ("type" . "array")
-                         ("items" . (("type" . "array")
-                                     ("items" . "File"))))
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
-
-(test-equal "Normalize File type formal output"
-  (canonicalize-json '(("type" . "File")
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #f))))))
-  (canonicalize-json (normalize-formal-output
-                      '(("type" . "File")
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
-
-(test-equal "Normalize File array type formal output"
-  (canonicalize-json '(("type"
-                        ("type" . "array")
-                        ("items" . "File"))
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #f))))))
-  (canonicalize-json (normalize-formal-output
-                      '(("type"
-                         ("type" . "array")
-                         ("items" . "File"))
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
-
-(test-equal "Normalize array of File arrays type formal output"
-  (canonicalize-json '(("type"
-                        ("type" . "array")
-                        ("items" . (("type" . "array")
-                                    ("items" . "File"))))
-                       ("id" . "foo")
-                       ("secondaryFiles" . #((("pattern" . ".bai")
-                                              ("required" . #f))))))
-  (canonicalize-json (normalize-formal-output
-                      '(("type"
-                         ("type" . "array")
-                         ("items" . (("type" . "array")
-                                     ("items" . "File"))))
-                        ("id" . "foo")
-                        ("secondaryFiles" . #(".bai"))))))
-
-(call-with-temporary-directory
- (lambda (dir)
-   (test-equal "Normalize inputs with only location"
-     (canonicalize-json
-      (let ((path (expand-file-name "foo" dir)))
-        `(("class" . "File")
-          ("location" . ,(uri->string (build-uri 'file
-                                                 #:host ""
-                                                 #:path path
-                                                 #:validate? #f)))
-          ("path" . ,path)
-          ("basename" . "foo")
-          ("nameroot" . "foo")
-          ("nameext" . "")
-          ("size" . 0)
-          ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709"))))
-     (canonicalize-json
-      (call-with-current-directory dir
-        (lambda ()
-          ;; Create an actual file called "foo" so that canonicalize-path works.
-          (call-with-output-file "foo"
-            (const #t))
-          (normalize-input '(("class" . "File")
-                             ("location" . "foo")))))))))
-
-(call-with-temporary-directory
- (lambda (dir)
-   (test-equal "Normalize inputs with only path"
-     (canonicalize-json
-      (let ((path (expand-file-name "foo" dir)))
-        `(("class" . "File")
-          ("location" . ,(uri->string (build-uri 'file
-                                                 #:host ""
-                                                 #:path path
-                                                 #:validate? #f)))
-          ("path" . ,path)
-          ("basename" . "foo")
-          ("nameroot" . "foo")
-          ("nameext" . "")
-          ("size" . 0)
-          ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709"))))
-     (canonicalize-json
-      (call-with-current-directory dir
-        (lambda ()
-          ;; Create an actual file called "foo" so that canonicalize-path
-          ;; works.
-          (call-with-output-file "foo"
-            (const #t))
-          (normalize-input '(("class" . "File")
-                             ("path" . "foo")))))))))
+(test-equal "Normalize inputs with only path"
+  (canonicalize-json
+   (let ((path (canonicalize-path "test-data/foo")))
+     `(("class" . "File")
+       ("location" . ,(uri->string (build-uri 'file
+                                              #:host ""
+                                              #:path path
+                                              #:validate? #f)))
+       ("path" . ,path)
+       ("basename" . "foo")
+       ("nameroot" . "foo")
+       ("nameext" . "")
+       ("size" . 0)
+       ("checksum" . "sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709"))))
+  (call-with-values
+      (cut read-workflow+inputs
+           "test-data/workflow-with-a-file-input.cwl"
+           "test-data/input-file-with-path-only.yaml")
+    (lambda (workflow inputs)
+      (canonicalize-json (assoc-ref inputs "foo")))))
 
 (test-equal "Read YAML inputs file with type ambiguities"
   '(("number" . 13)
@@ -247,5 +149,52 @@
                           (cons (assoc-ref input "id")
                                 (assoc-ref input "default")))
                         (assoc-ref workflow "inputs")))))
+
+(test-equal "Normalize File type formals"
+  (list (vector-map canonicalize-json
+                    #((("id" . "infoo")
+                       ("type" . "File")
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #t)))))
+                      (("id" . "inbar")
+                       ("type"
+                        ("type" . "array")
+                        ("items" . "File"))
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #t)))))
+                      (("id" . "infoobar")
+                       ("type"
+                        ("type" . "array")
+                        ("items" . (("type" . "array")
+                                    ("items" . "File"))))
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #t)))))))
+        (vector-map canonicalize-json
+                    #((("id" . "outfoo")
+                       ("type" . "File")
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #f)))))
+                      (("id" . "outbar")
+                       ("type"
+                        ("type" . "array")
+                        ("items" . "File"))
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #f)))))
+                      (("id" . "outfoobar")
+                       ("type"
+                        ("type" . "array")
+                        ("items" . (("type" . "array")
+                                    ("items" . "File"))))
+                       ("secondaryFiles" . #((("pattern" . ".bai")
+                                              ("required" . #f))))))))
+  (call-with-values
+      (cut read-workflow+inputs
+           "test-data/workflow-with-various-file-type-formals.cwl"
+           "test-data/empty.yaml")
+    (lambda (workflow inputs)
+      (list (vector-map canonicalize-json
+                        (assoc-ref workflow "inputs"))
+            (vector-map canonicalize-json
+                        (assoc-ref workflow "outputs"))))))
 
 (test-end "reader")
