@@ -125,8 +125,8 @@ example, when @var{type} is a union type."
     (match-type obj 'float))
    ;; Accept ints as floats too.
    ((eq? type 'float)
-    (and (or (match-type obj 'int)
-             (match-type obj 'float))
+    (and (memq (object-type obj)
+               (list 'int 'float))
          'float))
    ;; Recursively match type of every element of array.
    ((cwl-array-type? type)

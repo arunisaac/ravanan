@@ -30,4 +30,8 @@
   'float
   (match-type 1 'float))
 
+(test-equal "match float to float"
+  'float
+  (match-type 1.3 'float))
+
 (test-end "work.command-line-tool")
