@@ -173,7 +173,7 @@ requirements and hints of the step."
                             (subset-requirements step-hints)))))))
 
 (define (optional-input? input)
-  "Return @code{#t} if @var{input} is optional. Else, return @code{#f}."
+  "Return truthy value if @var{input} is optional. Else, return @code{#f}."
   ;; Inputs that either have a default or accept null values are optional.
   (or (assoc-ref input "default")
       (match-type 'null
