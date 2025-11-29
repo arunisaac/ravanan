@@ -175,7 +175,7 @@ requirements and hints of the step."
 (define (optional-input? input)
   "Return truthy value if @var{input} is optional. Else, return @code{#f}."
   ;; Inputs that either have a default or accept null values are optional.
-  (or (assoc-ref input "default")
+  (or (assoc "default" input)
       (match-type 'null
                   (formal-parameter-type
                    (assoc-ref* input "type")))))
