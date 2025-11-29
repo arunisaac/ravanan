@@ -26,4 +26,8 @@
   #f
   (match-type 'null (cwl-array-type 'File)))
 
+(test-equal "match int to float"
+  'float
+  (match-type 1 'float))
+
 (test-end "work.command-line-tool")

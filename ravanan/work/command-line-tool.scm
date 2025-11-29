@@ -123,6 +123,11 @@ example, when @var{type} is a union type."
    ;; CWL specification needs separate types for these.
    ((eq? type 'double)
     (match-type obj 'float))
+   ;; Accept ints as floats too.
+   ((eq? type 'float)
+    (and (or (match-type obj 'int)
+             (match-type obj 'float))
+         'float))
    ;; Recursively match type of every element of array.
    ((cwl-array-type? type)
     (and (vector? obj)

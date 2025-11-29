@@ -214,3 +214,12 @@
       class: File
       size: 13
       checksum: sha1$47a013e660d408619d894b20806b1d5086aab03b
+- id: int-for-float-input
+  doc: int supplied for float input must be coerced into a float
+  tool: tools/int-for-float-input.cwl
+  job: jobs/int-for-float-input.yaml
+  output:
+    output_message:
+      class: File
+      size: 2
+      checksum: sha1$e5fa44f2b31c1fb553b6021e7360d07d5d91ff5e
