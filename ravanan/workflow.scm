@@ -352,12 +352,9 @@ object."
             ((nested-cross-product flat-cross-product)
              (error scatter-method
                     "Scatter method not implemented yet")))
-          (let* ((formal-inputs (scheduler-proc-formal-inputs proc))
-                 ;; We need to resolve inputs after adding defaults since the
-                 ;; default values may contain uninterned File objects.
-                 (inputs (resolve-inputs (add-defaults inputs formal-inputs)
-                                         formal-inputs
-                                         store)))
+          (let ((inputs (resolve-inputs inputs
+                                        (scheduler-proc-formal-inputs proc)
+                                        store)))
             (if (propnet? script-or-propnet)
                 (state-let* ((propnet-state (schedule-propnet script-or-propnet inputs)))
                   (state-return
@@ -491,29 +488,10 @@ is the class of the workflow."
 
   (scheduler schedule poll capture-output))
 
-(define (add-defaults inputs formal-inputs)
-  "Add default values from @var{formal-inputs} to @var{inputs}."
-  (vector-filter-map->list (lambda (formal-input)
-                             (let* ((id (assoc-ref* formal-input "id"))
-                                    ;; Try
-                                    ;; - the input value
-                                    ;; - the default value
-                                    ;; - the null value (for optional inputs)
-                                    (value (or (assoc-ref inputs id)
-                                               (assoc-ref formal-input "default")
-                                               'null))
-                                    (expected-type (formal-parameter-type
-                                                    (assoc-ref* formal-input "type"))))
-                               (unless (match-type value expected-type)
-                                 (user-error "Type mismatch for input `~a'; expected `~a' but got `~a'"
-                                             id expected-type (object-type value)))
-                               (and (not (eq? value 'null))
-                                    (cons id value))))
-                           formal-inputs))
-
 (define (resolve-inputs inputs formal-inputs store)
-  "Traverse @var{inputs} and @var{formal-inputs} recursively, intern any
-files found into the @var{store} and return a tree of the fully resolved inputs."
+  "Traverse @var{inputs} and @var{formal-inputs} recursively, add defaults from
+@var{formal-inputs}, check types, intern any files found into the @var{store}
+and return a tree of the fully resolved inputs."
   (define (match-secondary-file-pattern input secondary-file)
     "Return @code{#t} if @var{secondary-file} matches at least one secondary file in
 @var{input}."
@@ -538,11 +516,9 @@ error out."
 
   (define (resolve inputs types maybe-secondary-files)
     (vector-map (lambda (input type-tree maybe-secondary-files)
-                  ;; Check type.
-                  (let* ((type (formal-parameter-type type-tree))
-                         (matched-type (match-type input type)))
-                    (unless matched-type
-                      (error input "Type mismatch" input type))
+                  (let ((matched-type
+                         (match-type input
+                                     (formal-parameter-type type-tree))))
                     ;; TODO: Implement record and enum types.
                     (cond
                      ;; Recurse over array types.
@@ -566,15 +542,28 @@ error out."
                 types
                 maybe-secondary-files))
 
+  (define (add-defaults-and-check-types inputs formal-inputs)
+    (vector-map (lambda (formal-input)
+                  (let* ((id (assoc-ref* formal-input "id"))
+                         ;; Try
+                         ;; - the input value
+                         ;; - the default value
+                         ;; - the null value (for optional inputs)
+                         (value (or (assoc-ref inputs id)
+                                    (assoc-ref formal-input "default")
+                                    'null))
+                         (expected-type (formal-parameter-type
+                                         (assoc-ref* formal-input "type"))))
+                    (unless (match-type value expected-type)
+                      (user-error "Type mismatch for input `~a'; expected `~a' but got `~a'"
+                                  id expected-type (object-type value)))
+                    value))
+                formal-inputs))
+
   (vector-map->list (lambda (input formal-input)
                       (cons (assoc-ref formal-input "id")
                             input))
-                    (resolve (vector-map (lambda (formal-input)
-                                           (let ((id (assoc-ref* formal-input "id")))
-                                             (or (assoc-ref inputs id)
-                                                 (assoc-ref formal-input "default")
-                                                 'null)))
-                                         formal-inputs)
+                    (resolve (add-defaults-and-check-types inputs formal-inputs)
                              (vector-map (lambda (formal-input)
                                            (let ((id (assoc-ref* formal-input "id")))
                                              (or (assoc-ref formal-input "type")
