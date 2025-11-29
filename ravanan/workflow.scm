@@ -641,20 +641,9 @@ area need not be shared. @var{store} is the path to the shared ravanan store.
                                          store
                                          batch-system
                                          guix-daemon-socket)))
-    ;; Check if all inputs are available and are of the right type.
-    (vector-for-each (lambda (formal-input)
-                       (let* ((id (assoc-ref formal-input "id"))
-                              (type (assoc-ref formal-input "type"))
-                              ;; Either an input is provided or we have a
-                              ;; default.
-                              (input-value (or (assoc-ref inputs id)
-                                               (assoc-ref formal-input "default"))))
-                         (unless input-value
-                           (user-error "Input `~a' not provided" id))
-                         (unless (match-type input-value
-                                             (formal-parameter-type type))
-                           (user-error "Input `~a' not of type `~a'" id type))))
-                     (scheduler-proc-formal-inputs scheduler-proc))
+    ;; All validation of the workflow must happen in build-workflow, and all
+    ;; validation of the inputs must happen in the schedule function of the
+    ;; scheduler. No validation must happen here.
     (guard (c ((job-failure? c)
                (let ((script (job-failure-script c))
                      (inputs (job-failure-inputs c)))
