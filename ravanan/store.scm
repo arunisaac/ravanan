@@ -120,6 +120,15 @@ Else, return @code{#f}."
   (= (stat:dev (stat path1))
      (stat:dev (stat path2))))
 
+(define (link-or-copy source destination)
+  "Hard link @var{source} to @var{destination} if possible. Else, copy it."
+  ;; Hard link if the source file is on the same filesystem as the destination
+  ;; directory. Else, copy.
+  ((if (same-filesystem? source (dirname destination))
+       link
+       copy-file)
+   source destination))
+
 (define (intern-file file store)
   "Intern @code{File} type object @var{file} into the ravanan @var{store} unless it
 is already a store path. Return an updated @code{File} type object with the
@@ -153,13 +162,7 @@ interned path and location."
                       (log-info "Interning ~a into store as ~a~%"
                                 path interned-path)
                       (mkdir (dirname interned-path))
-                      ;; Hard link if on the same filesystem. Else, copy.
-                      ((if (same-filesystem? path
-                                             (expand-file-name %store-files-directory
-                                                               store))
-                           link
-                           copy-file)
-                       path interned-path)))
+                      (link-or-copy path interned-path)))
                 interned-path))))
     (maybe-assoc-set file
       (cons "location" (just (string-append "file://" interned-path)))
