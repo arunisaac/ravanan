@@ -549,9 +549,12 @@ error out."
                          ;; - the input value
                          ;; - the default value
                          ;; - the null value (for optional inputs)
-                         (value (or (assoc-ref inputs id)
-                                    (assoc-ref formal-input "default")
-                                    'null))
+                         (value (cond
+                                 ;; We can't use assoc-ref because #f is also a
+                                 ;; valid value.
+                                 ((assoc id inputs) => cdr)
+                                 ((assoc "default" formal-input) => cdr)
+                                 (else 'null)))
                          (expected-type (formal-parameter-type
                                          (assoc-ref* formal-input "type"))))
                     (unless (match-type value expected-type)
