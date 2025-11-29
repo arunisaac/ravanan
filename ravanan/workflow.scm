@@ -175,11 +175,10 @@ requirements and hints of the step."
 (define (optional-input? input)
   "Return @code{#t} if @var{input} is optional. Else, return @code{#f}."
   ;; Inputs that either have a default or accept null values are optional.
-  (and (or (assoc-ref input "default")
-           (match-type 'null
-                       (formal-parameter-type
-                        (assoc-ref* input "type"))))
-       (assoc-ref input "id")))
+  (or (assoc-ref input "default")
+      (match-type 'null
+                  (formal-parameter-type
+                   (assoc-ref* input "type")))))
 
 (define* (workflow->scheduler-proc name cwl scheduler
                                    manifest-file inferior scratch store
@@ -287,7 +286,9 @@ command-line-tool)}."
                                     (assoc-ref run "inputs"))
                   ;; Inputs that either have a default or accept null values are
                   ;; optional.
-                  (vector-filter-map->list optional-input?
+                  (vector-filter-map->list (lambda (input)
+                                             (and (optional-input? input)
+                                                  (assoc-ref input "id")))
                                            (assoc-ref run "inputs"))
                   (vector-map->list (lambda (output)
                                       (let ((output-id (assoc-ref output "id")))
