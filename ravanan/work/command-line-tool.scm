@@ -434,9 +434,11 @@ be defined in the context in which the G-expressions are inserted."
                     (and (assoc "inputBinding" formal-input)
                          (let ((id (assoc-ref formal-input "id")))
                            (list (list id)
-                                 (or (assoc-ref inputs id)
-                                     (assoc-ref formal-input "default")
-                                     'null)
+                                 ;; The inputs alist has been fully resolved
+                                 ;; with default and null values. It is
+                                 ;; guaranteed to have a mapping for every input
+                                 ;; id.
+                                 (assoc-ref inputs id)
                                  (or (assoc-ref formal-input "type")
                                      (user-error "Type of input ~a not specified"
                                                  id))
