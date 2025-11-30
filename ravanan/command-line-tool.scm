@@ -508,7 +508,8 @@ named @var{name} using tools from Guix manifest in @var{manifest-file} and on
                                (build-command #$(assoc-ref cwl "baseCommand")
                                               #$(vector->gexp
                                                  (vector-map (compose alist->gexp coerce-argument)
-                                                             (assoc-ref cwl "arguments")))
+                                                             (or (assoc-ref cwl "arguments")
+                                                                 #())))
                                               #$(assoc-ref cwl "inputs")
                                               inputs))
                    #$(coerce-expression (assoc-ref cwl "stdin"))
