@@ -17,6 +17,7 @@
 ;;; along with ravanan.  If not, see <https://www.gnu.org/licenses/>.
 
 (define-module (ravanan store)
+  #:use-module (srfi srfi-1)
   #:use-module (srfi srfi-26)
   #:use-module (srfi srfi-71)
   #:use-module (ice-9 filesystem)
@@ -52,15 +53,17 @@
 (define (make-store store)
   "Make @var{store} directory and initialize with subdirectories. If @var{store}
 already exists, do nothing."
-  (unless (file-exists? store)
-    (log-warning "store ~a does not exist; creating it"
-                 store)
-    (make-directories store)
-    (for-each (lambda (directory)
-                (mkdir (expand-file-name directory store)))
-              (list %store-files-directory
-                    %store-data-directory
-                    %store-logs-directory))))
+  (let ((store-subdirectories (map (cut expand-file-name <> store)
+                                   (list %store-files-directory
+                                         %store-data-directory
+                                         %store-logs-directory))))
+    (unless (and (file-exists? store)
+                 (every file-exists? store-subdirectories))
+      (log-warning "store ~a does not exist or is not initialized; setting it up"
+                   store))
+    ;; The store directory may exist but the store subdirectories may not. We
+    ;; need to be careful to create those as well.
+    (for-each make-directories store-subdirectories)))
 
 (define (sha1-hash-sexp tree)
   (bytevector->base32-string
