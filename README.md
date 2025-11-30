@@ -54,7 +54,7 @@ make check
 
 ravanan requires a running Guix daemon. ravanan maintains its own *store* (this is distinct from Guix's store) to cache job outputs.
 
-You can run a workflow `hello-world.cwl` with inputs in `hello-world-inputs.json` using
+You can run a workflow `hello-world.cwl` with inputs in `hello-world-inputs.yaml` using
 ```
 ravanan hello-world.cwl hello-world-inputs.yaml --store=store --guix-manifest=manifest.scm
 ```
