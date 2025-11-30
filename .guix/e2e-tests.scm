@@ -67,6 +67,7 @@
                      (error "Command invocation failed" command))))))))
 
         (mkdir #$output)
+        ;; Compile ccwl sources.
         (for-each (lambda (source-file)
                     (call-with-output-file (string-append #$output
                                                           "/"
@@ -78,7 +79,12 @@
                                                        source-file)
                              get-string-all)
                            <>)))
-                  (find-files #$sources-directory "\\.scm$")))))
+                  (find-files #$sources-directory "\\.scm$"))
+        ;; Copy CWL files.
+        (for-each (lambda (cwl-file)
+                    (copy-file cwl-file
+                               (string-append #$output (basename cwl-file))))
+                  (find-files #$sources-directory "\\.cwl$")))))
 
 (define e2e-tools
   (computed-file "e2e-tools"
