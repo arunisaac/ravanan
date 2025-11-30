@@ -45,7 +45,7 @@
        (modify-inputs (package-native-inputs guix:ccwl)
          (prepend guile-run64))))))
 
-(define (e2e-tools-gexp sources-directory)
+(define (e2e-tools-gexp sources-directory doc-hello-world)
   (with-imported-modules '((guix build utils))
     #~(begin
         (use-modules (rnrs io ports)
@@ -83,20 +83,31 @@
         ;; Copy CWL files.
         (for-each (lambda (cwl-file)
                     (copy-file cwl-file
-                               (string-append #$output (basename cwl-file))))
-                  (find-files #$sources-directory "\\.cwl$")))))
+                               (string-append #$output "/" (basename cwl-file))))
+                  (find-files #$sources-directory "\\.cwl$"))
+        ;; Copy Hello World workflow from documentation.
+        (copy-file #$doc-hello-world
+                   (string-append #$output "/doc-hello-world.cwl")))))
 
 (define e2e-tools
   (computed-file "e2e-tools"
                  (e2e-tools-gexp (local-file "../e2e-tests/tools"
-                                             #:recursive? #t))))
+                                             #:recursive? #t)
+                                 (local-file "../doc/hello-world.cwl"))))
+
+(define e2e-jobs
+  (directory-union "e2e-jobs"
+                   (list (local-file "../e2e-tests/jobs"
+                                     #:recursive? #t)
+                         (file-union "doc-hello-world-inputs"
+                                     `(("doc-hello-world.yaml"
+                                        ,(local-file "../doc/hello-world-inputs.yaml")))))))
 
 (define e2e-test-suite
   (file-union "e2e-test-suite"
               `(("tests.yaml" ,(local-file "../e2e-tests/tests.yaml"))
                 ("tools" ,e2e-tools)
-                ("jobs" ,(local-file "../e2e-tests/jobs"
-                                     #:recursive? #t)))))
+                ("jobs" ,e2e-jobs))))
 
 (define-public e2e-tests
   (program-file "e2e-tests"

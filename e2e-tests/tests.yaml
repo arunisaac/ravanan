@@ -7,6 +7,15 @@
       class: File
       size: 13
       checksum: sha1$47a013e660d408619d894b20806b1d5086aab03b
+- id: doc-hello-world
+  doc: Hello world workflow from the documentation
+  tool: tools/doc-hello-world.cwl
+  job: jobs/doc-hello-world.yaml
+  output:
+    message:
+      class: File
+      size: 10
+      checksum: sha1$d4322d1d18549a84abb5e19558784d819785a884
 - id: capture-output-file
   doc: Capture output file using a glob
   tool: tools/capture-output-file.cwl
