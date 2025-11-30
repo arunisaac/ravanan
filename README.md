@@ -58,7 +58,12 @@ You can run a workflow `hello-world.cwl` with inputs in `hello-world-inputs.yaml
 ```
 ravanan hello-world.cwl hello-world-inputs.yaml --store=store --guix-manifest=manifest.scm
 ```
-`--store` specifies a directory to use as ravanan's store. `--guix-manifest` specifies a Guix manifest file that lists the dependencies required for the workflow. An example `hello-world.cwl` and `hello-world-inputs.json` are provided in the `doc` directory of this repository.
+`--store` specifies a directory to use as ravanan's store. `--guix-manifest` specifies a Guix manifest file that lists the dependencies required for the workflow.
+
+An example `hello-world.cwl` and `hello-world-inputs.json` are provided in the `doc` directory of this repository. You can run it like so:
+```
+ravanan --store=store --guix-manifest=doc/hello-world-manifest.scm doc/hello-world.cwl doc/hello-world-inputs.yaml
+```
 
 ## On HPC using slurm
 
