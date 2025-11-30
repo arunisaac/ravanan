@@ -56,7 +56,7 @@ ravanan requires a running Guix daemon. ravanan maintains its own *store* (this 
 
 You can run a workflow `hello-world.cwl` with inputs in `hello-world-inputs.yaml` using
 ```
-ravanan hello-world.cwl hello-world-inputs.yaml --store=store --guix-manifest=manifest.scm
+ravanan --store=store --guix-manifest=manifest.scm hello-world.cwl hello-world-inputs.yaml
 ```
 `--store` specifies a directory to use as ravanan's store. `--guix-manifest` specifies a Guix manifest file that lists the dependencies required for the workflow.
 
@@ -76,7 +76,7 @@ Jobs run by ravanan do not directly write to the store. Instead, they operate on
 
 Putting it all together, a typical ravanan invocation on a slurm HPC might look like
 ```
-ravanan hello-world.cwl hello-world-inputs.json --store=store --guix-manifest=manifest.scm --batch-system=slurm-api --scratch=/scratch --slurm-jwt=jwt
+ravanan --store=store --guix-manifest=manifest.scm --batch-system=slurm-api --scratch=/scratch --slurm-jwt=jwt hello-world.cwl hello-world-inputs.json
 ```
 
 ## Using a specific version of Guix
