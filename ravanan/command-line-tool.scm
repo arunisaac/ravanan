@@ -173,7 +173,7 @@ keys @code{input}, @code{self} and @code{runtime}."
   (if (and (string? expression)
            (javascript-expression? expression))
       ;; Evaluate javascript expression.
-      (evaluate-parameter-reference expression context)
+      (evaluate-javascript-expression expression context)
       ;; Not a javascript expression, but some other JSON tree. Return it as is.
       expression))
 

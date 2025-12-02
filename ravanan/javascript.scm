@@ -36,7 +36,7 @@
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
-  #:export (evaluate-parameter-reference))
+  #:export (evaluate-javascript-expression))
 
 ;; node executable for evaluating javascript on worker nodes
 (define %worker-node
@@ -71,13 +71,13 @@
 (define-peg-pattern parameter-reference all
   (and (ignore "(") symbol (* segment) (ignore ")")))
 
-(define* (evaluate-parameter-reference-1 expression context expression-lib)
-  "Compile parameter reference @var{expression} to a G-expression that evaluates
+(define* (evaluate-javascript-expression-1 expression context expression-lib)
+  "Compile javascript @var{expression} to a G-expression that evaluates
 it. The returned G-expression may reference the variables @code{inputs},
 @code{self} or @code{runtime}. @var{expression} must strictly be a single
-parameter reference and will not be subject to string interpolation.
+javascript expression and will not be subject to string interpolation.
 
-If @var{context} is not @code{#f}, evaluate the parameter reference in that
+If @var{context} is not @code{#f}, evaluate the javascript expression in that
 context and return the value. @var{context} must be an association list with
 keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
@@ -120,7 +120,7 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
      (evaluate-using-node expression context expression-lib))))
 
 (define (evaluate-using-node expression context expression-lib)
-  "This function is the same as @code{evaluate-parameter-reference-1} but uses
+  "This function is the same as @code{evaluate-javascript-expression-1} but uses
 the node javascript engine."
   (define (context-value name)
     (scm->json-string (assoc-ref context name)))
@@ -144,24 +144,24 @@ the node javascript engine."
                                             "var self = " (scm->json-string self) ";"
                                             "var runtime = " (scm->json-string runtime) ";"))))
 
-(define (tokenize-parameter-references str)
-  "Split @var{str} into tokens of parameter reference and literal strings."
+(define (tokenize-javascript-expressions str)
+  "Split @var{str} into tokens of javascript expressions and literal strings."
   (let ((end (if (string-prefix? "$(" str)
                  (1+ (string-index str #\)))
                  (string-index str #\$))))
     (if end
         (cons (substring str 0 end)
-              (tokenize-parameter-references (substring str end)))
+              (tokenize-javascript-expressions (substring str end)))
         (if (string-null? str)
             (list)
             (list str)))))
 
-(define* (evaluate-parameter-reference str #:optional context (expression-lib '()))
-  "Compile parameter reference @var{str} to a G-expression that references
+(define* (evaluate-javascript-expression str #:optional context (expression-lib '()))
+  "Compile javascript expression @var{str} to a G-expression that references
 the variables @code{inputs}, @code{self} or @code{runtime}. @var{str} may be
 subject to string interpolation.
 
-If @var{context} is not @code{#f}, evaluate the parameter reference in that
+If @var{context} is not @code{#f}, evaluate the javascript expression in that
 context and return the value. @var{context} must be an association list with
 keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
@@ -171,13 +171,13 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
     (if (and (string-prefix? "$(" token)
              (string-suffix? ")" token))
         ;; Drop the leading "$" and evaluate.
-        (evaluate-parameter-reference-1 (string-drop token 1)
-                                        context
-                                        expression-lib)
+        (evaluate-javascript-expression-1 (string-drop token 1)
+                                          context
+                                          expression-lib)
         ;; token is a string literal.
         token))
 
-  (match (tokenize-parameter-references str)
+  (match (tokenize-javascript-expressions str)
     ;; There is only one token. This is not a string interpolation. Do not
     ;; serialize JSON.
     ((only-token)
@@ -193,8 +193,8 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
                                    (scm->json-string (canonicalize-json token))))
                              evaluated-tokens)
                         "")
-           ;; Compile to a G-expression that interpolates parameter reference
-           ;; string.
+           ;; Compile to a G-expression that interpolates the javascript
+           ;; expression string.
            #~(string-join (map (lambda (token)
                                  (if (string? token)
                                      token
