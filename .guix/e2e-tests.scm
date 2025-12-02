@@ -26,8 +26,8 @@
   #:use-module (ice-9 match))
 
 (define ccwl
-  (let ((commit "badcc3df8488c95359d30f907c8da043fcc0c455")
-        (revision "0"))
+  (let ((commit "5f6e0d93bb08446d2c6f99484523697a2bda7b4d")
+        (revision "1"))
     (package
       (inherit guix:ccwl)
       (name "ccwl")
@@ -40,7 +40,7 @@
                 (file-name (git-file-name name version))
                 (sha256
                  (base32
-                  "1zwvjrvdvph7kgpd8scyn2masgy4dci3q7ndh2907nl8rp9skbq7"))))
+                  "19hwkgj8gsfw24fs682b4wxs5chnwj6hv0rvs23vmq7309mgf242"))))
       (native-inputs
        (modify-inputs (package-native-inputs guix:ccwl)
          (prepend guile-run64))))))
@@ -51,34 +51,17 @@
         (use-modules (rnrs io ports)
                      (srfi srfi-26)
                      (ice-9 match)
-                     (ice-9 popen)
                      (guix build utils))
-
-        (define (call-with-input-pipe command proc)
-          (match command
-            ((prog args ...)
-             (let ((port #f))
-               (dynamic-wind
-                 (lambda ()
-                   (set! port (apply open-pipe* OPEN_READ prog args)))
-                 (cut proc port)
-                 (lambda ()
-                   (unless (zero? (close-pipe port))
-                     (error "Command invocation failed" command))))))))
 
         (mkdir #$output)
         ;; Compile ccwl sources.
         (for-each (lambda (source-file)
-                    (call-with-output-file (string-append #$output
-                                                          "/"
-                                                          (basename source-file ".scm")
-                                                          ".cwl")
-                      (cut display
-                           (call-with-input-pipe (list #$(file-append ccwl "/bin/ccwl")
-                                                       "compile"
-                                                       source-file)
-                             get-string-all)
-                           <>)))
+                    (invoke #$(file-append ccwl "/bin/ccwl")
+                            "compile"
+                            (string-append "--output="
+                                           #$output "/"
+                                           (basename source-file ".scm") ".cwl")
+                            source-file))
                   (find-files #$sources-directory "\\.scm$"))
         ;; Copy CWL files.
         (for-each (lambda (cwl-file)
