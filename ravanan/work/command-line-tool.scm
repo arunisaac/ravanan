@@ -297,6 +297,7 @@ condition on unsupported URI schemes."
 @var{preamble} before evaluating @var{expression}."
   (guard (ex (else (error "Javascript evaluation failed" expression preamble)))
     (call-with-input-pipe (list node
+                                "--use-strict"
                                 (format #f "--eval=~a console.log(\"%j\", ~a)"
                                         preamble expression))
       json->scm)))
