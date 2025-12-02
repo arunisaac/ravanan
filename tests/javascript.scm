@@ -122,9 +122,9 @@
   '(evaluate-javascript (*approximate*)
                         "(inputs.n + 1)"
                         (string-append ""
-                                       "inputs = " (scm->json-string inputs) ";"
-                                       "self = " (scm->json-string self) ";"
-                                       "runtime = " (scm->json-string runtime) ";"))
+                                       "var inputs = " (scm->json-string inputs) ";"
+                                       "var self = " (scm->json-string self) ";"
+                                       "var runtime = " (scm->json-string runtime) ";"))
   (gexp->sexp-rec
    (evaluate-parameter-reference "$(inputs.n + 1)")))
 
@@ -137,9 +137,9 @@
                (evaluate-javascript (*approximate*)
                                     "(inputs.threads*2)"
                                     (string-append ""
-                                                   "inputs = " (scm->json-string inputs) ";"
-                                                   "self = " (scm->json-string self) ";"
-                                                   "runtime = " (scm->json-string runtime) ";"))
+                                                   "var inputs = " (scm->json-string inputs) ";"
+                                                   "var self = " (scm->json-string self) ";"
+                                                   "var runtime = " (scm->json-string runtime) ";"))
                (json-ref inputs "output_filename")))
     "")
   (gexp->sexp-rec
@@ -155,9 +155,9 @@
                (evaluate-javascript (*approximate*)
                                     "(inputs.object.foo*20)"
                                     (string-append ""
-                                                   "inputs = " (scm->json-string inputs) ";"
-                                                   "self = " (scm->json-string self) ";"
-                                                   "runtime = " (scm->json-string runtime) ";"))))
+                                                   "var inputs = " (scm->json-string inputs) ";"
+                                                   "var self = " (scm->json-string self) ";"
+                                                   "var runtime = " (scm->json-string runtime) ";"))))
     "")
   (gexp->sexp-rec
    (evaluate-parameter-reference "foo$(inputs.vector)$(inputs.object)$(inputs.object.foo*20)")))

@@ -130,9 +130,9 @@ the node javascript engine."
       (evaluate-javascript %node
                            expression
                            (string-append (string-join expression-lib)
-                                          "inputs = " (context-value "inputs") ";"
-                                          "self = " (context-value "self") ";"
-                                          "runtime = " (context-value "runtime") ";"))
+                                          "var inputs = " (context-value "inputs") ";"
+                                          "var self = " (context-value "self") ";"
+                                          "var runtime = " (context-value "runtime") ";"))
       ;; Compile to a G-expression that evaluates expression.
       #~(evaluate-javascript #$%worker-node
                              #$expression
@@ -140,9 +140,9 @@ the node javascript engine."
                              ;; runtime. So, defer their reference to the
                              ;; G-expression.
                              (string-append #$(string-join expression-lib)
-                                            "inputs = " (scm->json-string inputs) ";"
-                                            "self = " (scm->json-string self) ";"
-                                            "runtime = " (scm->json-string runtime) ";"))))
+                                            "var inputs = " (scm->json-string inputs) ";"
+                                            "var self = " (scm->json-string self) ";"
+                                            "var runtime = " (scm->json-string runtime) ";"))))
 
 (define (tokenize-parameter-references str)
   "Split @var{str} into tokens of parameter reference and literal strings."
