@@ -1,5 +1,5 @@
-(use-modules ((gnu packages bioinformatics) #:select (ccwl))
-             ((cwltest-package) #:select (cwltest))
+(use-modules ((cwltest-package) #:select (cwltest))
+             ((e2e-tests) #:select (ccwl))
              ((ravanan-package) #:select (ravanan))
              (srfi srfi-1))
 

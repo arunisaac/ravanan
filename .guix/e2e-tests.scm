@@ -25,7 +25,7 @@
   #:use-module (guix packages)
   #:use-module (ice-9 match))
 
-(define ccwl
+(define-public ccwl
   (let ((commit "5f6e0d93bb08446d2c6f99484523697a2bda7b4d")
         (revision "1"))
     (package
