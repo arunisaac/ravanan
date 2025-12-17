@@ -70,11 +70,12 @@ mutated."
     (() alist)))
 
 (define (json-ref scm . keys)
-  "Extract subtree of JSON @var{scm} that is addressed by @var{keys}."
+  "Extract subtree of JSON @var{scm} that is addressed by @var{keys}. Raise an
+error if any of @var{keys} is not found."
   (match keys
     ((key other-keys ...)
      (apply json-ref
-            ((if (list? scm) assoc-ref vector-ref) scm key)
+            ((if (list? scm) assoc-ref* vector-ref) scm key)
             other-keys))
     (() scm)))
 
