@@ -53,7 +53,7 @@ distribute_files = $(sources) $(config_file_template) $(scripts) \
 scmdir = $(datarootdir)/guile/site/$(guile_effective_version)
 godir = $(libdir)/guile/$(guile_effective_version)/site-ccache
 
-.PHONY: all clean install
+.PHONY: all clean install ares
 
 all: $(objects) $(config_file)
 
@@ -91,3 +91,6 @@ $(dist_archive): .git/refs/heads/main
 
 clean:
 	rm -f $(objects) $(config_file)
+
+ares:
+	./pre-inst-env $(GUILE) -c '(begin (use-modules (guix gexp)) ((@ (ares server) run-nrepl-server)))'
