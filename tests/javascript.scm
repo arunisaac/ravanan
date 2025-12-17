@@ -20,6 +20,7 @@
              (guix gexp)
              (ice-9 match)
              (ravanan work monads)
+             (ravanan work utils)
              (ravanan javascript))
 
 (define (gexp->sexp-rec exp)
@@ -46,12 +47,13 @@
                                   '()))
 
 (test-equal "evaluate parameter reference to JSON object"
-  '(("class" . "File")
-    ("path" . "/foo/bar"))
-  (evaluate-javascript-expression "$(inputs.fasta)"
-                                  '(("inputs" ("fasta"
-                                               ("class" . "File")
-                                               ("path" . "/foo/bar"))))))
+  (canonicalize-json '(("class" . "File")
+                       ("path" . "/foo/bar")))
+  (canonicalize-json
+   (evaluate-javascript-expression "$(inputs.fasta)"
+                                   '(("inputs" ("fasta"
+                                                ("class" . "File")
+                                                ("path" . "/foo/bar")))))))
 
 (test-equal "evaluate parameter reference with string interpolation"
   "24foo12foobar"
