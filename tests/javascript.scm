@@ -110,8 +110,8 @@
 
 (test-equal "evaluate parameter reference with string interpolation (without context)"
   '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
+    (map (lambda (value)
+           (if (string? value) value (scm->json-string (canonicalize-json value))))
          (list (json-ref runtime "cores")
                "foo"
                (json-ref inputs "threads")
@@ -122,8 +122,8 @@
 
 (test-equal "evaluate parameter reference with string interpolation of JSON trees (without context)"
   '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
+    (map (lambda (value)
+           (if (string? value) value (scm->json-string (canonicalize-json value))))
          (list "foo" (json-ref inputs "vector") (json-ref inputs "object")))
     "")
   (gexp->sexp-rec
@@ -141,8 +141,8 @@
 
 (test-equal "evaluate parameter reference with string interpolation using node (without context)"
   '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
+    (map (lambda (value)
+           (if (string? value) value (scm->json-string (canonicalize-json value))))
          (list (json-ref runtime "cores")
                "foo"
                (evaluate-javascript (*approximate*)
@@ -158,8 +158,8 @@
 
 (test-equal "evaluate parameter reference with string interpolation of JSON trees using node (without context)"
   '(string-join
-    (map (lambda (token)
-           (if (string? token) token (scm->json-string (canonicalize-json token))))
+    (map (lambda (value)
+           (if (string? value) value (scm->json-string (canonicalize-json value))))
          (list "foo"
                (json-ref inputs "vector")
                (json-ref inputs "object")
@@ -172,5 +172,10 @@
     "")
   (gexp->sexp-rec
    (evaluate-javascript-expression "foo$(inputs.vector)$(inputs.object)$(inputs.object.foo*20)")))
+
+(test-equal "evaluate javascript expression with parentheses"
+  0
+  (evaluate-javascript-expression "$(1 - (2 - 1))"
+                                  '()))
 
 (test-end "javascript")

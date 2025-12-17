@@ -27,6 +27,7 @@
 
 (define-module (ravanan javascript)
   #:use-module (srfi srfi-1)
+  #:use-module (srfi srfi-26)
   #:use-module (ice-9 match)
   #:use-module (ice-9 peg)
   #:use-module ((gnu packages node) #:select (node))
@@ -69,10 +70,29 @@
   (and (or (and (ignore ".") symbol) singleq doubleq index)))
 
 (define-peg-pattern parameter-reference all
-  (and (ignore "(") symbol (* segment) (ignore ")")))
+  (and (ignore "$(") symbol (* segment) (ignore ")")))
 
-(define* (evaluate-javascript-expression-1 expression context expression-lib)
-  "Compile javascript @var{expression} to a G-expression that evaluates
+(define-peg-pattern javascript-subexpression body
+  (and "("
+       (* (or (and (not-followed-by (or "(" ")"))
+                   peg-any)
+              javascript-subexpression))
+       ")"))
+
+(define-peg-pattern javascript-expression all
+  (and (ignore "$") javascript-subexpression))
+
+(define-peg-pattern string-literal body
+  (* (and (not-followed-by "$(")
+          peg-any)))
+
+(define-peg-pattern javascript all
+  (* (or parameter-reference
+         javascript-expression
+         string-literal)))
+
+(define* (evaluate-expression-tree-1 expression-tree context expression-lib)
+  "Compile javascript @var{expression-tree} to a G-expression that evaluates
 it. The returned G-expression may reference the variables @code{inputs},
 @code{self} or @code{runtime}. @var{expression} must strictly be a single
 javascript expression and will not be subject to string interpolation.
@@ -83,45 +103,57 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
 @var{expression-lib} is a list of expressions evaluated before evaluating
 @var{expression}."
-  (match expression-lib
-    (()
-     (match (peg:tree (match-pattern parameter-reference expression))
-       ;; Special case for null
-       (('parameter-reference "null")
-        (if context
-            'null
-            #~'null))
-       ;; Disallow referencing anything other than inputs, self or runtime.
-       (('parameter-reference (and (not (or "inputs" "self" "runtime"))
-                                   symbol)
-                              _ ...)
-        (user-error "Invalid parameter reference; `~a' unknown"
-                    symbol))
-       ;; Parse parameter reference and produce a G-expression. The strange and
-       ;; complex matching pattern for segments accounts for how (ice-9 peg)
-       ;; adds an additional layer of parentheses to the tree when there are 2
-       ;; or more segments.
-       (('parameter-reference symbol . (or (('segment segments) ...)
-                                           ((('segment segments) ...))))
-        (let ((segments (map (match-lambda
-                               (('index key) (string->number key))
-                               (key key))
-                             segments)))
+  (match expression-tree
+    ;; String literal
+    ((? string? str)
+     str)
+    ;; Special case for null
+    (('parameter-reference "null")
+     (if context
+         'null
+         #~'null))
+    ;; Disallow referencing anything other than inputs, self or runtime.
+    (('parameter-reference (and (not (or "inputs" "self" "runtime"))
+                                symbol)
+                           _ ...)
+     (user-error "Invalid parameter reference; `~a' unknown"
+                 symbol))
+    ;; Parse parameter reference. The strange and complex matching pattern for
+    ;; segments accounts for how (ice-9 peg) adds an additional layer of
+    ;; parentheses to the tree when there are 2 or more segments.
+    (('parameter-reference symbol . (or (('segment segments) ...)
+                                        ((('segment segments) ...))))
+     (let ((segments (map (match-lambda
+                            (('index key) (string->number key))
+                            (key key))
+                          segments)))
+       (match expression-lib
+         (()
           (if context
               ;; Evaluate immediately.
               (apply json-ref context symbol segments)
               ;; Compile to a G-expression that evaluates expression.
-              #~(json-ref #$(string->symbol symbol) #$@segments))))
-       ;; Perhaps this is a more complex javascript expression.
-       (#f
-        (evaluate-using-node expression context expression-lib))))
-    ;; expression-lib has been provided. Fall back to node.
-    (_
+              #~(json-ref #$(string->symbol symbol) #$@segments)))
+         (_
+          (evaluate-using-node (apply string-append
+                                      symbol
+                                      (map (lambda (segment)
+                                             (if (string? segment)
+                                                 (string-append "." segment)
+                                                 (string-append "[" (number->string segment) "]")))
+                                           segments))
+                               context
+                               expression-lib)))))
+    ;; This is a more complex javascript expression. Fall back to node.
+    (('javascript-expression expression)
      (evaluate-using-node expression context expression-lib))))
 
 (define (evaluate-using-node expression context expression-lib)
-  "This function is the same as @code{evaluate-javascript-expression-1} but uses
-the node javascript engine."
+  "Evaluate javascript @var{expression} using the node javascript engine in
+@var{context} with @var{expression-lib}.
+
+@var{context} and @var{expression-lib} are the same as in
+@code{evaluate-javascript-expression}."
   (define (context-value name)
     (scm->json-string (assoc-ref context name)))
 
@@ -144,18 +176,6 @@ the node javascript engine."
                                             "var self = " (scm->json-string self) ";"
                                             "var runtime = " (scm->json-string runtime) ";"))))
 
-(define (tokenize-javascript-expressions str)
-  "Split @var{str} into tokens of javascript expressions and literal strings."
-  (let ((end (if (string-prefix? "$(" str)
-                 (1+ (string-index str #\)))
-                 (string-index str #\$))))
-    (if end
-        (cons (substring str 0 end)
-              (tokenize-javascript-expressions (substring str end)))
-        (if (string-null? str)
-            (list)
-            (list str)))))
-
 (define* (evaluate-javascript-expression str #:optional context (expression-lib '()))
   "Compile javascript expression @var{str} to a G-expression that references
 the variables @code{inputs}, @code{self} or @code{runtime}. @var{str} may be
@@ -167,37 +187,30 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
 @var{expression-lib} is a list of expressions evaluated before evaluating
 @var{expression}."
-  (define (evaluate-token token)
-    (if (and (string-prefix? "$(" token)
-             (string-suffix? ")" token))
-        ;; Drop the leading "$" and evaluate.
-        (evaluate-javascript-expression-1 (string-drop token 1)
-                                          context
-                                          expression-lib)
-        ;; token is a string literal.
-        token))
-
-  (match (tokenize-javascript-expressions str)
-    ;; There is only one token. This is not a string interpolation. Do not
+  (match (peg:tree (match-pattern javascript str))
+    ;; There is only one expression. This is not a string interpolation. Do not
     ;; serialize JSON.
-    ((only-token)
-     (evaluate-token only-token))
-    ;; This is a string interpolation. Evaluate tokens and serialize JSON.
-    (tokens
-     (let ((evaluated-tokens (map evaluate-token tokens)))
+    (('javascript expression-tree)
+     (evaluate-expression-tree-1 expression-tree
+                                 context
+                                 expression-lib))
+    ;; This is a string interpolation. Evaluate expressions and serialize JSON.
+    (('javascript expression-trees ...)
+     (let ((vals (map (cut evaluate-expression-tree-1 <> context expression-lib)
+                      expression-trees)))
        (if context
            ;; Evaluate immediately.
-           (string-join (map (lambda (token)
-                               (if (string? token)
-                                   token
-                                   (scm->json-string (canonicalize-json token))))
-                             evaluated-tokens)
+           (string-join (map (lambda (value)
+                               (if (string? value)
+                                   value
+                                   (scm->json-string (canonicalize-json value))))
+                             vals)
                         "")
            ;; Compile to a G-expression that interpolates the javascript
            ;; expression string.
-           #~(string-join (map (lambda (token)
-                                 (if (string? token)
-                                     token
-                                     (scm->json-string (canonicalize-json token))))
-                               (list #$@evaluated-tokens))
+           #~(string-join (map (lambda (value)
+                                 (if (string? value)
+                                     value
+                                     (scm->json-string (canonicalize-json value))))
+                               (list #$@vals))
                           ""))))))
