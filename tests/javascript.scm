@@ -46,6 +46,16 @@
   (evaluate-javascript-expression "$(null)"
                                   '()))
 
+(test-equal "evaluate true javascript expression"
+  #t
+  (evaluate-javascript-expression "$(true)"
+                                  '()))
+
+(test-equal "evaluate false javascript expression"
+  #f
+  (evaluate-javascript-expression "$(false)"
+                                  '()))
+
 (test-equal "evaluate parameter reference to JSON object"
   (canonicalize-json '(("class" . "File")
                        ("path" . "/foo/bar")))
@@ -80,6 +90,14 @@
 (test-equal "evaluate null parameter reference with node"
   ''null
   (gexp->sexp-rec (evaluate-javascript-expression "$(null)")))
+
+(test-equal "evaluate true javascript expression with node"
+  '#t
+  (gexp->sexp-rec (evaluate-javascript-expression "$(true)")))
+
+(test-equal "evaluate false javascript expression with node"
+  '#f
+  (gexp->sexp-rec (evaluate-javascript-expression "$(false)")))
 
 (test-equal "evaluate parameter reference to JSON object using node"
   '(json-ref inputs "fasta")
