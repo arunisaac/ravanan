@@ -154,11 +154,6 @@ class. Else, return @code{#f}."
                                               requirements))
                                 supplementary-requirements)))
 
-(define (javascript-expression? str)
-  "Return @code{#t} if @var{str} contains a CWL javascript expression. Else, return
-@code{#f}."
-  (string-contains str "$("))
-
 (define* (coerce-expression expression #:optional context)
   "Coerce @var{expression} into a scheme JSON tree.
 

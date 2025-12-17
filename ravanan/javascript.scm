@@ -37,7 +37,8 @@
   #:use-module (ravanan work command-line-tool)
   #:use-module (ravanan work ui)
   #:use-module (ravanan work utils)
-  #:export (evaluate-javascript-expression))
+  #:export (javascript-expression?
+            evaluate-javascript-expression))
 
 ;; node executable for evaluating javascript on worker nodes
 (define %worker-node
@@ -103,6 +104,11 @@
          javascript-expression
          javascript-function-body
          string-literal)))
+
+(define (javascript-expression? str)
+  "Return true value if @var{str} contains inline javascript or parameter
+references. Return @code{#f} otherwise."
+  (match-pattern javascript str))
 
 (define* (evaluate-expression-tree-1 expression-tree context expression-lib)
   "Compile javascript @var{expression-tree} to a G-expression that evaluates
