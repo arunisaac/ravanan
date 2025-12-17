@@ -186,4 +186,9 @@
                                     ("self" . #f)
                                     ("runtime" . #f))))
 
+(test-error "missing key in parameter reference must raise an error" #t
+            (evaluate-javascript-expression "$(inputs.fbar)"
+                                            '(("inputs" . ()))
+                                            '()))
+
 (test-end "javascript")
