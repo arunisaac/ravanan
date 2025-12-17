@@ -146,6 +146,13 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
                                            segments))
                                context
                                expression-lib)))))
+    ;; Quick short circuiting for null, true and false
+    (('javascript-expression "(null)")
+     (if context 'null #~'null))
+    (('javascript-expression "(true)")
+     (if context #t #~#t))
+    (('javascript-expression "(false)")
+     (if context #f #~#f))
     ;; This is a more complex javascript expression. Fall back to node.
     (('javascript-expression expression)
      (evaluate-using-node expression context expression-lib))
