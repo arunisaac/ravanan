@@ -117,20 +117,12 @@ already exists, do nothing."
                                       ".stderr"))
                     store))
 
-(define (same-filesystem? path1 path2)
-  "Return @code{#t} if @var{path1} and @var{path2} are on the same filesystem.
-Else, return @code{#f}."
-  (= (stat:dev (stat path1))
-     (stat:dev (stat path2))))
-
 (define (link-or-copy source destination)
   "Hard link @var{source} to @var{destination} if possible. Else, copy it."
-  ;; Hard link if the source file is on the same filesystem as the destination
-  ;; directory. Else, copy.
-  ((if (same-filesystem? source (dirname destination))
-       link
-       copy-file)
-   source destination))
+  ;; Hard linking can sometimes fail (when files are on different filesystems,
+  ;; different mounts, etc.). In such cases, fall back to copying.
+  (or (false-if-exception (link source destination))
+      (copy-file source destination)))
 
 (define (intern-file file store)
   "Intern @code{File} type object @var{file} into the ravanan @var{store} unless it
