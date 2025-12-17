@@ -1,4 +1,5 @@
-(use-modules ((cwltest-package) #:select (cwltest))
+(use-modules ((gnu packages guile-xyz) #:select (guile-ares-rs))
+             ((cwltest-package) #:select (cwltest))
              ((e2e-tests) #:select (ccwl))
              ((ravanan-package) #:select (ravanan))
              (srfi srfi-1))
@@ -13,4 +14,5 @@ with PACKAGES and all packages in ONTO-MANIFEST."
 
 (manifest-cons* ccwl
                 cwltest
+                guile-ares-rs
                 (package->development-manifest ravanan))
