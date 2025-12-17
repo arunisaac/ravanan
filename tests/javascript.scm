@@ -40,6 +40,11 @@
   (evaluate-javascript-expression "$(inputs.message['bar'][\"foo\"][2])"
                                   '(("inputs" ("message" ("bar" ("foo" . #("a" "b" "c" "d"))))))))
 
+(test-equal "evaluate null parameter reference"
+  'null
+  (evaluate-javascript-expression "$(null)"
+                                  '()))
+
 (test-equal "evaluate parameter reference to JSON object"
   '(("class" . "File")
     ("path" . "/foo/bar"))
@@ -69,6 +74,10 @@
   3
   (evaluate-javascript-expression "$(inputs.n + 1)"
                                   '(("inputs" ("n" . 2)))))
+
+(test-equal "evaluate null parameter reference with node"
+  ''null
+  (gexp->sexp-rec (evaluate-javascript-expression "$(null)")))
 
 (test-equal "evaluate parameter reference to JSON object using node"
   '(json-ref inputs "fasta")
