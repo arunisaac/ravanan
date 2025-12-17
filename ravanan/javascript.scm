@@ -70,7 +70,9 @@
   (and (or (and (ignore ".") symbol) singleq doubleq index)))
 
 (define-peg-pattern parameter-reference all
-  (and (ignore "$(") symbol (* segment) (ignore ")")))
+  (and (ignore "$(")
+       (or "inputs" "self" "runtime")
+       (* segment) (ignore ")")))
 
 (define-peg-pattern javascript-subexpression body
   (and "("
@@ -118,17 +120,6 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
     ;; String literal
     ((? string? str)
      str)
-    ;; Special case for null
-    (('parameter-reference "null")
-     (if context
-         'null
-         #~'null))
-    ;; Disallow referencing anything other than inputs, self or runtime.
-    (('parameter-reference (and (not (or "inputs" "self" "runtime"))
-                                symbol)
-                           _ ...)
-     (user-error "Invalid parameter reference; `~a' unknown"
-                 symbol))
     ;; Parse parameter reference. The strange and complex matching pattern for
     ;; segments accounts for how (ice-9 peg) adds an additional layer of
     ;; parentheses to the tree when there are 2 or more segments.
