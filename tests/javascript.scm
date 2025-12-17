@@ -178,4 +178,12 @@
   (evaluate-javascript-expression "$(1 - (2 - 1))"
                                   '()))
 
+(test-equal "evaluate javascript function body"
+  2
+  (evaluate-javascript-expression "${switch (inputs.message) { case \"foo\": return 1; case \"bar\": return 2; default: return 3}}"
+                                  '(("inputs" . (("message" . "bar")
+                                                 ("threads" . 48)))
+                                    ("self" . #f)
+                                    ("runtime" . #f))))
+
 (test-end "javascript")

@@ -82,6 +82,16 @@
 (define-peg-pattern javascript-expression all
   (and (ignore "$") javascript-subexpression))
 
+(define-peg-pattern javascript-function-body-subexpression body
+  (and "{"
+       (* (or (and (not-followed-by (or "{" "}"))
+                   peg-any)
+              javascript-function-body-subexpression))
+       "}"))
+
+(define-peg-pattern javascript-function-body all
+  (and (ignore "$") javascript-function-body-subexpression))
+
 (define-peg-pattern string-literal body
   (* (and (not-followed-by "$(")
           peg-any)))
@@ -89,6 +99,7 @@
 (define-peg-pattern javascript all
   (* (or parameter-reference
          javascript-expression
+         javascript-function-body
          string-literal)))
 
 (define* (evaluate-expression-tree-1 expression-tree context expression-lib)
@@ -146,7 +157,12 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
                                expression-lib)))))
     ;; This is a more complex javascript expression. Fall back to node.
     (('javascript-expression expression)
-     (evaluate-using-node expression context expression-lib))))
+     (evaluate-using-node expression context expression-lib))
+    ;; This is a javascript function body. Fall back to node.
+    (('javascript-function-body function-body)
+     (evaluate-using-node (string-append "(function() {" function-body "})()")
+                          context
+                          expression-lib))))
 
 (define (evaluate-using-node expression context expression-lib)
   "Evaluate javascript @var{expression} using the node javascript engine in
