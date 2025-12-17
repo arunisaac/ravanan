@@ -38,7 +38,6 @@
             unsupported-uri-scheme?
             unsupported-uri-scheme-scheme
 
-            value->string
             call-with-current-directory
             object-type
             match-type
@@ -66,12 +65,6 @@
 (define-condition-type &unsupported-uri-scheme &serious
   unsupported-uri-scheme unsupported-uri-scheme?
   (scheme unsupported-uri-scheme-scheme))
-
-(define (value->string x)
-  "Convert value @var{x} to a string."
-  (cond
-   ((number? x) (number->string x))
-   (else x)))
 
 (define (call-with-current-directory curdir thunk)
   "Call THUNK with current directory set to CURDIR. Restore current
@@ -359,14 +352,15 @@ the G-expressions are inserted."
 G-expressions may reference @var{inputs} and @var{runtime} variables that must
 be defined in the context in which the G-expressions are inserted."
   (define (argument->command-line-binding i argument)
-    (command-line-binding (cond
-                           ((assoc-ref argument "position")
-                            => string->number)
-                           (else i))
-                          (maybe-assoc-ref (just argument) "prefix")
-                          'string
-                          (value->string (assoc-ref* argument "valueFrom"))
-                          %nothing))
+    (let ((value (assoc-ref* argument "valueFrom")))
+      (command-line-binding (cond
+                             ((assoc-ref argument "position")
+                              => string->number)
+                             (else i))
+                            (maybe-assoc-ref (just argument) "prefix")
+                            (object-type value)
+                            value
+                            %nothing)))
 
   (define (collect-bindings ids+inputs+types+bindings)
     (append-map id+input+type-tree+binding->command-line-binding
