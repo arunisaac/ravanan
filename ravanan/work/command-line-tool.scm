@@ -408,15 +408,14 @@ be defined in the context in which the G-expressions are inserted."
               position
               prefix
               matched-type
-              (map (lambda (i input)
-                     (id+input+type-tree+binding->command-line-binding
-                      (list (append id (list i))
-                            input
-                            (assoc-ref type-tree "items")
-                            (maybe-assoc-ref (just type-tree)
-                                             "inputBinding"))))
-                   (iota (vector-length input))
-                   (vector->list input))
+              (vector-map-indexed (lambda (i input)
+                                    (id+input+type-tree+binding->command-line-binding
+                                     (list (append id (list i))
+                                           input
+                                           (assoc-ref type-tree "items")
+                                           (maybe-assoc-ref (just type-tree)
+                                                            "inputBinding"))))
+                                  input)
               (maybe-assoc-ref binding "itemSeparator")))
             (else
              (command-line-binding position
