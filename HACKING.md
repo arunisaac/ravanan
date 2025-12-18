@@ -18,8 +18,6 @@ $(guix build -L ../.guix -f ../.guix/e2e-tests.scm)
 ```
 Since ravanan depends on guix, and that guix may be too old, you may need to run this command outside the usual development environment.
 
-## Run specific end-to-end test
-
 When hacking on ravanan, you may be trying to get a specific test to pass, and may want to repeatedly run that specific test alone. You can do this by passing additional cwltest arguments. For example, to only run the `hello-world` test:
 ```
 $(guix build -L ../.guix -f ../.guix/e2e-tests.scm) -s hello-world
