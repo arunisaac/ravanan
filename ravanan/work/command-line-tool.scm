@@ -320,12 +320,12 @@ the G-expressions are inserted."
           (list)))
      ((eq? type 'null) (list))
      ((cwl-array-type? type)
-      (match value
+      (match (vector->list value)
         ;; Empty arrays should be noops.
         (() (list))
-        (_
+        (elements
          (let ((args (append-map command-line-binding->args
-                                 value)))
+                                 elements)))
            (append (maybe->list prefix)
                    (from-maybe
                     (maybe-let* ((item-separator (command-line-binding-item-separator binding)))
