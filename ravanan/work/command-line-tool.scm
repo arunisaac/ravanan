@@ -351,16 +351,29 @@ the G-expressions are inserted."
 @code{<command-line-binding>} objects may be strings or G-expressions. The
 G-expressions may reference @var{inputs} and @var{runtime} variables that must
 be defined in the context in which the G-expressions are inserted."
+  (define (value->command-line-binding position prefix value)
+    (let ((type (object-type value)))
+      (cond
+       ((cwl-array-type? type)
+        (command-line-binding position
+                              prefix
+                              type
+                              (vector-map (cut value->command-line-binding
+                                               %nothing
+                                               %nothing
+                                               <>)
+                                          value)
+                              %nothing))
+       (else
+        (command-line-binding position prefix type value %nothing)))))
+
   (define (argument->command-line-binding i argument)
-    (let ((value (assoc-ref* argument "valueFrom")))
-      (command-line-binding (cond
-                             ((assoc-ref argument "position")
-                              => string->number)
-                             (else i))
-                            (maybe-assoc-ref (just argument) "prefix")
-                            (object-type value)
-                            value
-                            %nothing)))
+    (value->command-line-binding (cond
+                                  ((assoc-ref argument "position")
+                                   => string->number)
+                                  (else i))
+                                 (maybe-assoc-ref (just argument) "prefix")
+                                 (assoc-ref* argument "valueFrom")))
 
   (define (collect-bindings ids+inputs+types+bindings)
     (append-map id+input+type-tree+binding->command-line-binding
