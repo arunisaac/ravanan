@@ -376,8 +376,8 @@ be defined in the context in which the G-expressions are inserted."
                                  (assoc-ref* argument "valueFrom")))
 
   (define (collect-bindings ids+inputs+types+bindings)
-    (append-map id+input+type-tree+binding->command-line-binding
-                ids+inputs+types+bindings))
+    (map id+input+type-tree+binding->command-line-binding
+         ids+inputs+types+bindings))
 
   (define id+input+type-tree+binding->command-line-binding
     (match-lambda
@@ -404,26 +404,26 @@ be defined in the context in which the G-expressions are inserted."
             ;; Recurse over array types.
             ;; TODO: Implement record and enum types.
             ((cwl-array-type? matched-type)
-             (list (command-line-binding
-                    position
-                    prefix
-                    matched-type
-                    (append-map (lambda (i input)
-                                  (id+input+type-tree+binding->command-line-binding
-                                   (list (append id (list i))
-                                         input
-                                         (assoc-ref type-tree "items")
-                                         (maybe-assoc-ref (just type-tree)
-                                                          "inputBinding"))))
-                                (iota (vector-length input))
-                                (vector->list input))
-                    (maybe-assoc-ref binding "itemSeparator"))))
+             (command-line-binding
+              position
+              prefix
+              matched-type
+              (map (lambda (i input)
+                     (id+input+type-tree+binding->command-line-binding
+                      (list (append id (list i))
+                            input
+                            (assoc-ref type-tree "items")
+                            (maybe-assoc-ref (just type-tree)
+                                             "inputBinding"))))
+                   (iota (vector-length input))
+                   (vector->list input))
+              (maybe-assoc-ref binding "itemSeparator")))
             (else
-             (list (command-line-binding position
-                                         prefix
-                                         matched-type
-                                         (apply json-ref inputs id)
-                                         %nothing)))))))))
+             (command-line-binding position
+                                   prefix
+                                   matched-type
+                                   (apply json-ref inputs id)
+                                   %nothing))))))))
 
   ;; For details of this algorithm, see §4.1 Input binding of the CWL
   ;; 1.2 CommandLineTool specification:
