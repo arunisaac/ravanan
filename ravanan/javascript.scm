@@ -95,15 +95,21 @@
 (define-peg-pattern javascript-function-body all
   (and (ignore "$") javascript-function-body-subexpression))
 
+(define-peg-pattern whitespace body
+  (or "\t" "\n" "\r" " "))
+
 (define-peg-pattern string-literal body
-  (* (and (not-followed-by "$(")
+  (+ (and (not-followed-by (or "$(" whitespace))
           peg-any)))
 
 (define-peg-pattern javascript all
-  (* (or parameter-reference
-         javascript-expression
-         javascript-function-body
-         string-literal)))
+  (and (ignore (* whitespace))
+       (* (and (* whitespace)
+               (or parameter-reference
+                   javascript-expression
+                   javascript-function-body
+                   string-literal)))
+       (ignore (* whitespace))))
 
 (define (javascript-expression? str)
   "Return true value if @var{str} contains inline javascript or parameter

@@ -209,4 +209,9 @@
                                             '(("inputs" . ()))
                                             '()))
 
+(test-equal "trim whitespace characters in javascript expressions"
+  2
+  (evaluate-javascript-expression " $(1 + 1)\n"
+                                  '()))
+
 (test-end "javascript")
