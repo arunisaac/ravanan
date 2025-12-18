@@ -279,11 +279,16 @@ command-line-tool)}."
                                             #())
                                         (or (assoc-ref cwl "hints")
                                             #()))
-                  (vector-map->list (lambda (input)
-                                      (let ((input-id (assoc-ref input "id")))
-                                        (cons input-id
-                                              (json-ref step "in" input-id))))
-                                    (assoc-ref run "inputs"))
+                  (vector-filter-map->list (lambda (input)
+                                             (let ((input-id (assoc-ref* input "id")))
+                                               (match (assoc input-id
+                                                             (assoc-ref* step "in"))
+                                                 ((_ . source)
+                                                  (cons input-id source))
+                                                 ;; Optional inputs may be
+                                                 ;; missing a source; drop them.
+                                                 (#f #f))))
+                                           (assoc-ref* run "inputs"))
                   ;; Inputs that either have a default or accept null values are
                   ;; optional.
                   (vector-filter-map->list (lambda (input)
