@@ -324,13 +324,7 @@ the G-expressions are inserted."
         ;; Empty arrays should be noops.
         (() (list))
         (elements
-         (let ((args (append-map (lambda (element)
-                                   (command-line-binding->args
-                                    (command-line-binding %nothing
-                                                          %nothing
-                                                          (cwl-array-type-subtype type)
-                                                          element
-                                                          %nothing)))
+         (let ((args (append-map command-line-binding->args
                                  elements)))
            (append (maybe->list prefix)
                    (from-maybe
