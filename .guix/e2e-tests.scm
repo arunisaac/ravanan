@@ -26,8 +26,8 @@
   #:use-module (ice-9 match))
 
 (define-public ccwl
-  (let ((commit "5f6e0d93bb08446d2c6f99484523697a2bda7b4d")
-        (revision "1"))
+  (let ((commit "4f757fc0a4d4af067e0d22ad4020c1b18cc3fd24")
+        (revision "2"))
     (package
       (inherit guix:ccwl)
       (name "ccwl")
@@ -40,7 +40,7 @@
                 (file-name (git-file-name name version))
                 (sha256
                  (base32
-                  "19hwkgj8gsfw24fs682b4wxs5chnwj6hv0rvs23vmq7309mgf242"))))
+                  "0jch7pr85r2cd9g4b4gq748mbnbi5jg0dqyp8ixhhwac2yqbmyqh"))))
       (native-inputs
        (modify-inputs (package-native-inputs guix:ccwl)
          (prepend guile-run64))))))
