@@ -250,3 +250,12 @@
       class: File
       size: 8
       checksum: sha1$d53a205a336e07cf9eac45471b3870f9489288ec
+- id: unseparated-prefix-arguments
+  doc: Prefix arguments with separate as false
+  tool: tools/unseparated-prefix-arguments.cwl
+  job: jobs/unseparated-prefix-arguments.yaml
+  output:
+    output_message:
+      class: File
+      size: 12
+      checksum: sha1$598114d347c67f3f6142f60a4b5afcb3482f27a8

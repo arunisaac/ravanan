@@ -296,12 +296,13 @@ condition on unsupported URI schemes."
       json->scm)))
 
 (define-immutable-record-type <command-line-binding>
-  (command-line-binding position prefix type value item-separator)
+  (command-line-binding position prefix type value separate? item-separator)
   command-line-binding?
   (position command-line-binding-position)
   (prefix command-line-binding-prefix)
   (type command-line-binding-type)
   (value command-line-binding-value)
+  (separate? command-line-binding-separate?)
   (item-separator command-line-binding-item-separator))
 
 (define (command-line-binding->args binding)
@@ -332,17 +333,20 @@ the G-expressions are inserted."
                       (just (list (string-join args item-separator))))
                     args))))))
      (else
-      (append (maybe->list prefix)
-              (list (case type
-                      ((string)
-                       value)
-                      ((int float)
-                       (number->string value))
-                      ((File)
-                       (assoc-ref* value "path"))
-                      (else
-                       (user-error "Invalid formal input type ~a"
-                                   type)))))))))
+      (let ((args (append (maybe->list prefix)
+                          (list (case type
+                                  ((string)
+                                   value)
+                                  ((int float)
+                                   (number->string value))
+                                  ((File)
+                                   (assoc-ref* value "path"))
+                                  (else
+                                   (user-error "Invalid formal input type ~a"
+                                               type)))))))
+        (if (command-line-binding-separate? binding)
+            args
+            (list (string-join args ""))))))))
 
 (define (build-command base-command arguments formal-inputs inputs)
   "Return a list of @code{<command-line-binding>} objects for a
@@ -351,7 +355,7 @@ the G-expressions are inserted."
 @code{<command-line-binding>} objects may be strings or G-expressions. The
 G-expressions may reference @var{inputs} and @var{runtime} variables that must
 be defined in the context in which the G-expressions are inserted."
-  (define (value->command-line-binding position prefix value)
+  (define (value->command-line-binding position prefix value separate?)
     (let ((type (object-type value)))
       (cond
        ((cwl-array-type? type)
@@ -361,11 +365,13 @@ be defined in the context in which the G-expressions are inserted."
                               (vector-map (cut value->command-line-binding
                                                %nothing
                                                %nothing
-                                               <>)
+                                               <>
+                                               #f)
                                           value)
+                              separate?
                               %nothing))
        (else
-        (command-line-binding position prefix type value %nothing)))))
+        (command-line-binding position prefix type value separate? %nothing)))))
 
   (define (argument->command-line-binding i argument)
     (value->command-line-binding (cond
@@ -373,7 +379,8 @@ be defined in the context in which the G-expressions are inserted."
                                    => string->number)
                                   (else i))
                                  (maybe-assoc-ref (just argument) "prefix")
-                                 (assoc-ref* argument "valueFrom")))
+                                 (assoc-ref* argument "valueFrom")
+                                 (assoc-ref* argument "separate")))
 
   (define (collect-bindings ids+inputs+types+bindings)
     (map id+input+type-tree+binding->command-line-binding
@@ -399,7 +406,8 @@ be defined in the context in which the G-expressions are inserted."
                    (just (string->number position)))
                  ;; FIXME: Why a default value of 0?
                  0))
-               (prefix (maybe-assoc-ref binding "prefix")))
+               (prefix (maybe-assoc-ref binding "prefix"))
+               (separate? (maybe-bind binding (cut assoc-ref* <> "separate"))))
            (cond
             ;; Recurse over array types.
             ;; TODO: Implement record and enum types.
@@ -416,12 +424,14 @@ be defined in the context in which the G-expressions are inserted."
                                            (maybe-assoc-ref (just type-tree)
                                                             "inputBinding"))))
                                   input)
+              separate?
               (maybe-assoc-ref binding "itemSeparator")))
             (else
              (command-line-binding position
                                    prefix
                                    matched-type
                                    (apply json-ref inputs id)
+                                   separate?
                                    %nothing))))))))
 
   ;; For details of this algorithm, see §4.1 Input binding of the CWL

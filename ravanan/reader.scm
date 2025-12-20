@@ -156,6 +156,17 @@ the @code{required} field when it is not specified."
     (vector `(("pattern" . ,secondary-files)
               ("required" . ,default-required))))))
 
+(define (normalize-command-line-binding binding)
+  "Normalize @code{CommandLineBinding} @var{binding}."
+  (assoc-set binding
+    (cons "separate"
+          (cond
+           ((assoc "separate" binding)
+            => (match-lambda
+                 ((_ . separate)
+                  (coerce-type separate 'boolean))))
+           (else #t)))))
+
 (define (normalize-formal-input input)
   "Normalize formal @var{input}."
   (maybe-assoc-set input
@@ -167,7 +178,10 @@ the @code{required} field when it is not specified."
     (cons "secondaryFiles"
           (maybe-bind (maybe-assoc-ref (just input) "secondaryFiles")
                       (compose just
-                               (cut normalize-secondary-files <> #t))))))
+                               (cut normalize-secondary-files <> #t))))
+    (cons "inputBinding"
+          (maybe-bind (maybe-assoc-ref (just input) "inputBinding")
+                      (compose just normalize-command-line-binding)))))
 
 (define (normalize-formal-output output)
   "Normalize formal @var{output}."
@@ -192,7 +206,7 @@ the @code{required} field when it is not specified."
                          ((string? argument)
                           `(("valueFrom" . ,argument)))
                          ((list? argument)
-                          argument)
+                          (normalize-command-line-binding argument))
                          (else
                           (error "Invalid argument" argument))))
                       arguments))))
