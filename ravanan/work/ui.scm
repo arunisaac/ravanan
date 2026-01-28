@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -46,7 +46,7 @@ arguments to @code{format}."
   (when (and (%log-level)
              (log-level>=? level (%log-level)))
     (apply format (current-error-port) fmt args)
-    (newline)))
+    (newline (current-error-port))))
 
 (define log-debug
   (cut log 'debug <> <...>))
