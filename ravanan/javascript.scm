@@ -263,4 +263,6 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
   (match (peg:tree (match-pattern javascript str))
     (('javascript expression-trees ...)
-     (evaluate (trim expression-trees)))))
+     (evaluate (trim expression-trees)))
+    (_
+     (error "Unable to parse javascript" str))))
