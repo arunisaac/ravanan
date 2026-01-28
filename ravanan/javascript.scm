@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024–2025 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -95,21 +95,15 @@
 (define-peg-pattern javascript-function-body all
   (and (ignore "$") javascript-function-body-subexpression))
 
-(define-peg-pattern whitespace body
-  (or "\t" "\n" "\r" " "))
-
 (define-peg-pattern string-literal body
-  (+ (and (not-followed-by (or "$(" whitespace))
+  (+ (and (not-followed-by "$(")
           peg-any)))
 
 (define-peg-pattern javascript all
-  (and (ignore (* whitespace))
-       (* (and (* whitespace)
-               (or parameter-reference
-                   javascript-expression
-                   javascript-function-body
-                   string-literal)))
-       (ignore (* whitespace))))
+  (* (or parameter-reference
+         javascript-expression
+         javascript-function-body
+         string-literal)))
 
 (define (javascript-expression? str)
   "Return true value if @var{str} contains inline javascript or parameter
@@ -213,30 +207,60 @@ keys @code{\"inputs\"}, @code{\"self\"} and @code{\"runtime\"}.
 
 @var{expression-lib} is a list of expressions evaluated before evaluating
 @var{expression}."
-  (match (peg:tree (match-pattern javascript str))
-    ;; There is only one expression. This is not a string interpolation. Do not
-    ;; serialize JSON.
-    (('javascript expression-tree)
-     (evaluate-expression-tree-1 expression-tree
-                                 context
-                                 expression-lib))
-    ;; This is a string interpolation. Evaluate expressions and serialize JSON.
-    (('javascript expression-trees ...)
-     (let ((vals (map (cut evaluate-expression-tree-1 <> context expression-lib)
-                      expression-trees)))
-       (if context
-           ;; Evaluate immediately.
-           (string-join (map (lambda (value)
-                               (if (string? value)
-                                   value
-                                   (scm->json-string (canonicalize-json value))))
-                             vals)
-                        "")
-           ;; Compile to a G-expression that interpolates the javascript
-           ;; expression string.
-           #~(string-join (map (lambda (value)
+  (define (trim-left expression-trees)
+    ;; Drop first expression tree if it is a whitespace string.
+    (match expression-trees
+      (() '())
+      ((first-expression-tree other-expression-trees ...)
+       (if (and (string? first-expression-tree)
+                (string-every char-set:whitespace first-expression-tree))
+           other-expression-trees
+           expression-trees))))
+
+  (define (trim-right expression-trees)
+    ;; Drop last expression tree if it is a whitespace string.
+    (match expression-trees
+      (() '())
+      (_
+       (let ((last-expression-tree (last expression-trees)))
+         (if (and (string? last-expression-tree)
+                  (string-every char-set:whitespace last-expression-tree))
+             (drop-right expression-trees 1)
+             expression-trees)))))
+
+  (define trim
+    (compose trim-left trim-right))
+
+  (define evaluate
+    (match-lambda
+      ((expression-tree)
+       ;; There is only one expression. This is not a string interpolation. Do
+       ;; not serialize JSON.
+       (evaluate-expression-tree-1 expression-tree
+                                   context
+                                   expression-lib))
+      ;; This is a string interpolation. Evaluate expressions and serialize
+      ;; JSON.
+      ((expression-trees ...)
+       (let ((vals (map (cut evaluate-expression-tree-1 <> context expression-lib)
+                        expression-trees)))
+         (if context
+             ;; Evaluate immediately.
+             (string-join (map (lambda (value)
                                  (if (string? value)
                                      value
                                      (scm->json-string (canonicalize-json value))))
-                               (list #$@vals))
-                          ""))))))
+                               vals)
+                          "")
+             ;; Compile to a G-expression that interpolates the javascript
+             ;; expression string.
+             #~(string-join (map (lambda (value)
+                                   (if (string? value)
+                                       value
+                                       (scm->json-string (canonicalize-json value))))
+                                 (list #$@vals))
+                            ""))))))
+
+  (match (peg:tree (match-pattern javascript str))
+    (('javascript expression-trees ...)
+     (evaluate (trim expression-trees)))))

@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024–2025 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -213,5 +213,21 @@
   2
   (evaluate-javascript-expression " $(1 + 1)\n"
                                   '()))
+
+(test-equal "allow whitespace characters in between javascript expressions"
+  "2\t5"
+  (evaluate-javascript-expression "$(1 + 1)\t$(2 + 3)\n"
+                                  '()))
+
+(test-equal "allow string literal with whitespace characters in between javascript expressions"
+  "2foo 5"
+  (evaluate-javascript-expression "$(1 + 1)foo $(2 + 3)\n"
+                                  '()))
+
+(test-equal "complex awk expression that has whitespace characters and javascript expressions"
+  "($1 == \"foo\") && (start <= $2) && ($2 <= end)"
+  (evaluate-javascript-expression "($1 == \"$(inputs.label)\") && (start <= $2) && ($2 <= end)"
+                                  '(("inputs"
+                                     ("label" . "foo")))))
 
 (test-end "javascript")
