@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2024, 2025 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2024–2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -829,23 +829,44 @@ directory of the workflow."
                                                secondary-files)))))))
 
                 ;; Stage files.
-                ;; We currently support File and Dirent only. TODO: Support others.
                 (define (stage-files entries outputs-directory)
                   ;; Stage entries and return an association list mapping files
                   ;; (presumably input files) that were staged.
                   (filter-map (match-lambda
                                 ((entry-name entry)
-                                 (cond
-                                  ;; Stuff string literal into a file.
-                                  ((string? entry)
-                                   (call-with-input-file entry-name
-                                     (cut put-string <> entry))
-                                   #f)
-                                  ;; Symlink to the file.
-                                  ((eq? (object-type entry)
-                                        'File)
-                                   (cons entry
-                                         (stage-file entry entry-name))))))
+                                 (let ((type (object-type entry)))
+                                   (cond
+                                    ;; Stuff string literal into a file.
+                                    ((eq? type 'string)
+                                     (call-with-input-file entry-name
+                                       (cut put-string <> entry))
+                                     #f)
+                                    ;; Symlink to the file.
+                                    ((eq? type 'File)
+                                     (cons entry
+                                           (stage-file entry entry-name)))
+                                    ;; TODO: Implement unimplemented staging
+                                    ;; types.
+                                    ((eq? type 'null)
+                                     (error "Staging null not implemented yet"
+                                            entry-name))
+                                    ((eq? type 'Directory)
+                                     (error "Staging Directory not implemented yet"
+                                            entry-name entry))
+                                    ((and (cwl-array-type? type)
+                                          (eq? (cwl-array-type-subtype type)
+                                               'File))
+                                     (error "Staging array of File objects not implemented yet"
+                                            entry-name entry))
+                                    ((and (cwl-array-type? type)
+                                          (eq? (cwl-array-type-subtype type)
+                                               'Directory))
+                                     (error "Staging array of Directory objects not implemented yet"
+                                            entry-name entry))
+                                    ;; Error out on invalid staging entry.
+                                    (else
+                                     (user-error "Invalid staging entry ~a: ~s"
+                                                 entry-name entry))))))
                               entries))
 
                 (define (set-staged-path input staging-mapping)
