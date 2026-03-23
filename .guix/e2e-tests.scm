@@ -18,32 +18,9 @@
 
 (define-module (e2e-tests)
   #:use-module ((cwl-conformance) #:select (cwltest-suite-gexp))
-  #:use-module ((gnu packages bioinformatics) #:select (ccwl) #:prefix guix:)
-  #:use-module ((gnu packages guile-xyz) #:select (guile-run64))
+  #:use-module ((gnu packages bioinformatics) #:select (ccwl))
   #:use-module (guix gexp)
-  #:use-module (guix git-download)
-  #:use-module (guix packages)
   #:use-module (ice-9 match))
-
-(define-public ccwl
-  (let ((commit "4f757fc0a4d4af067e0d22ad4020c1b18cc3fd24")
-        (revision "2"))
-    (package
-      (inherit guix:ccwl)
-      (name "ccwl")
-      (version (git-version "0.4.0" revision commit))
-      (source (origin
-                (method git-fetch)
-                (uri (git-reference
-                       (url "https://git.systemreboot.net/ccwl")
-                       (commit commit)))
-                (file-name (git-file-name name version))
-                (sha256
-                 (base32
-                  "0jch7pr85r2cd9g4b4gq748mbnbi5jg0dqyp8ixhhwac2yqbmyqh"))))
-      (native-inputs
-       (modify-inputs (package-native-inputs guix:ccwl)
-         (prepend guile-run64))))))
 
 (define (e2e-tools-gexp sources-directory doc-hello-world)
   (with-imported-modules '((guix build utils))

@@ -1,6 +1,6 @@
-(use-modules ((gnu packages guile-xyz) #:select (guile-ares-rs))
+(use-modules ((gnu packages bioinformatics) #:select (ccwl))
+             ((gnu packages guile-xyz) #:select (guile-ares-rs))
              ((cwltest-package) #:select (cwltest))
-             ((e2e-tests) #:select (ccwl))
              ((ravanan-package) #:select (ravanan))
              (srfi srfi-1))
 
