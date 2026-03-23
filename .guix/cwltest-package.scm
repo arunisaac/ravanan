@@ -54,7 +54,7 @@
 (define-public cwltest
   (package
     (name "cwltest")
-    (version "2.6.20250314152537")
+    (version "2.6.20251216093331")
     (source (origin
               (method git-fetch)
               (uri (git-reference
@@ -63,7 +63,7 @@
               (file-name (git-file-name name version))
               (sha256
                (base32
-                "0afhjy5wgh7iinal3vrwrh7c4flx2jxlwnhvbjiw41qvdavlvx4g"))))
+                "0xlh5jjwk8ag0s8lxq5myb97jp22z61gjrbgbca9x2g53w7l60s3"))))
     (build-system pyproject-build-system)
     (arguments
      (list #:modules `((rnrs io ports)
