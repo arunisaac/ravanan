@@ -1,5 +1,5 @@
 ;;; ravanan --- High-reproducibility CWL runner powered by Guix
-;;; Copyright © 2025 Arun Isaac <arunisaac@systemreboot.net>
+;;; Copyright © 2025, 2026 Arun Isaac <arunisaac@systemreboot.net>
 ;;;
 ;;; This file is part of ravanan.
 ;;;
@@ -28,8 +28,8 @@
   #:use-module ((gnu packages xml) #:select (python-defusedxml))
   #:use-module (guix build-system pyproject)
   #:use-module (guix build-system python)
-  #:use-module (guix download)
   #:use-module (guix gexp)
+  #:use-module (guix git-download)
   #:use-module ((guix licenses) #:prefix license:)
   #:use-module (guix packages))
 
@@ -55,12 +55,15 @@
   (package
     (name "cwltest")
     (version "2.6.20250314152537")
-    (source
-     (origin
-       (method url-fetch)
-       (uri (pypi-uri "cwltest" version))
-       (sha256
-        (base32 "0h2w9bllb6cz8d5pja5lbbd1kj08yga40jdi3300anwllczcnfq6"))))
+    (source (origin
+              (method git-fetch)
+              (uri (git-reference
+                     (url "https://github.com/common-workflow-language/cwltest")
+                     (commit version)))
+              (file-name (git-file-name name version))
+              (sha256
+               (base32
+                "0afhjy5wgh7iinal3vrwrh7c4flx2jxlwnhvbjiw41qvdavlvx4g"))))
     (build-system pyproject-build-system)
     (arguments
      (list #:modules `((rnrs io ports)
