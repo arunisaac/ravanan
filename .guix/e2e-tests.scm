@@ -19,8 +19,7 @@
 (define-module (e2e-tests)
   #:use-module ((cwl-conformance) #:select (cwltest-suite-gexp))
   #:use-module ((gnu packages bioinformatics) #:select (ccwl))
-  #:use-module (guix gexp)
-  #:use-module (ice-9 match))
+  #:use-module (guix gexp))
 
 (define (e2e-tools-gexp sources-directory doc-hello-world)
   (with-imported-modules '((guix build utils))
