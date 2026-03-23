@@ -1,5 +1,6 @@
 (use-modules ((gnu packages bioinformatics) #:select (ccwl))
              ((gnu packages guile-xyz) #:select (guile-ares-rs))
+             ((gnu packages task-management) #:select (git-bug))
              ((cwltest-package) #:select (cwltest))
              ((ravanan-package) #:select (ravanan))
              (srfi srfi-1))
@@ -14,5 +15,6 @@ with PACKAGES and all packages in ONTO-MANIFEST."
 
 (manifest-cons* ccwl
                 cwltest
+                git-bug
                 guile-ares-rs
                 (package->development-manifest ravanan))
