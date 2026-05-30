@@ -26,4 +26,4 @@
                         ("bar" . (("foobar" . 3))))
                       "bar" "fubar"))
 
-(test-end "work.command-line-tool")
+(test-end "work.utils")
