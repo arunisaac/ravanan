@@ -18,6 +18,7 @@
 
 (define-module (ravanan-package)
   #:use-module ((gnu packages bioinformatics) #:select (ravanan) #:prefix guix:)
+  #:use-module ((gnu packages guile) #:select (guile-3.0-latest))
   #:use-module ((gnu packages guile-xyz) #:select (guile-run64))
   #:use-module (guix build-system gnu)
   #:use-module (guix gexp)
@@ -44,6 +45,9 @@
                                          ((or (git-predicate (dirname (current-source-directory)))
                                               (const #t))
                                           file stat)))))
+    (inputs
+     (modify-inputs (package-inputs guix:ravanan)
+       (replace "guile" guile-3.0-latest)))
     (native-inputs
      (modify-inputs (package-native-inputs guix:ravanan)
        (prepend guile-run64)))))
